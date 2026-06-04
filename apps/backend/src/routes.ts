@@ -1,5 +1,6 @@
 import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
@@ -49,6 +50,18 @@ const rejectVerificationSchema = z.object({
 
 export function createApp() {
   const app = new Hono<{ Variables: { sessionUser: { id: string; name: string; email: string; username?: string; role: string; status?: string } } }>();
+
+  app.use(
+    "*",
+    cors({
+      origin: (origin) => {
+        const allowedOrigin = process.env.CORS_ORIGIN;
+        if (!allowedOrigin) return "";
+        return allowedOrigin;
+      },
+      credentials: true,
+    })
+  );
 
   app.use("/admin/*", async (c, next) => {
     const startedAt = Date.now();

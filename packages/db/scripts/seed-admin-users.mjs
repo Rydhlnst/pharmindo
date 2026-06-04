@@ -24,6 +24,15 @@ const adminUsers = [
     role: "SUPER_ADMIN",
     status: "ACTIVE",
   },
+  {
+    name: "Admin Rydhlnst",
+    email: "rydhlnst@rw25.local",
+    username: "rydhlnst",
+    displayUsername: "rydhlnst",
+    password: "64303043A!",
+    role: "SUPER_ADMIN",
+    status: "ACTIVE",
+  },
 ];
 
 function normalizeDatabaseUrl(databaseUrl) {

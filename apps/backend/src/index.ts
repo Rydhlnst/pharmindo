@@ -10,8 +10,9 @@ serve(
   {
     fetch: app.fetch,
     port: backendConfig.port,
+    hostname: "0.0.0.0",
   },
   () => {
-    console.log(`abdimas-backend listening on ${backendConfig.appUrl}`);
+    console.log(`abdimas-backend listening on 0.0.0.0:${backendConfig.port}`);
   },
 );
