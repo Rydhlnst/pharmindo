@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileArrowDown as FileInput, CheckCircle as CheckCircle2, XCircle, Eye, ArrowClockwise as RefreshCw } from '@phosphor-icons/react';
 
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
 import { useAutoRefresh } from '@/lib/use-auto-refresh';
 import { useActionToast } from '@/lib/use-action-toast';
@@ -51,6 +52,8 @@ export default function PermohonanPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewedAnggota, setViewedAnggota] = useState<RequestItem | null>(null);
   const [viewedMutasi, setViewedMutasi] = useState<RequestItem | null>(null);
+  const [requestToReject, setRequestToReject] = useState<RequestItem | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -67,7 +70,7 @@ export default function PermohonanPage() {
       })
     : null;
 
-  async function fetchAllPendingRequests() {
+  const fetchAllPendingRequests = useCallback(async () => {
     const firstPage = await platformFetch<RawRequestItem[]>(`/admin/requests?page=1&limit=${PAGE_SIZE}&status=PENDING`);
     const totalServerPages = Math.max(1, firstPage.meta?.totalPages ?? 1);
 
@@ -80,24 +83,28 @@ export default function PermohonanPage() {
     );
 
     return [firstPage.data, ...restPages.map((page) => page.data)].flat();
-  }
+  }, []);
+
+  const refreshRequests = useCallback(async () => {
+    const data = await fetchAllPendingRequests();
+    const filtered = data.filter((item): item is RequestItem => item.type !== 'BANSOS_APPLICATION');
+    const nextTotalItems = filtered.length;
+    const nextTotalPages = Math.max(1, Math.ceil(nextTotalItems / PAGE_SIZE));
+
+    setRequests(filtered);
+    setTotalItems(nextTotalItems);
+    setTotalPages(nextTotalPages);
+    setCurrentPage((page) => Math.min(page, nextTotalPages));
+    setLoadError(null);
+  }, [fetchAllPendingRequests]);
 
   useEffect(() => {
     let active = true;
 
     async function load() {
       try {
-        const data = await fetchAllPendingRequests();
+        await refreshRequests();
         if (!active) return;
-        const filtered = data.filter((item): item is RequestItem => item.type !== 'BANSOS_APPLICATION');
-        const nextTotalItems = filtered.length;
-        const nextTotalPages = Math.max(1, Math.ceil(nextTotalItems / PAGE_SIZE));
-
-        setRequests(filtered);
-        setTotalItems(nextTotalItems);
-        setTotalPages(nextTotalPages);
-        setCurrentPage((page) => Math.min(page, nextTotalPages));
-        setLoadError(null);
       } catch (error) {
         console.error(error);
         if (!active) return;
@@ -116,18 +123,10 @@ export default function PermohonanPage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [refreshRequests, reloadKey]);
 
   useAutoRefresh(async () => {
-    const data = await fetchAllPendingRequests();
-    const filtered = data.filter((item): item is RequestItem => item.type !== 'BANSOS_APPLICATION');
-    const nextTotalItems = filtered.length;
-    const nextTotalPages = Math.max(1, Math.ceil(nextTotalItems / PAGE_SIZE));
-
-    setRequests(filtered);
-    setTotalItems(nextTotalItems);
-    setTotalPages(nextTotalPages);
-    setCurrentPage((page) => Math.min(page, nextTotalPages));
+    await refreshRequests();
   }, {
     intervalMs: 8000,
   });
@@ -151,19 +150,23 @@ export default function PermohonanPage() {
           error: 'Gagal menyetujui permohonan',
         },
       );
-      setRequests((prev) => prev.filter((item) => item.id !== id));
+      setReloadKey((value) => value + 1);
     } catch (error) {
       console.error(error);
     }
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = async () => {
+    const requestId = requestToReject?.id;
+    const reason = rejectReason.trim();
+    if (!requestId || !reason) return;
+
     try {
       await runWithToast(
         () =>
-          platformFetch<RequestItem>(`/admin/requests/${id}/reject`, {
+          platformFetch<RequestItem>(`/admin/requests/${requestId}/reject`, {
             method: 'POST',
-            body: JSON.stringify({ reason: 'Rejected by admin' }),
+            body: JSON.stringify({ reason }),
           }),
         {
           loading: 'Menolak permohonan...',
@@ -171,7 +174,11 @@ export default function PermohonanPage() {
           error: 'Gagal menolak permohonan',
         },
       );
-      setRequests((prev) => prev.filter((item) => item.id !== id));
+      setRequestToReject(null);
+      setRejectReason('');
+      setViewedAnggota(null);
+      setViewedMutasi(null);
+      setReloadKey((value) => value + 1);
     } catch (error) {
       console.error(error);
     }
@@ -278,7 +285,10 @@ export default function PermohonanPage() {
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button
-                    onClick={() => void handleReject(item.id)}
+                    onClick={() => {
+                      setRequestToReject(item);
+                      setRejectReason('');
+                    }}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100 md:flex-none"
                   >
                     <XCircle className="h-4 w-4" />
@@ -376,7 +386,10 @@ export default function PermohonanPage() {
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button
-                    onClick={() => void handleReject(item.id)}
+                    onClick={() => {
+                      setRequestToReject(item);
+                      setRejectReason('');
+                    }}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100 md:flex-none"
                   >
                     <XCircle className="h-4 w-4" />
@@ -474,7 +487,10 @@ export default function PermohonanPage() {
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button
-                    onClick={() => void handleReject(item.id)}
+                    onClick={() => {
+                      setRequestToReject(item);
+                      setRejectReason('');
+                    }}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100 md:flex-none"
                   >
                     <XCircle className="h-4 w-4" />
@@ -590,6 +606,64 @@ export default function PermohonanPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!requestToReject}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRequestToReject(null);
+            setRejectReason('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-[#1E293B]">Tolak Permohonan</DialogTitle>
+            <DialogDescription className="text-sm text-[#64748B]">
+              Alasan penolakan akan dikirim ke warga dan tampil di riwayat permohonan mereka.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">Ref ID</p>
+              <p className="mt-1 text-sm font-semibold text-[#1E293B]">{requestToReject?.id ?? '-'}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="reject-reason" className="text-sm font-semibold text-[#1E293B]">
+                Alasan penolakan
+              </label>
+              <Textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                placeholder="Tulis alasan penolakan yang jelas untuk warga."
+                className="min-h-28 rounded-2xl"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setRequestToReject(null);
+                  setRejectReason('');
+                }}
+                className="rounded-xl"
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleReject()}
+                disabled={!rejectReason.trim()}
+                className="rounded-xl bg-red-600 text-white hover:bg-red-700"
+              >
+                Tolak permohonan
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
