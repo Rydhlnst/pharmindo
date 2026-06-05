@@ -13,6 +13,7 @@ interface PageHeaderProps {
   rightSlot?: ReactNode;
   bottomSlot?: ReactNode;
   variant?: PageHeaderVariant;
+  brandImageSrc?: string;
   className?: string;
   contentClassName?: string;
   titleClassName?: string;
@@ -28,6 +29,7 @@ export default function PageHeader({
   rightSlot,
   bottomSlot,
   variant = "default",
+  brandImageSrc,
   className,
   contentClassName,
   titleClassName,
@@ -59,8 +61,9 @@ export default function PageHeader({
           {eyebrow === "Portal RW 25 Pharmindo" ? (
             <PortalBrand
               className="gap-1.5"
-              imageSize={14}
-              imageClassName="h-3.5 w-3.5"
+              imageSize={20}
+              imageClassName="h-5 w-5"
+              imageSrc={brandImageSrc}
               textClassName={cn(
                 "text-[10px] font-semibold",
                 isBrand ? "text-primary-foreground/70" : "text-muted-foreground",

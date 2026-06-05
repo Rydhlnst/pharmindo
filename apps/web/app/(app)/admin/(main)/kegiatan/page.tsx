@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-import { useEffect, useState } from 'react';
+import { type ChangeEvent, useEffect, useState } from 'react';
 import { CalendarBlank as CalendarDays, MapPin, Clock, MagnifyingGlass as Search, Plus } from '@phosphor-icons/react';
 
 import { ActivityTimeRangeField } from '@/components/admin/ActivityTimeRangeField';
@@ -34,11 +34,27 @@ type ActivityItem = {
 };
 
 const KATEGORI_COLORS: Record<EventCategory, { bg: string; text: string; dot: string }> = {
-  rapat: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
-  kesehatan: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-  sosial: { bg: 'bg-pink-50', text: 'text-pink-700', dot: 'bg-pink-500' },
-  keamanan: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
-  lainnya: { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500' },
+  rapat: { bg: 'bg-[#EFF6FF]', text: 'text-[#3B82F6]', dot: 'bg-[#3B82F6]' },
+  kesehatan: { bg: 'bg-[#F0FDF4]', text: 'text-[#22C55E]', dot: 'bg-[#22C55E]' },
+  sosial: { bg: 'bg-[#FFF7ED]', text: 'text-[#F97316]', dot: 'bg-[#F97316]' },
+  keamanan: { bg: 'bg-[#FEF2F2]', text: 'text-[#EF4444]', dot: 'bg-[#EF4444]' },
+  lainnya: { bg: 'bg-[#F3F4F6]', text: 'text-[#6B7280]', dot: 'bg-[#6B7280]' },
+};
+
+const getActivityDateParts = (date: string) => {
+  const [year = 0, month = 0, day = 0] = date.split('-').map(Number);
+  return { year, month, day };
+};
+
+const compareActivityDate = (first: ActivityItem, second: ActivityItem) => {
+  const firstDate = getActivityDateParts(first.date);
+  const secondDate = getActivityDateParts(second.date);
+
+  return (
+    firstDate.month - secondDate.month ||
+    firstDate.day - secondDate.day ||
+    firstDate.year - secondDate.year
+  );
 };
 
 export default function KegiatanPage() {
@@ -78,13 +94,15 @@ export default function KegiatanPage() {
     };
   }, []);
 
-  const filteredJadwal = jadwal.filter((event) => {
-    const matchCat = filterKategori === 'semua' || event.category === filterKategori;
-    const matchSearch =
-      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filteredJadwal = jadwal
+    .filter((event) => {
+      const matchCat = filterKategori === 'semua' || event.category === filterKategori;
+      const matchSearch =
+        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCat && matchSearch;
+    })
+    .sort(compareActivityDate);
 
   const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,7 +193,7 @@ export default function KegiatanPage() {
             type="text"
             placeholder="Cari kegiatan..."
             value={searchQuery}
-            onChange={(e: any) => setSearchQuery(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
             className="w-full rounded-full border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] py-2 pl-9 pr-4 text-sm transition focus-visible:ring-[color:var(--ring)]"
           />
         </div>
@@ -194,13 +212,13 @@ export default function KegiatanPage() {
                 key={ev.id}
                 className="group relative flex flex-col overflow-hidden rounded-2xl border border-[color:var(--admin-border)] bg-[color:var(--admin-surface)] shadow-sm transition-all duration-300 hover:shadow-md"
               >
-                <div className={cn('h-1.5 w-full', colors.dot)} />
+                <div className={cn('absolute inset-y-0 left-0 w-1.5', colors.dot)} />
 
-                <div className="flex flex-1 flex-col p-5">
+                <div className="flex flex-1 flex-col p-5 pl-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-[50px] rounded-xl border border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] p-2 text-center">
-                      <span className="text-[10px] font-bold uppercase leading-none text-[color:var(--admin-subtle)]">{monthStr}</span>
-                      <span className="mt-0.5 text-xl font-extrabold text-primary">{day}</span>
+                      <span className="text-xl font-extrabold leading-none text-primary">{day}</span>
+                      <span className="mt-0.5 text-[10px] font-bold uppercase leading-none text-[color:var(--admin-subtle)]">{monthStr}</span>
                     </div>
 
                     <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider', colors.bg, colors.text)}>
@@ -248,7 +266,7 @@ export default function KegiatanPage() {
                 type="text"
                 required
                 value={newJudul}
-                onChange={(e: any) => setNewJudul(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJudul(e.target.value)}
                 placeholder="Misal: Kerja Bakti Massal"
                 className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
               />
@@ -276,7 +294,7 @@ export default function KegiatanPage() {
                   type="date"
                   required
                   value={newTanggal}
-                  onChange={(e: any) => setNewTanggal(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTanggal(e.target.value)}
                   className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
                 />
               </div>
@@ -302,7 +320,7 @@ export default function KegiatanPage() {
                   type="text"
                   required
                   value={newLokasi}
-                  onChange={(e: any) => setNewLokasi(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewLokasi(e.target.value)}
                   placeholder="Balai RW 25"
                   className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
                 />
@@ -315,7 +333,7 @@ export default function KegiatanPage() {
                 rows={3}
                 required
                 value={newDeskripsi}
-                onChange={(e: any) => setNewDeskripsi(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNewDeskripsi(e.target.value)}
                 placeholder="Jelaskan secara singkat mengenai kegiatan ini..."
                 className="w-full resize-none rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
               />

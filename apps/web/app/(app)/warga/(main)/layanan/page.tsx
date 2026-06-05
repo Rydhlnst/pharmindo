@@ -188,6 +188,7 @@ export default function WargaLayananPage() {
         title="Layanan RT"
         description="Ajukan permohonan dan pantau status review admin."
         variant="brand"
+        brandImageSrc="/Pharmindo25_BW.png"
         className="pb-7"
         titleClassName="text-xl"
         rightSlot={

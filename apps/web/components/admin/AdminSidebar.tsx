@@ -74,7 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 const SYSTEM_NAV: NavItem[] = [
   { href: '/admin/hak-akses', label: 'Kelola Hak Akses', icon: IdCard },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
+  { href: '/admin/settings', label: 'Pengaturan', icon: Settings },
 ];
 
 function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?: boolean; mobile?: boolean }) {
@@ -202,7 +202,7 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
           )}
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          {(!isCollapsed || mobile) && <span>Logout</span>}
+          {(!isCollapsed || mobile) && <span>Keluar</span>}
         </Button>
       </div>
     </nav>

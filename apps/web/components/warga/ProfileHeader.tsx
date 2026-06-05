@@ -54,8 +54,9 @@ export default function ProfileHeader({ nama, nik, isDark, onToggleDark, statusB
         <div className="flex flex-col">
           <PortalBrand
             className="gap-1.5"
-            imageSize={14}
-            imageClassName="h-3.5 w-3.5"
+            imageSize={20}
+            imageClassName="h-5 w-5"
+            imageSrc="/Pharmindo25_BW.png"
             textClassName="text-[10px] font-semibold text-muted-foreground"
           />
           <div className="flex items-center gap-2 mt-0.5">

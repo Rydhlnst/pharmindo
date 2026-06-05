@@ -1,0 +1,2064 @@
+﻿diff --git a/apps/backend/src/routes/households.ts b/apps/backend/src/routes/households.ts
+index 11a9ee8..c9b3e3f 100644
+--- a/apps/backend/src/routes/households.ts
++++ b/apps/backend/src/routes/households.ts
+@@ -228,7 +228,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
+           id: member.id,
+           householdId: member.householdId,
+           citizenId: member.citizenId,
+-          relationship: member.relationship,
++          relationship: normalizeHouseholdRelationship(member.relationship),
+           createdAt: toIso(member.createdAt) ?? new Date().toISOString(),
+           updatedAt: toIso(member.updatedAt) ?? new Date().toISOString(),
+           citizen: mapCitizen(member.citizen),
+@@ -425,7 +425,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
+       .where(and(eq(householdMember.id, memberId), eq(householdMember.householdId, householdId)))
+       .limit(1);
+     if (!memberRow) throw notFound("Household member not found");
+-    if (memberRow.relationship === "HEAD_OF_FAMILY") {
++    if (normalizeHouseholdRelationship(memberRow.relationship) === "HEAD_OF_FAMILY") {
+       throw validationError("Head of family cannot be removed before reassigning the role");
+     }
+     const [deleted] = await getDb()
+diff --git a/apps/web/app/(app)/admin/(main)/bansos/page.tsx b/apps/web/app/(app)/admin/(main)/bansos/page.tsx
+index 18d93fa..66a964b 100644
+--- a/apps/web/app/(app)/admin/(main)/bansos/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/bansos/page.tsx
+@@ -187,22 +187,25 @@ export default function AdminBansosPage() {
+ 
+   return (
+     <div className="flex flex-col gap-6">
+-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+-        <div className="max-w-2xl">
+-          <h1 className="text-3xl font-bold tracking-tight text-[color:var(--admin-heading)]">Bansos</h1>
+-          <p className="mt-2 text-sm text-[color:var(--admin-subtle)]">
+-            Kelola program bansos aktif dan tinjau pengajuan warga langsung dari halaman ini.
+-          </p>
+-        </div>
+-        <Button
+-          asChild
+-          className="rounded-2xl bg-[color:var(--admin-primary)] text-[color:var(--primary-foreground)] hover:bg-[color:var(--admin-primary-strong)]"
++      {/* ΓöÇΓöÇ Header Actions ΓöÇΓöÇ */}
++      <div className="flex flex-wrap items-stretch gap-4">
++        <Link
++          href="/admin/bansos/tambah"
++          className="relative flex min-w-[200px] flex-1 items-center gap-4 overflow-hidden rounded-2xl bg-[#2563EB] px-[clamp(16px,2vw,24px)] py-[clamp(12px,1.5vh,16px)] text-white transition hover:bg-[#1D4ED8] active:scale-[0.99]"
+         >
+-          <Link href="/admin/bansos/tambah">
+-            <PlusCircle className="mr-2 h-4 w-4" />
+-            Tambah Bansos
+-          </Link>
+-        </Button>
++          {/* Decorative circles */}
++          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/[0.08]" />
++          <div className="pointer-events-none absolute right-16 top-6 h-24 w-24 rounded-full bg-white/[0.12]" />
++          <div className="pointer-events-none absolute -bottom-5 right-40 h-16 w-16 rounded-full bg-white/[0.08]" />
++
++          <div className="relative z-10 flex h-[clamp(36px,5vh,48px)] w-[clamp(36px,5vh,48px)] items-center justify-center rounded-full bg-white/20">
++            <PlusCircle className="h-5 w-5 text-white" />
++          </div>
++          <div className="relative z-10">
++            <p className="text-[clamp(14px,1.5vw,20px)] font-bold">Tambah Program Bansos</p>
++            <p className="text-[clamp(11px,1vw,14px)] text-white/80">Kelola dan tinjau pengajuan bansos warga</p>
++          </div>
++        </Link>
+       </div>
+ 
+       {error ? (
+diff --git a/apps/web/app/(app)/admin/(main)/data-penduduk/page.tsx b/apps/web/app/(app)/admin/(main)/data-penduduk/page.tsx
+index bc1d323..919fe54 100644
+--- a/apps/web/app/(app)/admin/(main)/data-penduduk/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/data-penduduk/page.tsx
+@@ -152,41 +152,41 @@ export default function DataPendudukPage() {
+   return (
+     <div className="flex flex-col gap-5">
+       {/* ΓöÇΓöÇ Header Actions ΓöÇΓöÇ */}
+-      <div className="flex flex-col items-stretch justify-end gap-4 sm:flex-row">
++      <div className="flex flex-wrap items-stretch gap-4">
+         {/* Tambah Warga */}
+         <Link
+           href="/admin/data-penduduk/tambah"
+-          className="relative flex items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#3B82F6] px-6 py-5 text-white shadow-lg transition hover:from-[#1D4ED8] hover:to-[#2563EB] active:scale-[0.99] sm:w-[420px] sm:px-6 sm:py-5"
++          className="relative flex min-w-[200px] flex-1 items-center gap-4 overflow-hidden rounded-2xl bg-[#2563EB] px-[clamp(16px,2vw,24px)] py-[clamp(12px,1.5vh,16px)] text-white transition hover:bg-[#1D4ED8] active:scale-[0.99]"
+         >
+           {/* Decorative circles */}
+           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/[0.08]" />
+           <div className="pointer-events-none absolute right-16 top-6 h-24 w-24 rounded-full bg-white/[0.12]" />
+           <div className="pointer-events-none absolute -bottom-5 right-40 h-16 w-16 rounded-full bg-white/[0.08]" />
+ 
+-          <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
+-            <UserPlus className="h-6 w-6 text-white" />
++          <div className="relative z-10 flex h-[clamp(36px,5vh,48px)] w-[clamp(36px,5vh,48px)] items-center justify-center rounded-full bg-white/20">
++            <UserPlus className="h-5 w-5 text-white" />
+           </div>
+           <div className="relative z-10">
+-            <p className="text-xl font-bold">Tambah Data Penduduk</p>
+-            <p className="text-sm text-white/80">Buat data penduduk baru</p>
++            <p className="text-[clamp(14px,1.5vw,20px)] font-bold">Tambah Data Penduduk</p>
++            <p className="text-[clamp(11px,1vw,14px)] text-white/80">Buat data penduduk baru</p>
+           </div>
+         </Link>
+ 
+         {/* Permohonan */}
+         <Link
+           href="/admin/permohonan"
+-          className="relative flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-6 py-4 text-[#1E293B] transition hover:bg-gray-50 active:scale-[0.99]"
++          className="relative flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-[clamp(16px,2vw,24px)] py-[clamp(12px,1.5vh,16px)] text-[#1E293B] transition hover:bg-gray-50 active:scale-[0.99]"
+         >
+-          <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-[#EFF6FF]">
+-            <UserPlus className="h-6 w-6 text-[#3B82F6]" />
++          <div className="relative flex h-[clamp(36px,5vh,48px)] w-[clamp(36px,5vh,48px)] shrink-0 items-center justify-center rounded-full bg-[#EFF6FF]">
++            <UserPlus className="h-5 w-5 text-[#3B82F6]" />
+             {/* Red dot notification */}
+             {hasPendingRequests && (
+               <span className="absolute -left-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-red-500" />
+             )}
+           </div>
+           <div className="text-left">
+-            <p className="text-xl font-bold">Permohonan</p>
+-            <p className="text-sm text-[#64748B]">Penambahan warga</p>
++            <p className="text-[clamp(14px,1.5vw,20px)] font-bold">Permohonan</p>
++            <p className="text-[clamp(11px,1vw,14px)] text-[#64748B]">Penambahan warga</p>
+           </div>
+         </Link>
+       </div>
+diff --git a/apps/web/app/(app)/admin/(main)/kartu-keluarga/[id]/page.tsx b/apps/web/app/(app)/admin/(main)/kartu-keluarga/[id]/page.tsx
+index af096e3..3e9376b 100644
+--- a/apps/web/app/(app)/admin/(main)/kartu-keluarga/[id]/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/kartu-keluarga/[id]/page.tsx
+@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
+ import Link from 'next/link';
+ import { useEffect, useState } from 'react';
+ import { useParams, useRouter } from 'next/navigation';
+-import { UserPlus, PencilSimple as Pencil, Trash as Trash2, FileText, ArrowLeft, DownloadSimple as Download, UserPlus as UserPlus2 } from '@phosphor-icons/react';
++import { PencilSimple as Pencil, Trash as Trash2, FileText, DownloadSimple as Download, UserPlus as UserPlus2 } from '@phosphor-icons/react';
+ 
+ import {
+   AlertDialog,
+@@ -66,13 +66,13 @@ type HouseholdAuditLog = {
+ 
+ function getRelationshipBadge(rel: string) {
+   const normalized = rel.toLowerCase();
+-  if (normalized.includes('kepala keluarga') || normalized.includes('anak laki-laki') || normalized.includes('anak laki laki')) {
++  if (normalized.includes('head_of_family') || normalized.includes('kepala keluarga') || normalized.includes('anak laki-laki') || normalized.includes('anak laki laki')) {
+     return 'bg-[#EEF2FF] text-[#3B82F6]';
+   }
+-  if (normalized.includes('istri')) {
++  if (normalized.includes('spouse') || normalized.includes('istri') || normalized.includes('suami')) {
+     return 'bg-pink-50 text-pink-500';
+   }
+-  if (normalized.includes('anak perempuan')) {
++  if (normalized.includes('child') || normalized.includes('anak perempuan')) {
+     return 'bg-purple-50 text-purple-600';
+   }
+   return 'bg-[#EEF2FF] text-[#3B82F6]';
+diff --git a/apps/web/app/(app)/admin/(main)/kartu-keluarga/page.tsx b/apps/web/app/(app)/admin/(main)/kartu-keluarga/page.tsx
+index 2cb2f77..787b702 100644
+--- a/apps/web/app/(app)/admin/(main)/kartu-keluarga/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/kartu-keluarga/page.tsx
+@@ -150,38 +150,38 @@ export default function KartuKeluargaPage() {
+ 
+   return (
+     <div className="flex flex-col gap-5">
+-      <div className="flex flex-col items-stretch justify-end gap-4 sm:flex-row">
++      <div className="flex flex-wrap items-stretch gap-4">
+         <Link
+           href="/admin/kartu-keluarga/tambah"
+-          className="relative flex items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#3B82F6] px-6 py-5 text-white shadow-lg transition hover:from-[#1D4ED8] hover:to-[#2563EB] active:scale-[0.99] sm:w-[420px] sm:px-6 sm:py-5"
++          className="relative flex min-w-[200px] flex-1 items-center gap-4 overflow-hidden rounded-2xl bg-[#2563EB] px-[clamp(16px,2vw,24px)] py-[clamp(12px,1.5vh,16px)] text-white transition hover:bg-[#1D4ED8] active:scale-[0.99]"
+         >
+           {/* Decorative circles */}
+           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/[0.08]" />
+           <div className="pointer-events-none absolute right-16 top-6 h-24 w-24 rounded-full bg-white/[0.12]" />
+           <div className="pointer-events-none absolute -bottom-5 right-40 h-16 w-16 rounded-full bg-white/[0.08]" />
+ 
+-          <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
+-            <UserPlus className="h-6 w-6 text-white" />
++          <div className="relative z-10 flex h-[clamp(36px,5vh,48px)] w-[clamp(36px,5vh,48px)] items-center justify-center rounded-full bg-white/20">
++            <UserPlus className="h-5 w-5 text-white" />
+           </div>
+           <div className="relative z-10">
+-            <p className="text-xl font-bold">Tambah Kepala Keluarga</p>
+-            <p className="text-sm text-white/80">Kartu Keluarga</p>
++            <p className="text-[clamp(14px,1.5vw,20px)] font-bold">Tambah Kepala Keluarga</p>
++            <p className="text-[clamp(11px,1vw,14px)] text-white/80">Kartu Keluarga</p>
+           </div>
+         </Link>
+ 
+         <Link
+           href="/admin/permohonan"
+-          className="relative flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-6 py-4 text-[#1E293B] transition hover:bg-gray-50 active:scale-[0.99]"
++          className="relative flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-[clamp(16px,2vw,24px)] py-[clamp(12px,1.5vh,16px)] text-[#1E293B] transition hover:bg-gray-50 active:scale-[0.99]"
+         >
+-          <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-[#EFF6FF]">
+-            <ClipboardList className="h-6 w-6 text-[#3B82F6]" />
++          <div className="relative flex h-[clamp(36px,5vh,48px)] w-[clamp(36px,5vh,48px)] shrink-0 items-center justify-center rounded-full bg-[#EFF6FF]">
++            <ClipboardList className="h-5 w-5 text-[#3B82F6]" />
+             {hasPendingRequests && (
+               <span className="absolute -left-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-red-500" />
+             )}
+           </div>
+           <div className="text-left">
+-            <p className="text-xl font-bold">Permohonan</p>
+-            <p className="text-sm text-[#64748B]">Penambahan KK</p>
++            <p className="text-[clamp(14px,1.5vw,20px)] font-bold">Permohonan</p>
++            <p className="text-[clamp(11px,1vw,14px)] text-[#64748B]">Penambahan KK</p>
+           </div>
+         </Link>
+       </div>
+diff --git a/apps/web/app/(app)/admin/(main)/kegiatan/page.tsx b/apps/web/app/(app)/admin/(main)/kegiatan/page.tsx
+index 89740b5..12587d0 100644
+--- a/apps/web/app/(app)/admin/(main)/kegiatan/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/kegiatan/page.tsx
+@@ -2,7 +2,7 @@
+ import { Button } from '@/components/ui/button';
+ import { Input } from '@/components/ui/input';
+ 
+-import { useEffect, useState } from 'react';
++import { type ChangeEvent, useEffect, useState } from 'react';
+ import { CalendarBlank as CalendarDays, MapPin, Clock, MagnifyingGlass as Search, Plus } from '@phosphor-icons/react';
+ 
+ import { ActivityTimeRangeField } from '@/components/admin/ActivityTimeRangeField';
+@@ -34,11 +34,27 @@ type ActivityItem = {
+ };
+ 
+ const KATEGORI_COLORS: Record<EventCategory, { bg: string; text: string; dot: string }> = {
+-  rapat: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+-  kesehatan: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+-  sosial: { bg: 'bg-pink-50', text: 'text-pink-700', dot: 'bg-pink-500' },
+-  keamanan: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+-  lainnya: { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500' },
++  rapat: { bg: 'bg-[#EFF6FF]', text: 'text-[#3B82F6]', dot: 'bg-[#3B82F6]' },
++  kesehatan: { bg: 'bg-[#F0FDF4]', text: 'text-[#22C55E]', dot: 'bg-[#22C55E]' },
++  sosial: { bg: 'bg-[#FFF7ED]', text: 'text-[#F97316]', dot: 'bg-[#F97316]' },
++  keamanan: { bg: 'bg-[#FEF2F2]', text: 'text-[#EF4444]', dot: 'bg-[#EF4444]' },
++  lainnya: { bg: 'bg-[#F3F4F6]', text: 'text-[#6B7280]', dot: 'bg-[#6B7280]' },
++};
++
++const getActivityDateParts = (date: string) => {
++  const [year = 0, month = 0, day = 0] = date.split('-').map(Number);
++  return { year, month, day };
++};
++
++const compareActivityDate = (first: ActivityItem, second: ActivityItem) => {
++  const firstDate = getActivityDateParts(first.date);
++  const secondDate = getActivityDateParts(second.date);
++
++  return (
++    firstDate.month - secondDate.month ||
++    firstDate.day - secondDate.day ||
++    firstDate.year - secondDate.year
++  );
+ };
+ 
+ export default function KegiatanPage() {
+@@ -78,13 +94,15 @@ export default function KegiatanPage() {
+     };
+   }, []);
+ 
+-  const filteredJadwal = jadwal.filter((event) => {
+-    const matchCat = filterKategori === 'semua' || event.category === filterKategori;
+-    const matchSearch =
+-      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+-      event.description.toLowerCase().includes(searchQuery.toLowerCase());
+-    return matchCat && matchSearch;
+-  });
++  const filteredJadwal = jadwal
++    .filter((event) => {
++      const matchCat = filterKategori === 'semua' || event.category === filterKategori;
++      const matchSearch =
++        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
++        event.description.toLowerCase().includes(searchQuery.toLowerCase());
++      return matchCat && matchSearch;
++    })
++    .sort(compareActivityDate);
+ 
+   const handleAddEvent = async (e: React.FormEvent) => {
+     e.preventDefault();
+@@ -175,7 +193,7 @@ export default function KegiatanPage() {
+             type="text"
+             placeholder="Cari kegiatan..."
+             value={searchQuery}
+-            onChange={(e: any) => setSearchQuery(e.target.value)}
++            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+             className="w-full rounded-full border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] py-2 pl-9 pr-4 text-sm transition focus-visible:ring-[color:var(--ring)]"
+           />
+         </div>
+@@ -194,13 +212,13 @@ export default function KegiatanPage() {
+                 key={ev.id}
+                 className="group relative flex flex-col overflow-hidden rounded-2xl border border-[color:var(--admin-border)] bg-[color:var(--admin-surface)] shadow-sm transition-all duration-300 hover:shadow-md"
+               >
+-                <div className={cn('h-1.5 w-full', colors.dot)} />
++                <div className={cn('absolute inset-y-0 left-0 w-1.5', colors.dot)} />
+ 
+-                <div className="flex flex-1 flex-col p-5">
++                <div className="flex flex-1 flex-col p-5 pl-6">
+                   <div className="flex items-start justify-between gap-4">
+                     <div className="min-w-[50px] rounded-xl border border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] p-2 text-center">
+-                      <span className="text-[10px] font-bold uppercase leading-none text-[color:var(--admin-subtle)]">{monthStr}</span>
+-                      <span className="mt-0.5 text-xl font-extrabold text-primary">{day}</span>
++                      <span className="text-xl font-extrabold leading-none text-primary">{day}</span>
++                      <span className="mt-0.5 text-[10px] font-bold uppercase leading-none text-[color:var(--admin-subtle)]">{monthStr}</span>
+                     </div>
+ 
+                     <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider', colors.bg, colors.text)}>
+@@ -248,7 +266,7 @@ export default function KegiatanPage() {
+                 type="text"
+                 required
+                 value={newJudul}
+-                onChange={(e: any) => setNewJudul(e.target.value)}
++                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJudul(e.target.value)}
+                 placeholder="Misal: Kerja Bakti Massal"
+                 className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
+               />
+@@ -276,7 +294,7 @@ export default function KegiatanPage() {
+                   type="date"
+                   required
+                   value={newTanggal}
+-                  onChange={(e: any) => setNewTanggal(e.target.value)}
++                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTanggal(e.target.value)}
+                   className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
+                 />
+               </div>
+@@ -302,7 +320,7 @@ export default function KegiatanPage() {
+                   type="text"
+                   required
+                   value={newLokasi}
+-                  onChange={(e: any) => setNewLokasi(e.target.value)}
++                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewLokasi(e.target.value)}
+                   placeholder="Balai RW 25"
+                   className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
+                 />
+@@ -315,7 +333,7 @@ export default function KegiatanPage() {
+                 rows={3}
+                 required
+                 value={newDeskripsi}
+-                onChange={(e: any) => setNewDeskripsi(e.target.value)}
++                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNewDeskripsi(e.target.value)}
+                 placeholder="Jelaskan secara singkat mengenai kegiatan ini..."
+                 className="w-full resize-none rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
+               />
+diff --git a/apps/web/app/(app)/admin/(main)/laporan/page.tsx b/apps/web/app/(app)/admin/(main)/laporan/page.tsx
+index e9d07e4..397c82b 100644
+--- a/apps/web/app/(app)/admin/(main)/laporan/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/laporan/page.tsx
+@@ -1,7 +1,19 @@
+ 'use client';
+ 
+ import { useEffect, useMemo, useState } from 'react';
+-import { CaretLeft as ChevronLeft, CaretRight as ChevronRight, Eye, ChatText as MessageSquareText, ArrowClockwise as RefreshCw, MagnifyingGlass as Search } from '@phosphor-icons/react';
++import type { Icon } from '@phosphor-icons/react';
++import {
++  CaretLeft as ChevronLeft,
++  CaretRight as ChevronRight,
++  Eye,
++  ChatText as MessageSquareText,
++  ArrowClockwise as RefreshCw,
++  MagnifyingGlass as Search,
++  ChatCircleText,
++  CheckCircle,
++  ClipboardText,
++  Files,
++} from '@phosphor-icons/react';
+ 
+ import AdminAsyncState from '@/components/admin/AdminAsyncState';
+ import { Button } from '@/components/ui/button';
+@@ -188,8 +200,8 @@ export default function AdminLaporanPage() {
+     <div className="flex flex-col gap-6">
+       <div className="flex flex-wrap items-center justify-between gap-3">
+         <div>
+-          <h2 className="text-[clamp(14px,1.5vw,18px)] font-bold text-[#1E293B]">Aduan Warga</h2>
+-          <p className="mt-1 text-sm text-[#64748B]">Kelola laporan warga dan kirim tanggapan admin.</p>
++          <h2 className="text-[clamp(14px,1.5vw,18px)] font-bold text-[#1E293B]">Manajemen Aduan Warga</h2>
++          <p className="mt-1 text-sm text-[#64748B]">Pantau, kelola, dan respons aduan warga secara terpusat.</p>
+         </div>
+         <Button
+           onClick={() => void loadRows(page, selected?.id ?? null)}
+@@ -201,10 +213,38 @@ export default function AdminLaporanPage() {
+       </div>
+ 
+       <div className="grid gap-4 md:grid-cols-4">
+-        <SummaryCard label="Aduan baru" value={dashboard?.pendingAspirations ?? summary.submitted} />
+-        <SummaryCard label="Sudah ditanggapi" value={summary.reviewed} />
+-        <SummaryCard label="Selesai" value={summary.resolved} />
+-        <SummaryCard label="Total halaman ini" value={rows.length} />
++        <SummaryCard
++          label="Aduan baru"
++          value={dashboard?.pendingAspirations ?? summary.submitted}
++          icon={ChatCircleText}
++          delta={dashboard?.pendingAspirations ?? summary.submitted}
++          deltaSuffix="Aduan"
++          bg="bg-gradient-to-br from-[#2563EB] to-[#3B82F6]"
++        />
++        <SummaryCard
++          label="Sudah ditanggapi"
++          value={summary.reviewed}
++          icon={ClipboardText}
++          delta={summary.reviewed}
++          deltaSuffix="Ditanggapi"
++          bg="bg-gradient-to-br from-[#4F86F0] to-[#6AA1F7]"
++        />
++        <SummaryCard
++          label="Selesai"
++          value={summary.resolved}
++          icon={CheckCircle}
++          delta={summary.resolved}
++          deltaSuffix="Selesai"
++          bg="bg-gradient-to-br from-[#7CA8F8] to-[#93BCF9]"
++        />
++        <SummaryCard
++          label="Total halaman ini"
++          value={rows.length}
++          icon={Files}
++          delta={rows.length}
++          deltaSuffix="Halaman ini"
++          bg="bg-gradient-to-br from-[#2563EB] to-[#6AA1F7]"
++        />
+       </div>
+ 
+       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:flex-row md:items-center">
+@@ -427,11 +467,42 @@ export default function AdminLaporanPage() {
+   );
+ }
+ 
+-function SummaryCard({ label, value }: { label: string; value: number }) {
++function SummaryCard({
++  label,
++  value,
++  icon: IconComponent,
++  delta,
++  deltaSuffix,
++  bg,
++}: {
++  label: string;
++  value: number;
++  icon: Icon;
++  delta: number;
++  deltaSuffix: string;
++  bg: string;
++}) {
+   return (
+-    <div className="rounded-2xl bg-[#2563EB] p-5 text-white">
+-      <p className="text-xs text-white/75">{label}</p>
+-      <p className="mt-1 text-2xl font-bold">{value}</p>
++    <div className={`group relative min-h-[116px] overflow-hidden rounded-2xl ${bg} p-4 text-white shadow-md transition-shadow hover:shadow-lg`}>
++      <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.08]" />
++      <div className="pointer-events-none absolute right-8 top-8 h-10 w-10 rounded-full bg-white/[0.05]" />
++
++      <div className="relative z-10">
++        <div className="mb-2 flex items-start justify-between">
++          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
++            <IconComponent className="h-4 w-4 text-white" />
++          </div>
++        </div>
++        <p className="text-xs font-medium text-white/80">{label}</p>
++        <div className="mt-0.5 flex items-center gap-2">
++          <span className="text-2xl font-bold tracking-tight text-white">{value}</span>
++          {delta > 0 ? (
++            <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
++              +{delta} {deltaSuffix}
++            </span>
++          ) : null}
++        </div>
++      </div>
+     </div>
+   );
+ }
+diff --git a/apps/web/app/(app)/admin/(main)/pemilu/page.tsx b/apps/web/app/(app)/admin/(main)/pemilu/page.tsx
+index 9990409..e2b85f0 100644
+--- a/apps/web/app/(app)/admin/(main)/pemilu/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/pemilu/page.tsx
+@@ -58,19 +58,26 @@ export default function AdminPemiluPage() {
+ 
+   return (
+     <div className="flex flex-col gap-6">
+-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+-        <div className="max-w-2xl">
+-          <h1 className="text-3xl font-bold tracking-tight text-[color:var(--admin-heading)]">Pemilu</h1>
+-          <p className="mt-2 text-sm text-[color:var(--admin-subtle)]">
+-            Kelola agenda pemilu, persyaratan, TPS, dan pembagian RT yang terhubung ke jadwal warga.
+-          </p>
+-        </div>
+-        <Button asChild className="rounded-2xl bg-[color:var(--admin-primary)] text-[color:var(--primary-foreground)] hover:bg-[color:var(--admin-primary-strong)]">
+-          <Link href="/admin/pemilu/tambah">
+-            <PlusCircle className="mr-2 h-4 w-4" />
+-            Tambah Pemilu
+-          </Link>
+-        </Button>
++      {/* ΓöÇΓöÇ Header Actions ΓöÇΓöÇ */}
++      <div className="flex flex-wrap items-stretch gap-4">
++        {/* Tambah Pemilu */}
++        <Link
++          href="/admin/pemilu/tambah"
++          className="relative flex min-w-[200px] flex-1 items-center gap-4 overflow-hidden rounded-2xl bg-[#2563EB] px-[clamp(16px,2vw,24px)] py-[clamp(12px,1.5vh,16px)] text-white transition hover:bg-[#1D4ED8] active:scale-[0.99]"
++        >
++          {/* Decorative circles */}
++          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/[0.08]" />
++          <div className="pointer-events-none absolute right-16 top-6 h-24 w-24 rounded-full bg-white/[0.12]" />
++          <div className="pointer-events-none absolute -bottom-5 right-40 h-16 w-16 rounded-full bg-white/[0.08]" />
++
++          <div className="relative z-10 flex h-[clamp(36px,5vh,48px)] w-[clamp(36px,5vh,48px)] items-center justify-center rounded-full bg-white/20">
++            <PlusCircle className="h-5 w-5 text-white" />
++          </div>
++          <div className="relative z-10">
++            <p className="text-[clamp(14px,1.5vw,20px)] font-bold">Tambah Pemilu</p>
++            <p className="text-[clamp(11px,1vw,14px)] text-white/80">Kelola agenda dan persyaratan TPS</p>
++          </div>
++        </Link>
+       </div>
+ 
+       {error ? (
+diff --git a/apps/web/app/(app)/admin/(main)/permohonan/page.tsx b/apps/web/app/(app)/admin/(main)/permohonan/page.tsx
+index 63b8312..e463d12 100644
+--- a/apps/web/app/(app)/admin/(main)/permohonan/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/permohonan/page.tsx
+@@ -220,7 +220,7 @@ export default function PermohonanPage() {
+                       <p>
+                         Ref ID: <span className="font-semibold text-[#1E293B]">{item.id}</span>
+                       </p>
+-                      <span className="hidden sm:inline">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
++                      <span className="hidden sm:inline">ΓÇó</span>
+                       <p>
+                         Tanggal: <span className="font-semibold text-[#1E293B]">{formatDate(item.createdAt)}</span>
+                       </p>
+@@ -315,7 +315,7 @@ export default function PermohonanPage() {
+                       <p>
+                         Ref ID: <span className="font-semibold text-[#1E293B]">{item.id}</span>
+                       </p>
+-                      <span className="hidden sm:inline">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
++                      <span className="hidden sm:inline">ΓÇó</span>
+                       <p>
+                         Tanggal: <span className="font-semibold text-[#1E293B]">{formatDate(item.createdAt)}</span>
+                       </p>
+diff --git a/apps/web/app/(app)/admin/(main)/settings/page.tsx b/apps/web/app/(app)/admin/(main)/settings/page.tsx
+index 8774e16..b40e780 100644
+--- a/apps/web/app/(app)/admin/(main)/settings/page.tsx
++++ b/apps/web/app/(app)/admin/(main)/settings/page.tsx
+@@ -1,10 +1,23 @@
+ 'use client';
+-import { Button } from '@/components/ui/button';
+-import PortalBrand from '@/components/ui/portal-brand';
+ 
+ import { useEffect, useState } from 'react';
+ import { useRouter } from 'next/navigation';
+-import { Moon, Sun, Bell, Globe, ShieldCheck, SignOut as LogOut, CaretRight as ChevronRight, Info, DeviceMobile as Smartphone, Check } from '@phosphor-icons/react';
++import {
++  Bell,
++  CaretRight as ChevronRight,
++  Check,
++  DeviceMobile as Smartphone,
++  Globe,
++  Info,
++  LockKey,
++  SignOut as LogOut,
++} from '@phosphor-icons/react';
++
++import { authClient } from '@/lib/auth-client';
++import { getAdminProfile, type AdminProfile } from '@/lib/admin-profile';
++import { platformFetch } from '@/lib/api/platform';
++import { Button } from '@/components/ui/button';
++import PortalBrand from '@/components/ui/portal-brand';
+ import { useToast } from '@/components/ui/use-toast';
+ import {
+   AlertDialog,
+@@ -16,9 +29,6 @@ import {
+   AlertDialogHeader,
+   AlertDialogTitle,
+ } from '@/components/ui/alert-dialog';
+-import { authClient } from '@/lib/auth-client';
+-import { getAdminProfile, type AdminProfile } from '@/lib/admin-profile';
+-import { platformFetch } from '@/lib/api/platform';
+ 
+ type UserPreference = {
+   id: string;
+@@ -28,42 +38,172 @@ type UserPreference = {
+   notificationEnabled: boolean;
+ };
+ 
+-const DICT: Record<string, Record<string, string>> = {
++type Language = 'Indonesia' | 'Sunda' | 'English';
++type TranslationKey =
++  | 'appearance'
++  | 'active'
++  | 'inactive'
++  | 'blocked'
++  | 'unsupported'
++  | 'unsupportedDesc'
++  | 'notifBlocked'
++  | 'notifBlockedDesc'
++  | 'notifEnabled'
++  | 'saveFailed'
++  | 'languageSaveFailed'
++  | 'language'
++  | 'languageTitle'
++  | 'languageDesc'
++  | 'notifPrivacy'
++  | 'notif'
++  | 'about'
++  | 'appVersion'
++  | 'appAbout'
++  | 'appAboutDesc'
++  | 'appDesc'
++  | 'version'
++  | 'developedBy'
++  | 'forLabel'
++  | 'logout'
++  | 'logoutSuccess'
++  | 'logoutSuccessDesc'
++  | 'logoutConfirm'
++  | 'logoutDesc'
++  | 'yesLogout'
++  | 'cancel'
++  | 'close';
++
++const DICT: Record<Language, Record<TranslationKey, string>> = {
+   Indonesia: {
+     appearance: 'Tampilan',
+-    darkMode: 'Mode Gelap',
+     active: 'Aktif',
+     inactive: 'Nonaktif',
++    blocked: 'Diblokir',
++    unsupported: 'Tidak Didukung',
++    unsupportedDesc: 'Browser Anda tidak mendukung notifikasi.',
++    notifBlocked: 'Notifikasi Diblokir',
++    notifBlockedDesc: 'Anda memblokir notifikasi. Silakan ubah di pengaturan browser.',
++    notifEnabled: 'Notifikasi berhasil diaktifkan!',
++    saveFailed: 'Gagal menyimpan preferensi',
++    languageSaveFailed: 'Gagal menyimpan bahasa',
+     language: 'Bahasa',
++    languageTitle: 'Pilih Bahasa',
++    languageDesc: 'Pilih bahasa antarmuka sistem.',
+     notifPrivacy: 'Notifikasi & Privasi',
+     notif: 'Notifikasi',
+-    security: 'Keamanan Akun',
+-    securityDesc: 'Ganti Kata Sandi & verifikasi',
+     about: 'Tentang',
+     appVersion: 'Versi Aplikasi',
+     appAbout: 'Tentang Aplikasi',
+     appAboutDesc: 'Info & lisensi',
+-    logout: 'Keluar dari Akun',
+-    logoutConfirm: 'Keluar dari Akun?',
++    appDesc:
++      'Portal RW 25 adalah sistem informasi digital untuk mengelola data kependudukan warga di lingkungan RW 025, Kota Cimahi. Aplikasi ini membantu pengurus RW mengelola data warga, kartu keluarga, mutasi penduduk, dan permohonan secara efisien.',
++    version: 'Versi',
++    developedBy: 'Dikembangkan oleh',
++    forLabel: 'Untuk',
++    logout: 'Keluar',
++    logoutSuccess: 'Berhasil keluar',
++    logoutSuccessDesc: 'Anda telah keluar.',
++    logoutConfirm: 'Keluar?',
+     logoutDesc: 'Anda akan dikembalikan ke halaman login admin.',
+     yesLogout: 'Ya, Keluar',
+     cancel: 'Batal',
+-  }
++    close: 'Tutup',
++  },
++  Sunda: {
++    appearance: 'Tampilan',
++    active: 'Aktif',
++    inactive: 'Nonaktif',
++    blocked: 'Diblokir',
++    unsupported: 'Teu Dirojong',
++    unsupportedDesc: 'Browser anjeun teu ngarojong notifikasi.',
++    notifBlocked: 'Notifikasi Diblokir',
++    notifBlockedDesc: 'Anjeun meungpeuk notifikasi. Mangga robah dina setelan browser.',
++    notifEnabled: 'Notifikasi hasil diaktipkeun!',
++    saveFailed: 'Gagal nyimpen preferensi',
++    languageSaveFailed: 'Gagal nyimpen basa',
++    language: 'Basa',
++    languageTitle: 'Pilih Basa',
++    languageDesc: 'Pilih basa antarmuka sistem.',
++    notifPrivacy: 'Notifikasi & Privasi',
++    notif: 'Notifikasi',
++    about: 'Ngeunaan',
++    appVersion: 'Versi Aplikasi',
++    appAbout: 'Ngeunaan Aplikasi',
++    appAboutDesc: 'Info & lisensi',
++    appDesc:
++      'Portal RW 25 nya├⌐ta sistem informasi digital pikeun ngatur data warga di lingkungan RW 025, Kota Cimahi.',
++    version: 'Versi',
++    developedBy: 'Dimekarkeun ku',
++    forLabel: 'Kanggo',
++    logout: 'Kaluar',
++    logoutSuccess: 'Hasil kaluar',
++    logoutSuccessDesc: 'Anjeun parantos kaluar.',
++    logoutConfirm: 'Kaluar?',
++    logoutDesc: 'Anjeun bakal dipulangkeun ka halaman login admin.',
++    yesLogout: 'Enya, Kaluar',
++    cancel: 'Batal',
++    close: 'Tutup',
++  },
++  English: {
++    appearance: 'Appearance',
++    active: 'Active',
++    inactive: 'Inactive',
++    blocked: 'Blocked',
++    unsupported: 'Unsupported',
++    unsupportedDesc: 'Your browser does not support notifications.',
++    notifBlocked: 'Notifications Blocked',
++    notifBlockedDesc: 'You have blocked notifications. Please change this in your browser settings.',
++    notifEnabled: 'Notifications enabled!',
++    saveFailed: 'Failed to save preferences',
++    languageSaveFailed: 'Failed to save language',
++    language: 'Language',
++    languageTitle: 'Choose Language',
++    languageDesc: 'Choose the system interface language.',
++    notifPrivacy: 'Notifications & Privacy',
++    notif: 'Notifications',
++    about: 'About',
++    appVersion: 'App Version',
++    appAbout: 'About App',
++    appAboutDesc: 'Info & license',
++    appDesc:
++      'Portal RW 25 is a digital information system for managing resident data in RW 025, Cimahi City. This app helps RW administrators manage resident data, family cards, resident mutations, and requests efficiently.',
++    version: 'Version',
++    developedBy: 'Developed by',
++    forLabel: 'For',
++    logout: 'Exit',
++    logoutSuccess: 'Signed out successfully',
++    logoutSuccessDesc: 'You have signed out.',
++    logoutConfirm: 'Exit?',
++    logoutDesc: 'You will be returned to the admin login page.',
++    yesLogout: 'Yes, Exit',
++    cancel: 'Cancel',
++    close: 'Close',
++  },
+ };
+ 
++function preferenceToLanguage(value?: string): Language {
++  void value;
++  return 'Indonesia';
++}
++
++function languageToPreference(value: Language) {
++  if (value === 'English') return 'en';
++  if (value === 'Sunda') return 'su';
++  return 'id';
++}
++
+ export default function AdminSettingsPage() {
+   const router = useRouter();
+   const { toast } = useToast();
+   const [profile, setProfile] = useState<AdminProfile>(() => getAdminProfile());
+-  const [isDark, setIsDark] = useState(false);
+   const [notifStatus, setNotifStatus] = useState<string>('default');
+   const [notifikasi, setNotifikasi] = useState(false);
+-  const [bahasa, setBahasa] = useState('Indonesia');
+-  const [savingKey, setSavingKey] = useState<'theme' | 'language' | 'notification' | null>(null);
++  const [bahasa, setBahasa] = useState<Language>('Indonesia');
++  const [savingKey, setSavingKey] = useState<'language' | 'notification' | null>(null);
+   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+-  const [activeDialog, setActiveDialog] = useState<'bahasa' | 'security' | 'tentang' | null>(null);
++  const [activeDialog, setActiveDialog] = useState<'bahasa' | 'tentang' | null>(null);
+ 
+-  const t = DICT['Indonesia'];
++  const t = DICT[bahasa];
+ 
+   useEffect(() => {
+     let active = true;
+@@ -76,9 +216,8 @@ export default function AdminSettingsPage() {
+       if (!active) return;
+       setProfile(getAdminProfile(session?.data?.user));
+       if (preference?.data) {
+-        setIsDark(preference.data.theme === 'dark');
+         setNotifikasi(preference.data.notificationEnabled);
+-        setBahasa(preference.data.language === 'en' ? 'English' : preference.data.language === 'su' ? 'Sunda' : 'Indonesia');
++        setBahasa(preferenceToLanguage(preference.data.language));
+       }
+     }
+ 
+@@ -91,7 +230,6 @@ export default function AdminSettingsPage() {
+     };
+ 
+     checkPermission();
+-
+     window.addEventListener('notif-updated', checkPermission);
+ 
+     return () => {
+@@ -100,52 +238,63 @@ export default function AdminSettingsPage() {
+     };
+   }, []);
+ 
++  const persistPreference = async (
++    payload: Partial<Pick<UserPreference, 'language' | 'notificationEnabled'>>,
++    key: 'language' | 'notification',
++  ) => {
++    setSavingKey(key);
++    try {
++      await platformFetch<UserPreference>('/me/preferences', {
++        method: 'PATCH',
++        body: JSON.stringify(payload),
++      });
++    } catch {
++      toast({ title: key === 'language' ? t.languageSaveFailed : t.saveFailed, variant: 'destructive' });
++    } finally {
++      setSavingKey(null);
++    }
++  };
++
+   const handleToggleNotif = async () => {
+     if (typeof window === 'undefined' || !('Notification' in window)) {
+-      toast({ title: 'Tidak Didukung', description: 'Browser Anda tidak mendukung notifikasi.' });
++      toast({ title: t.unsupported, description: t.unsupportedDesc });
+       return;
+     }
+     if (notifStatus === 'denied') {
+-      toast({ title: 'Notifikasi Diblokir', description: 'Anda memblokir notifikasi. Silakan ubah di pengaturan browser (ikon gembok ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬░├â╞Æ├óΓé¼┬ª├âΓÇÜ├é┬╕├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├â┬ó├óΓé¼┼╛├é┬ó).', variant: 'destructive' });
++      toast({ title: t.notifBlocked, description: t.notifBlockedDesc, variant: 'destructive' });
+       return;
+     }
+     if (notifStatus !== 'granted') {
+-      const p = await Notification.requestPermission();
+-      setNotifStatus(p);
++      const permission = await Notification.requestPermission();
++      setNotifStatus(permission);
+       window.dispatchEvent(new CustomEvent('notif-updated'));
+-      if (p === 'granted') {
+-        new Notification('Portal RW 25', { body: 'Notifikasi berhasil diaktifkan!', icon: '/favicon.ico' });
++      if (permission === 'granted') {
++        new Notification('Portal RW 25', { body: t.notifEnabled, icon: '/favicon.ico' });
+       } else {
+         return;
+       }
+     }
++
+     const next = !notifikasi;
+     setNotifikasi(next);
+     void persistPreference({ notificationEnabled: next }, 'notification');
+   };
+ 
++  const handleLanguageChange = (language: Language) => {
++    if (language !== 'Indonesia') return;
++    setBahasa(language);
++    setActiveDialog(null);
++    void persistPreference({ language: languageToPreference(language) }, 'language');
++  };
++
+   const handleLogout = async () => {
+     await authClient.signOut().catch(() => null);
+-    toast({ title: "Berhasil keluar", description: "Anda telah logout.", variant: "default" });
++    toast({ title: t.logoutSuccess, description: t.logoutSuccessDesc, variant: 'default' });
+     router.push('/sign-in');
+   };
+ 
+-  const persistPreference = async (payload: Partial<Pick<UserPreference, 'theme' | 'language' | 'notificationEnabled'>>, key: 'theme' | 'language' | 'notification') => {
+-    setSavingKey(key);
+-    try {
+-      await platformFetch<UserPreference>('/me/preferences', {
+-        method: 'PATCH',
+-        body: JSON.stringify(payload),
+-      });
+-    } catch {
+-      toast({ title: 'Gagal menyimpan preferensi', variant: 'destructive' });
+-    } finally {
+-      setSavingKey(null);
+-    }
+-  };
+-
+   return (
+-    <div className="flex flex-col gap-5 py-6 w-full">
++    <div className="flex w-full flex-col gap-5 py-6">
+       <div className="flex items-center gap-4 rounded-[28px] border border-[#D8DEE8] bg-white p-5 shadow-sm">
+         <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${profile.avatarClassName} text-2xl font-bold text-white shadow-md`}>
+           {profile.initials}
+@@ -160,45 +309,14 @@ export default function AdminSettingsPage() {
+       </div>
+ 
+       <div className="flex flex-col gap-4">
+-        {/* Tampilan */}
+         <div>
+-          <h3 className="text-sm font-bold text-[#667085] uppercase tracking-wider mb-2 ml-1">
++          <h3 className="mb-2 ml-1 text-sm font-bold uppercase tracking-wider text-[#667085]">
+             {t.appearance}
+           </h3>
+           <div className="overflow-hidden rounded-[28px] border border-[#D8DEE8] bg-white shadow-sm">
+-            {/* Dark Mode */}
+-            <div className="flex items-center justify-between px-5 py-4">
+-              <div className="flex items-center gap-4">
+-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F3F0]">
+-                  {isDark ? <Moon className="h-6 w-6 text-[#1F7A6B]" /> : <Sun className="h-6 w-6 text-[#C26D52]" />}
+-                </div>
+-                <div>
+-                  <p className="text-base font-bold text-[#18212F]">{t.darkMode}</p>
+-                  <p className="text-sm font-medium text-[#667085]">{isDark ? t.active : t.inactive}</p>
+-                </div>
+-              </div>
+-              <Button
+-                onClick={() => {
+-                  const next = !isDark;
+-                  setIsDark(next);
+-                  void persistPreference({ theme: next ? 'dark' : 'light' }, 'theme');
+-                }}
+-                disabled={savingKey === 'theme'}
+-                className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
+-                  isDark ? 'bg-[#1F7A6B]' : 'bg-[#D0D5DD]'
+-                }`}
+-              >
+-                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-sm transition-all duration-300 ${
+-                  isDark ? 'left-[28px]' : 'left-1'
+-                }`} />
+-              </Button>
+-            </div>
+-
+-            <div className="mx-5 h-px bg-[#EEF2F6]" />
+-
+-            {/* Bahasa */}
+-            <div
+-              className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
++            <button
++              type="button"
++              className="flex w-full cursor-pointer items-center justify-between px-5 py-4 text-left transition-colors hover:bg-gray-50"
+               onClick={() => setActiveDialog('bahasa')}
+             >
+               <div className="flex items-center gap-4">
+@@ -211,13 +329,12 @@ export default function AdminSettingsPage() {
+                 </div>
+               </div>
+               <ChevronRight className="h-5 w-5 text-[#98A2B3]" />
+-            </div>
++            </button>
+           </div>
+         </div>
+ 
+-        {/* Notifikasi & Privasi */}
+         <div>
+-          <h3 className="text-sm font-bold text-[#667085] uppercase tracking-wider mb-2 ml-1">
++          <h3 className="mb-2 ml-1 text-sm font-bold uppercase tracking-wider text-[#667085]">
+             {t.notifPrivacy}
+           </h3>
+           <div className="overflow-hidden rounded-[28px] border border-[#D8DEE8] bg-white shadow-sm">
+@@ -229,46 +346,28 @@ export default function AdminSettingsPage() {
+                 <div>
+                   <p className="text-base font-bold text-[#18212F]">{t.notif}</p>
+                   <p className="text-sm font-medium text-[#667085]">
+-                    {notifStatus === 'granted' ? t.active : notifStatus === 'denied' ? 'Diblokir' : t.inactive}
++                    {notifStatus === 'granted' ? t.active : notifStatus === 'denied' ? t.blocked : t.inactive}
+                   </p>
+                 </div>
+               </div>
+               <Button
++                type="button"
+                 onClick={handleToggleNotif}
+                 disabled={savingKey === 'notification'}
+-                className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
++                className={`relative h-8 w-14 rounded-full transition-all duration-300 ${
+                   notifStatus === 'granted' && notifikasi ? 'bg-[#2C5F75]' : 'bg-[#D0D5DD]'
+                 }`}
+               >
+-                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-sm transition-all duration-300 ${
++                <div className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-all duration-300 ${
+                   notifStatus === 'granted' && notifikasi ? 'left-[28px]' : 'left-1'
+                 }`} />
+               </Button>
+             </div>
+-
+-            <div className="mx-5 h-px bg-[#EEF2F6]" />
+-
+-            <div
+-              className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+-              onClick={() => setActiveDialog('security')}
+-            >
+-              <div className="flex items-center gap-4">
+-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3F1]">
+-                  <ShieldCheck className="h-6 w-6 text-[#1F7A6B]" />
+-                </div>
+-                <div>
+-                  <p className="text-base font-bold text-[#18212F]">{t.security}</p>
+-                  <p className="text-sm font-medium text-[#667085]">{t.securityDesc}</p>
+-                </div>
+-              </div>
+-              <ChevronRight className="h-5 w-5 text-[#98A2B3]" />
+-            </div>
+           </div>
+         </div>
+ 
+-        {/* Tentang */}
+         <div>
+-          <h3 className="text-sm font-bold text-[#667085] uppercase tracking-wider mb-2 ml-1">
++          <h3 className="mb-2 ml-1 text-sm font-bold uppercase tracking-wider text-[#667085]">
+             {t.about}
+           </h3>
+           <div className="overflow-hidden rounded-[28px] border border-[#D8DEE8] bg-white shadow-sm">
+@@ -286,13 +385,14 @@ export default function AdminSettingsPage() {
+ 
+             <div className="mx-5 h-px bg-[#EEF2F6]" />
+ 
+-            <div
+-              className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
++            <button
++              type="button"
++              className="flex w-full cursor-pointer items-center justify-between px-5 py-4 text-left transition-colors hover:bg-gray-50"
+               onClick={() => setActiveDialog('tentang')}
+             >
+               <div className="flex items-center gap-4">
+-                <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+-                  <Info className="w-6 h-6 text-gray-500" />
++                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
++                  <Info className="h-6 w-6 text-gray-500" />
+                 </div>
+                 <div>
+                   <p className="text-base font-bold text-[#18212F]">{t.appAbout}</p>
+@@ -300,12 +400,12 @@ export default function AdminSettingsPage() {
+                 </div>
+               </div>
+               <ChevronRight className="h-5 w-5 text-[#98A2B3]" />
+-            </div>
++            </button>
+           </div>
+         </div>
+ 
+-        {/* Logout */}
+         <Button
++          type="button"
+           onClick={() => setShowLogoutConfirm(true)}
+           className="mt-2 flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-red-100 bg-red-50 py-4 font-bold text-red-600 transition hover:bg-red-100 active:scale-[0.98]"
+         >
+@@ -314,9 +414,8 @@ export default function AdminSettingsPage() {
+         </Button>
+       </div>
+ 
+-      {/* Logout Confirm Dialog */}
+       <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+-        <AlertDialogContent className="rounded-3xl p-8 text-center max-w-sm">
++        <AlertDialogContent className="max-w-sm rounded-3xl p-8 text-center">
+           <AlertDialogHeader className="items-center text-center">
+             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+               <LogOut className="h-8 w-8 text-red-600" />
+@@ -342,70 +441,66 @@ export default function AdminSettingsPage() {
+         </AlertDialogContent>
+       </AlertDialog>
+ 
+-      {/* Language / Info Dialogs (Simple implementations for Admin) */}
+       <AlertDialog open={activeDialog !== null} onOpenChange={(open) => !open && setActiveDialog(null)}>
+-        <AlertDialogContent className="rounded-3xl p-6 max-w-sm">
++        <AlertDialogContent className="max-w-sm rounded-3xl p-6">
+           <AlertDialogHeader>
+             <AlertDialogTitle className="text-lg font-bold text-[#18212F]">
+-              {activeDialog === 'bahasa' && 'Pilih Bahasa'}
+-              {activeDialog === 'security' && 'Fitur Segera Hadir'}
++              {activeDialog === 'bahasa' ? t.languageTitle : t.appAbout}
+             </AlertDialogTitle>
+             <AlertDialogDescription className="text-sm font-medium text-[#667085]">
+-              {activeDialog === 'bahasa' && 'Pilih bahasa antarmuka sistem.'}
+-              {activeDialog === 'security' && 'Pengaturan keamanan di halaman ini masih bersifat informasional. Perubahan kredensial dikelola dari alur admin management/backend.'}
++              {activeDialog === 'bahasa' ? t.languageDesc : t.appAboutDesc}
+             </AlertDialogDescription>
+           </AlertDialogHeader>
++
+           {activeDialog === 'bahasa' && (
+-            <div className="flex flex-col gap-3 mt-4">
+-              {['Indonesia', 'Sunda', 'English'].map((l) => (
++            <div className="mt-4 flex flex-col gap-3">
++              {(['Indonesia', 'Sunda', 'English'] as Language[]).map((language) => (
+                 <Button
+-                  key={l}
+-                  onClick={() => {
+-                    setBahasa(l);
+-                    setActiveDialog(null);
+-                    void persistPreference({ language: l === 'English' ? 'en' : l === 'Sunda' ? 'su' : 'id' }, 'language');
+-                  }}
+-                  disabled={savingKey === 'language'}
+-                  className={`flex items-center justify-between rounded-xl border p-4 text-left transition-colors ${
+-                    bahasa === l ? 'border-[#1F7A6B] bg-[#E8F3F0] text-[#1F7A6B]' : 'border-gray-100 hover:bg-gray-50'
++                  key={language}
++                  type="button"
++                  onClick={() => handleLanguageChange(language)}
++                  disabled={savingKey === 'language' || language !== 'Indonesia'}
++                  className={`flex items-center justify-between rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-100 ${
++                    bahasa === language
++                      ? 'border-[#1F7A6B] bg-[#E8F3F0] text-[#1F7A6B]'
++                      : 'border-gray-100 bg-gray-50 text-[#98A2B3]'
+                   }`}
+                 >
+-                  <span className="font-bold">{l}</span>
+-                  {bahasa === l && <Check className="h-5 w-5" />}
++                  <span className="font-bold">{language}</span>
++                  {bahasa === language ? <Check className="h-5 w-5" /> : <LockKey className="h-5 w-5 text-[#98A2B3]" />}
+                 </Button>
+               ))}
+             </div>
+           )}
+ 
+           {activeDialog === 'tentang' && (
+-            <div className="flex flex-col gap-4 mt-4">
++            <div className="mt-4 flex flex-col gap-4">
+               <PortalBrand
+                 imageSize={64}
+                 textClassName="text-lg font-bold text-[#18212F]"
+                 subtitle="Versi 1.0.0"
+                 subtitleClassName="text-sm text-[#667085]"
+               />
+-              <p className="text-sm leading-relaxed text-[#667085]">
+-                Portal RW 25 adalah sistem informasi digital untuk mengelola data kependudukan warga di lingkungan RW 025, Kota Cimahi. Aplikasi ini membantu pengurus RW mengelola data warga, kartu keluarga, mutasi penduduk, dan permohonan secara efisien.
+-              </p>
++              <p className="text-sm leading-relaxed text-[#667085]">{t.appDesc}</p>
+               <div className="h-px bg-[#EEF2F6]" />
+               <div className="space-y-1 text-sm text-[#667085]">
+-                <p><strong>Versi:</strong> 1.0.0 (Build 2026.04)</p>
++                <p><strong>{t.version}:</strong> 1.0.0 (Build 2026.04)</p>
+                 <div>
+-                  <p><strong>Dikembangkan oleh:</strong> Tim ABDIMAS ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Telkom University</p>
+-                  <ol className="list-decimal list-inside ml-2 mt-1 space-y-0.5 text-xs">
++                  <p><strong>{t.developedBy}:</strong> Tim ABDIMAS - Telkom University</p>
++                  <ol className="ml-2 mt-1 list-inside list-decimal space-y-0.5 text-xs">
+                     <li>Raenaldi Ardiansyah Sidik - Front End Developer</li>
+                     <li>Faiq Haqqani - UI/UX Designer</li>
+                     <li>Muhammad Riyadhul Jinan Nasution - Back End Developer</li>
+                   </ol>
+                 </div>
+-                <p><strong>Untuk:</strong> RW 025, Kota Cimahi, Jawa Barat</p>
++                <p><strong>{t.forLabel}:</strong> RW 025, Kota Cimahi, Jawa Barat</p>
+               </div>
+             </div>
+           )}
++
+           <AlertDialogFooter className="mt-6">
+             <AlertDialogCancel className="w-full rounded-xl border-gray-200 py-6 text-base font-bold text-[#64748B] hover:bg-gray-100">
+-              Tutup
++              {t.close}
+             </AlertDialogCancel>
+           </AlertDialogFooter>
+         </AlertDialogContent>
+diff --git a/apps/web/app/(app)/warga/(main)/aspirasi/page.tsx b/apps/web/app/(app)/warga/(main)/aspirasi/page.tsx
+index 40fcff6..6c31196 100644
+--- a/apps/web/app/(app)/warga/(main)/aspirasi/page.tsx
++++ b/apps/web/app/(app)/warga/(main)/aspirasi/page.tsx
+@@ -85,6 +85,7 @@ export default function WargaAspirasiPage() {
+       <PageHeader
+         title="Aspirasi Warga"
+         description="Pantau status aspirasi dan tanggapan admin."
++        brandImageSrc="/Pharmindo25_BW.png"
+         variant="brand"
+         className="pb-7"
+         titleClassName="text-xl"
+diff --git a/apps/web/app/(app)/warga/(main)/history/_components/history-client.tsx b/apps/web/app/(app)/warga/(main)/history/_components/history-client.tsx
+index ed02a7c..82d34e9 100644
+--- a/apps/web/app/(app)/warga/(main)/history/_components/history-client.tsx
++++ b/apps/web/app/(app)/warga/(main)/history/_components/history-client.tsx
+@@ -2,13 +2,12 @@
+ 
+ import { useEffect, useMemo, useState } from 'react';
+ import Link from 'next/link';
+-import { History, Inbox, ShieldCheck, Vote, MessageSquareText, FileText } from 'lucide-react';
++import { History, Inbox } from 'lucide-react';
+ 
+-import type { AspirasiResult, BansosResult, HistoryItem, PemiluResult, PermohonanResult } from '@/types/warga';
++import type { AspirasiResult, BansosResult, HistoryItem, JenisPermohonan, PemiluResult, PermohonanResult } from '@/types/warga';
+ 
+ import PageHeader from '@/components/ui/page-header';
+ import { Button } from '@/components/ui/button';
+-import { Card } from '@/components/ui/card';
+ import { cn } from '@/lib/utils';
+ import { platformFetch } from '@/lib/api/platform';
+ import { useAutoRefresh } from '@/lib/use-auto-refresh';
+@@ -58,26 +57,14 @@ function isHistoryItem(value: unknown): value is HistoryItem {
+ 
+ function tabToTipe(tab: TabLabel): HistoryItem['tipe'] | 'all' {
+   switch (tab) {
+-    case 'Bansos':
+-      return 'bansos';
+-    case 'Pemilu':
+-      return 'pemilu';
+-    case 'Laporan':
+-      return 'aspirasi';
+-    case 'Permohonan':
+-      return 'permohonan';
+-    default:
+-      return 'all';
++    case 'Bansos': return 'bansos';
++    case 'Pemilu': return 'pemilu';
++    case 'Laporan': return 'aspirasi';
++    case 'Permohonan': return 'permohonan';
++    default: return 'all';
+   }
+ }
+ 
+-function tipeIcon(tipe: HistoryItem['tipe']) {
+-  if (tipe === 'bansos') return ShieldCheck;
+-  if (tipe === 'pemilu') return Vote;
+-  if (tipe === 'permohonan') return FileText;
+-  return MessageSquareText;
+-}
+-
+ type HistoryApiItem = {
+   id: string;
+   type: 'BANSOS_CHECK' | 'PEMILU_CHECK' | 'ASPIRATION' | 'REQUEST' | 'MUTATION';
+@@ -87,9 +74,109 @@ type HistoryApiItem = {
+   createdAt: string;
+ };
+ 
++function mapHistoryItem(item: HistoryApiItem): HistoryItem {
++  const createdDate = new Date(item.createdAt).toLocaleDateString('id-ID', {
++    day: '2-digit',
++    month: 'long',
++    year: 'numeric',
++  });
++
++  if (item.type === 'BANSOS_CHECK') {
++    const eligible = Boolean(item.metadata.eligible);
++    return {
++      id: item.id,
++      tipe: 'bansos',
++      tanggal: createdDate,
++      status: eligible ? 'Aktif' : 'Tidak Layak',
++      statusColor: eligible ? 'green' : 'red',
++      judul: item.title,
++      deskripsi: item.description,
++      detail: {
++        status: eligible ? 'aktif' : 'tidak_layak',
++        nama: String(item.metadata.nama || '-'),
++        nik: String(item.metadata.nik || '-'),
++        program: 'PKH',
++        dtks: new Date(item.createdAt).getFullYear().toString(),
++        keterangan: item.description,
++      },
++    };
++  }
++
++  if (item.type === 'PEMILU_CHECK') {
++    const registered = Boolean(item.metadata.registered);
++    return {
++      id: item.id,
++      tipe: 'pemilu',
++      tanggal: createdDate,
++      status: registered ? 'Terdaftar' : 'Tidak Terdaftar',
++      statusColor: registered ? 'green' : 'red',
++      judul: item.title,
++      deskripsi: item.description,
++      detail: {
++        status: registered ? 'terdaftar' : 'tidak_terdaftar',
++        nama: String(item.metadata.nama || '-'),
++        nik: String(item.metadata.nik || '-'),
++        dptTahun: new Date(item.createdAt).getFullYear().toString(),
++        tps: item.metadata.tps ? String(item.metadata.tps) : undefined,
++        keterangan: item.description,
++      },
++    };
++  }
++
++  if (item.type === 'REQUEST' || item.type === 'MUTATION') {
++    const reqType: JenisPermohonan = item.type === 'MUTATION'
++      ? (item.metadata.type === 'MUTATION_IN' ? 'MUTATION_IN' : 'MUTATION_OUT')
++      : 'HOUSEHOLD_CREATE';
++    const reqStatus = String(item.metadata.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
++    return {
++      id: item.id,
++      tipe: 'permohonan',
++      tanggal: createdDate,
++      status: reqStatus === 'APPROVED' ? 'Disetujui' : reqStatus === 'REJECTED' ? 'Ditolak' : 'Menunggu',
++      statusColor: reqStatus === 'APPROVED' ? 'green' : reqStatus === 'REJECTED' ? 'red' : 'amber',
++      judul: item.title,
++      deskripsi: item.description,
++      detail: {
++        jenis: reqType,
++        tanggal: createdDate,
++        status: reqStatus,
++        ringkasan: item.description,
++        requestId: item.id,
++        alasanPenolakan: typeof item.metadata.rejectionReason === 'string' ? item.metadata.rejectionReason : null,
++      },
++    };
++  }
++
++  const status = String(item.metadata.status || 'SUBMITTED') as 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
++  const adminReply = typeof item.metadata.adminReply === 'string' ? item.metadata.adminReply : null;
++  const repliedByName = typeof item.metadata.repliedByName === 'string' ? item.metadata.repliedByName : null;
++  const repliedAt = typeof item.metadata.repliedAt === 'string' ? item.metadata.repliedAt : null;
++
++  return {
++    id: item.id,
++    tipe: 'aspirasi',
++    tanggal: createdDate,
++    status: status === 'RESOLVED' ? 'Selesai' : status === 'REVIEWED' ? 'Ditanggapi' : 'Terkirim',
++    statusColor: status === 'RESOLVED' ? 'green' : 'amber',
++    judul: item.title,
++    deskripsi: item.description,
++    detail: {
++      jenis: item.metadata.category === 'keluhan' ? 'keluhan' : 'masukan',
++      pelapor: String(item.metadata.pelapor || '-'),
++      tanggal: createdDate,
++      uraian: item.description,
++      status,
++      tanggapanAdmin: adminReply,
++      ditanggapiOleh: repliedByName,
++      tanggalTanggapan: repliedAt,
++    },
++  };
++}
++
+ function DetailContent({ item }: { item: HistoryItem }) {
+   const rows: Array<{ label: string; value: string }> = [];
+   let notes = '-';
++
+   if (item.tipe === 'bansos') {
+     const detail = item.detail as BansosResult;
+     rows.push(
+@@ -128,55 +215,44 @@ function DetailContent({ item }: { item: HistoryItem }) {
+     notes = detail.uraian || '-';
+   }
+ 
++  const aspirationDetail = item.tipe === 'aspirasi' ? (item.detail as AspirasiResult) : null;
++
+   return (
+     <div className="space-y-3">
+       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+         {rows.map((row) => (
+-          <div
+-            key={row.label}
+-            className="rounded-2xl border border-input bg-background px-3 py-2.5"
+-          >
+-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+-              {row.label}
+-            </p>
+-            <p className="mt-1 break-words text-sm font-semibold leading-snug text-foreground">
+-              {row.value}
+-            </p>
++          <div key={row.label} className="rounded-2xl border border-input bg-background px-3 py-2.5">
++            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{row.label}</p>
++            <p className="mt-1 break-words text-sm font-semibold leading-snug text-foreground">{row.value}</p>
+           </div>
+         ))}
+       </div>
+ 
+-      {/* Keterangan ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ biru muda */}
+       <div className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2.5">
+         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-blue-500">
+           {item.tipe === 'permohonan' ? 'Ringkasan' : 'Keterangan'}
+         </p>
+-        <p className="mt-1 text-sm leading-relaxed text-blue-700">
+-          {notes}
+-        </p>
++        <p className="mt-1 text-sm leading-relaxed text-blue-700">{notes}</p>
+       </div>
+ 
+       {item.tipe === 'aspirasi' ? (
+-        /* Tanggapan Admin ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ hijau muda */
+         <div className="rounded-2xl border border-green-200 bg-green-50 px-3 py-2.5">
+-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-green-600">
+-            Tanggapan Admin
+-          </p>
++          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-green-600">Tanggapan Admin</p>
+           <p className="mt-1 text-sm leading-relaxed text-green-700">
+-            {(item.detail as AspirasiResult).tanggapanAdmin || 'Belum ada tanggapan admin.'}
++            {aspirationDetail?.tanggapanAdmin || 'Belum ada tanggapan admin.'}
+           </p>
+-          {(item.detail as AspirasiResult).ditanggapiOleh ? (
++          {aspirationDetail?.ditanggapiOleh ? (
+             <p className="mt-2 text-xs font-medium text-green-800">
+-              {(item.detail as AspirasiResult).ditanggapiOleh}
+-              {(item.detail as AspirasiResult).tanggalTanggapan
+-                ? ` ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó ${new Date((item.detail as AspirasiResult).tanggalTanggapan as string).toLocaleDateString('id-ID')}`
++              {aspirationDetail.ditanggapiOleh}
++              {aspirationDetail.tanggalTanggapan
++                ? ` ┬╖ ${new Date(aspirationDetail.tanggalTanggapan as string).toLocaleDateString('id-ID')}`
+                 : ''}
+             </p>
+           ) : null}
+         </div>
+       ) : null}
+ 
+-      {item.tipe === 'permohonan' && item.detail && (item.detail as PermohonanResult).status === 'REJECTED' && (item.detail as PermohonanResult).alasanPenolakan ? (
++      {item.tipe === 'permohonan' && (item.detail as PermohonanResult).status === 'REJECTED' && (item.detail as PermohonanResult).alasanPenolakan ? (
+         <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5">
+           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-red-600">Alasan Penolakan</p>
+           <p className="mt-1 text-sm leading-relaxed text-red-700">{(item.detail as PermohonanResult).alasanPenolakan}</p>
+@@ -186,263 +262,35 @@ function DetailContent({ item }: { item: HistoryItem }) {
+   );
+ }
+ 
+-export default function HistoryClient({
+-  fallbackItems = [],
+-}: {
+-  fallbackItems?: HistoryItem[];
+-}) {
++export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: HistoryItem[] }) {
+   const [activeTab, setActiveTab] = useState(0);
+   const [expandedId, setExpandedId] = useState<string | null>(null);
+-  const [items, setItems] = useState<HistoryItem[]>(() => {
+-    try {
+-      const stored = safeParseHistory(localStorage.getItem(STORAGE_KEY));
+-      return stored.length > 0 ? stored : fallbackItems;
+-    } catch {
+-      return fallbackItems;
+-    }
+-  });
++  const [items, setItems] = useState<HistoryItem[]>(fallbackItems);
+ 
+   useEffect(() => {
+-    let mounted = true;
+-
+-    const mapHistoryItem = (item: HistoryApiItem): HistoryItem => {
+-      const createdDate = new Date(item.createdAt).toLocaleDateString('id-ID', {
+-        day: '2-digit',
+-        month: 'long',
+-        year: 'numeric',
+-      });
+-
+-      if (item.type === 'BANSOS_CHECK') {
+-        const eligible = Boolean(item.metadata.eligible);
+-        return {
+-          id: item.id,
+-          tipe: 'bansos',
+-          tanggal: createdDate,
+-          status: eligible ? 'Aktif' : 'Tidak Layak',
+-          statusColor: eligible ? 'green' : 'red',
+-          judul: item.title,
+-          deskripsi: item.description,
+-          detail: {
+-            status: eligible ? 'aktif' : 'tidak_layak',
+-            nama: String(item.metadata.nama || '-'),
+-            nik: String(item.metadata.nik || '-'),
+-            program: 'PKH',
+-            dtks: new Date(item.createdAt).getFullYear().toString(),
+-            keterangan: item.description,
+-          },
+-        };
+-      }
+-
+-      if (item.type === 'PEMILU_CHECK') {
+-        const registered = Boolean(item.metadata.registered);
+-        return {
+-          id: item.id,
+-          tipe: 'pemilu',
+-          tanggal: createdDate,
+-          status: registered ? 'Terdaftar' : 'Tidak Terdaftar',
+-          statusColor: registered ? 'green' : 'red',
+-          judul: item.title,
+-          deskripsi: item.description,
+-          detail: {
+-            status: registered ? 'terdaftar' : 'tidak_terdaftar',
+-            nama: String(item.metadata.nama || '-'),
+-            nik: String(item.metadata.nik || '-'),
+-            dptTahun: new Date(item.createdAt).getFullYear().toString(),
+-            tps: item.metadata.tps ? String(item.metadata.tps) : undefined,
+-            keterangan: item.description,
+-          },
+-        };
+-      }
+-
+-      if (item.type === 'REQUEST' || item.type === 'MUTATION') {
+-        const reqType = item.type === 'MUTATION' ? (item.metadata.type === 'MUTATION_IN' ? 'MUTATION_IN' : 'MUTATION_OUT') : 'HOUSEHOLD_CREATE';
+-        const reqStatus = String(item.metadata.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
+-        return {
+-          id: item.id,
+-          tipe: 'permohonan',
+-          tanggal: createdDate,
+-          status: reqStatus === 'APPROVED' ? 'Disetujui' : reqStatus === 'REJECTED' ? 'Ditolak' : 'Menunggu',
+-          statusColor: reqStatus === 'APPROVED' ? 'green' : reqStatus === 'REJECTED' ? 'red' : 'amber',
+-          judul: item.title,
+-          deskripsi: item.description,
+-          detail: {
+-            jenis: reqType as any,
+-            tanggal: createdDate,
+-            status: reqStatus,
+-            ringkasan: item.description,
+-            requestId: item.id,
+-            alasanPenolakan: typeof item.metadata.rejectionReason === 'string' ? item.metadata.rejectionReason : null,
+-          }
+-        };
+-      }
+-
+-      const status = String(item.metadata.status || 'SUBMITTED') as 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
+-      const adminReply = typeof item.metadata.adminReply === 'string' ? item.metadata.adminReply : null;
+-      const repliedByName = typeof item.metadata.repliedByName === 'string' ? item.metadata.repliedByName : null;
+-      const repliedAt = typeof item.metadata.repliedAt === 'string' ? item.metadata.repliedAt : null;
+-
+-      return {
+-        id: item.id,
+-        tipe: 'aspirasi',
+-        tanggal: createdDate,
+-        status:
+-          status === 'RESOLVED'
+-            ? 'Selesai'
+-            : status === 'REVIEWED'
+-              ? 'Ditanggapi'
+-              : 'Terkirim',
+-        statusColor:
+-          status === 'RESOLVED'
+-            ? 'green'
+-            : status === 'REVIEWED'
+-              ? 'amber'
+-              : 'amber',
+-        judul: item.title,
+-        deskripsi: item.description,
+-        detail: {
+-          jenis: item.metadata.category === 'keluhan' ? 'keluhan' : 'masukan',
+-          pelapor: String(item.metadata.pelapor || '-'),
+-          tanggal: createdDate,
+-          uraian: item.description,
+-          status,
+-          tanggapanAdmin: adminReply,
+-          ditanggapiOleh: repliedByName,
+-          tanggalTanggapan: repliedAt,
+-        },
+-      };
+-    };
++    const stored = safeParseHistory(localStorage.getItem(STORAGE_KEY));
++    if (stored.length > 0) setItems(stored);
++  }, []);
+ 
++  useEffect(() => {
++    let mounted = true;
+     platformFetch<HistoryApiItem[]>('/history?page=1&limit=20')
+       .then(({ data }) => {
+         if (!mounted) return;
+-        const mapped: HistoryItem[] = data.map(mapHistoryItem);
++        const mapped = data.map(mapHistoryItem);
+         setItems(mapped);
+         localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+       })
+-      .catch(() => {
+-        if (!mounted) return;
+-      });
+-
+-    return () => {
+-      mounted = false;
+-    };
++      .catch(() => {});
++    return () => { mounted = false; };
+   }, []);
+ 
+   useAutoRefresh(async () => {
+-    const response = await platformFetch<HistoryApiItem[]>('/history?page=1&limit=20');
+-
+-    const mapped: HistoryItem[] = response.data.map((item) => {
+-      const createdDate = new Date(item.createdAt).toLocaleDateString('id-ID', {
+-        day: '2-digit',
+-        month: 'long',
+-        year: 'numeric',
+-      });
+-
+-      if (item.type === 'BANSOS_CHECK') {
+-        const eligible = Boolean(item.metadata.eligible);
+-        return {
+-          id: item.id,
+-          tipe: 'bansos' as const,
+-          tanggal: createdDate,
+-          status: eligible ? 'Aktif' : 'Tidak Layak',
+-          statusColor: eligible ? 'green' as const : 'red' as const,
+-          judul: item.title,
+-          deskripsi: item.description,
+-          detail: {
+-            status: eligible ? 'aktif' : 'tidak_layak',
+-            nama: String(item.metadata.nama || '-'),
+-            nik: String(item.metadata.nik || '-'),
+-            program: 'PKH' as const,
+-            dtks: new Date(item.createdAt).getFullYear().toString(),
+-            keterangan: item.description,
+-          },
+-        };
+-      }
+-
+-      if (item.type === 'PEMILU_CHECK') {
+-        const registered = Boolean(item.metadata.registered);
+-        return {
+-          id: item.id,
+-          tipe: 'pemilu' as const,
+-          tanggal: createdDate,
+-          status: registered ? 'Terdaftar' : 'Tidak Terdaftar',
+-          statusColor: registered ? 'green' as const : 'red' as const,
+-          judul: item.title,
+-          deskripsi: item.description,
+-          detail: {
+-            status: registered ? 'terdaftar' : 'tidak_terdaftar',
+-            nama: String(item.metadata.nama || '-'),
+-            nik: String(item.metadata.nik || '-'),
+-            dptTahun: new Date(item.createdAt).getFullYear().toString(),
+-            tps: item.metadata.tps ? String(item.metadata.tps) : undefined,
+-            keterangan: item.description,
+-          },
+-        };
+-      }
+-
+-      if (item.type === 'REQUEST' || item.type === 'MUTATION') {
+-        const reqType = item.type === 'MUTATION' ? (item.metadata.type === 'MUTATION_IN' ? 'MUTATION_IN' : 'MUTATION_OUT') : 'HOUSEHOLD_CREATE';
+-        const reqStatus = String(item.metadata.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
+-        return {
+-          id: item.id,
+-          tipe: 'permohonan' as const,
+-          tanggal: createdDate,
+-          status: reqStatus === 'APPROVED' ? 'Disetujui' : reqStatus === 'REJECTED' ? 'Ditolak' : 'Menunggu',
+-          statusColor: reqStatus === 'APPROVED' ? 'green' as const : reqStatus === 'REJECTED' ? 'red' as const : 'amber' as const,
+-          judul: item.title,
+-          deskripsi: item.description,
+-          detail: {
+-            jenis: reqType as any,
+-            tanggal: createdDate,
+-            status: reqStatus,
+-            ringkasan: item.description,
+-            requestId: item.id,
+-            alasanPenolakan: typeof item.metadata.rejectionReason === 'string' ? item.metadata.rejectionReason : null,
+-          }
+-        };
+-      }
+-
+-      const status = String(item.metadata.status || 'SUBMITTED') as 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
+-      const adminReply = typeof item.metadata.adminReply === 'string' ? item.metadata.adminReply : null;
+-      const repliedByName = typeof item.metadata.repliedByName === 'string' ? item.metadata.repliedByName : null;
+-      const repliedAt = typeof item.metadata.repliedAt === 'string' ? item.metadata.repliedAt : null;
+-
+-      return {
+-        id: item.id,
+-        tipe: 'aspirasi' as const,
+-        tanggal: createdDate,
+-        status:
+-          status === 'RESOLVED'
+-            ? 'Selesai'
+-            : status === 'REVIEWED'
+-              ? 'Ditanggapi'
+-              : 'Terkirim',
+-        statusColor:
+-          status === 'RESOLVED'
+-            ? 'green' as const
+-            : status === 'REVIEWED'
+-              ? 'amber' as const
+-              : 'amber' as const,
+-        judul: item.title,
+-        deskripsi: item.description,
+-        detail: {
+-          jenis: item.metadata.category === 'keluhan' ? 'keluhan' : 'masukan',
+-          pelapor: String(item.metadata.pelapor || '-'),
+-          tanggal: createdDate,
+-          uraian: item.description,
+-          status,
+-          tanggapanAdmin: adminReply,
+-          ditanggapiOleh: repliedByName,
+-          tanggalTanggapan: repliedAt,
+-        },
+-      };
+-    });
+-
++    const { data } = await platformFetch<HistoryApiItem[]>('/history?page=1&limit=20');
++    const mapped = data.map(mapHistoryItem);
+     setItems(mapped);
+     localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+-  }, {
+-    intervalMs: 10000,
+-  });
++  }, { intervalMs: 10000 });
+ 
+   const filteredItems = useMemo(() => {
+     const selectedTipe = tabToTipe(TABS[activeTab]);
+@@ -473,26 +321,26 @@ export default function HistoryClient({
+         }
+       />
+ 
+-      <WargaPageBody className="flex flex-col gap-5">
+-        <TabBar
+-          tabs={[...TABS]}
+-          activeTab={activeTab}
+-          onTabChange={setActiveTab}
+-          className="sticky top-0 z-10 mx-auto w-fit max-w-full rounded-2xl bg-white/80 px-2 py-2 shadow-sm backdrop-blur-md"
+-        />
++      <WargaPageBody className="flex flex-col gap-3 pb-6">
++        {/* TabBar wrapper ΓÇö full bleed sticky dengan background */}
++        <div className="sticky top-0 z-10 -mx-5 bg-background px-5 py-2 shadow-[0_1px_0_0_#e5e7eb]">
++          <TabBar
++            tabs={[...TABS]}
++            activeTab={activeTab}
++            onTabChange={setActiveTab}
++          />
++        </div>
+ 
+-        <div className="flex flex-col gap-4">
++        {/* Konten list */}
++        <div className="flex flex-col gap-3 pt-1">
+           {filteredItems.length === 0 ? (
+             <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-input p-10 text-center">
+               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                 <Inbox className="h-6 w-6 text-muted-foreground/60" />
+               </div>
+-              <p className="text-sm font-semibold text-foreground">
+-                Belum Ada Riwayat
+-              </p>
++              <p className="text-sm font-semibold text-foreground">Belum Ada Riwayat</p>
+               <p className="mt-1 max-w-[200px] text-xs text-muted-foreground">
+-                Anda belum melakukan pengecekan atau mengirim laporan untuk
+-                kategori ini.
++                Anda belum melakukan pengecekan atau mengirim laporan untuk kategori ini.
+               </p>
+             </div>
+           ) : (
+@@ -505,9 +353,7 @@ export default function HistoryClient({
+                 status={item.status}
+                 statusColor={item.statusColor}
+                 isExpanded={expandedId === item.id}
+-                onClick={() =>
+-                  setExpandedId(expandedId === item.id ? null : item.id)
+-                }
++                onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+               >
+                 <DetailContent item={item} />
+               </HistoryCard>
+@@ -517,4 +363,4 @@ export default function HistoryClient({
+       </WargaPageBody>
+     </WargaPage>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/warga/(main)/layanan/page.tsx b/apps/web/app/(app)/warga/(main)/layanan/page.tsx
+index f1dc831..2b447cd 100644
+--- a/apps/web/app/(app)/warga/(main)/layanan/page.tsx
++++ b/apps/web/app/(app)/warga/(main)/layanan/page.tsx
+@@ -188,6 +188,7 @@ export default function WargaLayananPage() {
+         title="Layanan RT"
+         description="Ajukan permohonan dan pantau status review admin."
+         variant="brand"
++        brandImageSrc="/Pharmindo25_BW.png"
+         className="pb-7"
+         titleClassName="text-xl"
+         rightSlot={
+diff --git a/apps/web/app/(app)/warga/(main)/page.tsx b/apps/web/app/(app)/warga/(main)/page.tsx
+index bb3798c..017e8c4 100644
+--- a/apps/web/app/(app)/warga/(main)/page.tsx
++++ b/apps/web/app/(app)/warga/(main)/page.tsx
+@@ -752,6 +752,7 @@ export default function WargaHomePage() {
+       <PageHeader
+         title="Beranda Warga"
+         variant="brand"
++        brandImageSrc="/Pharmindo25_BW.png"
+         className="pb-7"
+         rightSlot={
+           <>
+diff --git a/apps/web/app/(app)/warga/(main)/settings/page.tsx b/apps/web/app/(app)/warga/(main)/settings/page.tsx
+index 9542e1c..cea75d9 100644
+--- a/apps/web/app/(app)/warga/(main)/settings/page.tsx
++++ b/apps/web/app/(app)/warga/(main)/settings/page.tsx
+@@ -204,6 +204,7 @@ export default function SettingsPage() {
+       <PageHeader
+         title={t.title}
+         variant="brand"
++        brandImageSrc="/Pharmindo25_BW.png"
+         className="pb-7"
+         leftSlot={
+           <Button
+@@ -429,6 +430,7 @@ export default function SettingsPage() {
+         <div className="flex flex-col p-6 text-left gap-4">
+           <PortalBrand
+             imageSize={64}
++            imageSrc="/Pharmindo25_BW.png"
+             textClassName="text-lg font-bold text-foreground"
+             subtitle="Versi 1.0.0"
+             subtitleClassName="text-sm text-muted-foreground"
+@@ -440,7 +442,7 @@ export default function SettingsPage() {
+           <div className="space-y-1 text-sm text-muted-foreground">
+             <p><strong>Versi:</strong> 1.0.0 (Build 2026.04)</p>
+             <div>
+-              <p><strong>Dikembangkan oleh:</strong> Tim ABDIMAS ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Telkom University</p>
++              <p><strong>Dikembangkan oleh:</strong> Tim ABDIMAS ΓÇö Telkom University</p>
+               <ol className="list-decimal list-inside ml-2 mt-1 space-y-0.5 text-xs">
+                 <li>Raenaldi Ardiansyah Sidik - Front End Developer</li>
+                 <li>Faiq Haqqani - UI/UX Designer</li>
+diff --git a/apps/web/components/admin/AdminSidebar.tsx b/apps/web/components/admin/AdminSidebar.tsx
+index 7e474c5..4722964 100644
+--- a/apps/web/components/admin/AdminSidebar.tsx
++++ b/apps/web/components/admin/AdminSidebar.tsx
+@@ -74,7 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
+ 
+ const SYSTEM_NAV: NavItem[] = [
+   { href: '/admin/hak-akses', label: 'Kelola Hak Akses', icon: IdCard },
+-  { href: '/admin/settings', label: 'Settings', icon: Settings },
++  { href: '/admin/settings', label: 'Pengaturan', icon: Settings },
+ ];
+ 
+ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?: boolean; mobile?: boolean }) {
+@@ -202,7 +202,7 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
+           )}
+         >
+           <LogOut className="h-5 w-5 shrink-0" />
+-          {(!isCollapsed || mobile) && <span>Logout</span>}
++          {(!isCollapsed || mobile) && <span>Keluar</span>}
+         </Button>
+       </div>
+     </nav>
+diff --git a/apps/web/components/admin/AdminTopbar.tsx b/apps/web/components/admin/AdminTopbar.tsx
+index f14d9e5..c60ffe4 100644
+--- a/apps/web/components/admin/AdminTopbar.tsx
++++ b/apps/web/components/admin/AdminTopbar.tsx
+@@ -40,6 +40,11 @@ const TITLE_MAP: Record<string, string> = {
+   '/admin/hak-akses': 'Kelola Hak Akses',
+   '/admin/hak-akses/tambah': 'Kelola Hak Akses > Tambah Pengguna',
+   '/admin/settings': 'Pengaturan',
++  '/admin/bansos': 'Bansos',
++  '/admin/bansos/tambah': 'Bansos > Tambah Bansos',
++  '/admin/pemilu': 'Pemilu',
++  '/admin/pemilu/tambah': 'Pemilu > Tambah Pemilu',
++  '/admin/rapot-rw': 'Rapot RW',
+ };
+ 
+ type NotifStatus = 'default' | 'granted' | 'denied' | 'unsupported';
+@@ -157,7 +162,7 @@ export default function AdminTopbar() {
+     }
+ 
+     if (Notification.permission === 'granted') {
+-      // Already granted ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ show a test notification
++      // Already granted - show a test notification
+       new Notification('Portal RW 25', {
+         body: 'Notifikasi sudah aktif! Anda akan menerima pemberitahuan penting.',
+         icon: '/favicon.ico',
+@@ -168,7 +173,7 @@ export default function AdminTopbar() {
+     if (Notification.permission === 'denied') {
+       setNotifStatus('denied');
+       alert(
+-        'Anda telah memblokir izin notifikasi. Silakan klik ikon gembok ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬░├â╞Æ├óΓé¼┬ª├âΓÇÜ├é┬╕├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├â┬ó├óΓé¼┼╛├é┬ó di samping URL browser Anda, lalu izinkan "Notifications" untuk website ini.'
++        'Anda telah memblokir izin notifikasi. Silakan klik ikon gembok di samping URL browser Anda, lalu izinkan "Notifications" untuk website ini.'
+       );
+       return;
+     }
+@@ -271,6 +276,13 @@ export default function AdminTopbar() {
+                     'Data Penduduk RW': '/admin/data-penduduk',
+                     'Riwayat Mutasi Penduduk': '/admin/mutasi',
+                     'Kelola Hak Akses': '/admin/hak-akses',
++                    'Permohonan Penduduk': '/admin/permohonan',
++                    'Verifikasi Warga': '/admin/verification',
++                    'Aduan Warga': '/admin/laporan',
++                    'Kegiatan RW': '/admin/kegiatan',
++                    'Bansos': '/admin/bansos',
++                    'Pemilu': '/admin/pemilu',
++                    'Rapot RW': '/admin/rapot-rw',
+                   };
+ 
+                   return parts.map((part, index) => {
+@@ -308,7 +320,7 @@ export default function AdminTopbar() {
+             title={
+               !notifActive
+                 ? notifStatus === 'denied'
+-                  ? 'Notifikasi diblokir ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ aktifkan di pengaturan browser'
++                  ? 'Notifikasi diblokir - aktifkan di pengaturan browser'
+                   : 'Aktifkan notifikasi'
+                 : 'Notifikasi aktif'
+             }
+@@ -383,32 +395,32 @@ export default function AdminTopbar() {
+               </h4>
+               <ul className="space-y-2 text-[color:var(--admin-subtle)]">
+                 <li className="flex gap-2">
+-                  <span className="shrink-0">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
+-                  <span><strong className="text-[color:var(--admin-body)]">Dashboard</strong> ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Ringkasan statistik warga, keluarga, dan mutasi penduduk secara real-time.</span>
++                  <span className="shrink-0">ΓÇó</span>
++                  <span><strong className="text-[color:var(--admin-body)]">Dashboard</strong> ΓÇö Ringkasan statistik warga, keluarga, dan mutasi penduduk secara real-time.</span>
+                 </li>
+                 <li className="flex gap-2">
+-                  <span className="shrink-0">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
+-                  <span><strong className="text-[color:var(--admin-body)]">Data Penduduk</strong> ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Tambah, edit, dan kelola seluruh data warga RW.</span>
++                  <span className="shrink-0">ΓÇó</span>
++                  <span><strong className="text-[color:var(--admin-body)]">Data Penduduk</strong> ΓÇö Tambah, edit, dan kelola seluruh data warga RW.</span>
+                 </li>
+                 <li className="flex gap-2">
+-                  <span className="shrink-0">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
+-                  <span><strong className="text-[color:var(--admin-body)]">Kartu Keluarga</strong> ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Kelola data KK beserta anggota keluarga.</span>
++                  <span className="shrink-0">ΓÇó</span>
++                  <span><strong className="text-[color:var(--admin-body)]">Kartu Keluarga</strong> ΓÇö Kelola data KK beserta anggota keluarga.</span>
+                 </li>
+                 <li className="flex gap-2">
+-                  <span className="shrink-0">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
+-                  <span><strong className="text-[color:var(--admin-body)]">Mutasi Penduduk</strong> ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Catat perpindahan masuk dan keluar warga.</span>
++                  <span className="shrink-0">ΓÇó</span>
++                  <span><strong className="text-[color:var(--admin-body)]">Mutasi Penduduk</strong> ΓÇö Catat perpindahan masuk dan keluar warga.</span>
+                 </li>
+                 <li className="flex gap-2">
+-                  <span className="shrink-0">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
+-                  <span><strong className="text-[color:var(--admin-body)]">Permohonan</strong> ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Terima dan proses permohonan dari warga.</span>
++                  <span className="shrink-0">ΓÇó</span>
++                  <span><strong className="text-[color:var(--admin-body)]">Permohonan</strong> ΓÇö Terima dan proses permohonan dari warga.</span>
+                 </li>
+                 <li className="flex gap-2">
+-                  <span className="shrink-0">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
+-                  <span><strong className="text-[color:var(--admin-body)]">Kegiatan RW</strong> ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Jadwalkan dan kelola kegiatan warga.</span>
++                  <span className="shrink-0">ΓÇó</span>
++                  <span><strong className="text-[color:var(--admin-body)]">Kegiatan RW</strong> ΓÇö Jadwalkan dan kelola kegiatan warga.</span>
+                 </li>
+                 <li className="flex gap-2">
+-                  <span className="shrink-0">├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├óΓé¼┼í├âΓÇÜ├é┬ó</span>
+-                  <span><strong className="text-[color:var(--admin-body)]">Laporan</strong> ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Ekspor data dan statistik dalam berbagai format.</span>
++                  <span className="shrink-0">ΓÇó</span>
++                  <span><strong className="text-[color:var(--admin-body)]">Laporan</strong> ΓÇö Ekspor data dan statistik dalam berbagai format.</span>
+                 </li>
+               </ul>
+             </div>
+@@ -437,7 +449,7 @@ export default function AdminTopbar() {
+               <div className="space-y-1 text-xs text-[color:var(--admin-subtle)]">
+                 <p><strong>Versi:</strong> 1.0.0 (Build 2026.04)</p>
+                 <div>
+-                  <p><strong>Dikembangkan oleh:</strong> Tim ABDIMAS ├â╞Æ├åΓÇÖ├âΓÇÜ├é┬ó├â╞Æ├é┬ó├â┬ó├óΓÇÜ┬¼├à┬í├âΓÇÜ├é┬¼├â╞Æ├é┬ó├â┬ó├óΓé¼┼í├é┬¼├âΓÇÜ├é┬¥ Telkom University</p>
++                  <p><strong>Dikembangkan oleh:</strong> Tim ABDIMAS ΓÇö Telkom University</p>
+                   <ol className="list-decimal list-inside ml-2 mt-1 space-y-0.5">
+                     <li>Raenaldi Ardiansyah Sidik - Front End Developer</li>
+                     <li>Faiq Haqqani - UI/UX Designer</li>
+diff --git a/apps/web/components/ui/page-header.tsx b/apps/web/components/ui/page-header.tsx
+index 375e5fe..8d3f10d 100644
+--- a/apps/web/components/ui/page-header.tsx
++++ b/apps/web/components/ui/page-header.tsx
+@@ -13,6 +13,7 @@ interface PageHeaderProps {
+   rightSlot?: ReactNode;
+   bottomSlot?: ReactNode;
+   variant?: PageHeaderVariant;
++  brandImageSrc?: string;
+   className?: string;
+   contentClassName?: string;
+   titleClassName?: string;
+@@ -28,6 +29,7 @@ export default function PageHeader({
+   rightSlot,
+   bottomSlot,
+   variant = "default",
++  brandImageSrc,
+   className,
+   contentClassName,
+   titleClassName,
+@@ -59,8 +61,9 @@ export default function PageHeader({
+           {eyebrow === "Portal RW 25 Pharmindo" ? (
+             <PortalBrand
+               className="gap-1.5"
+-              imageSize={14}
+-              imageClassName="h-3.5 w-3.5"
++              imageSize={20}
++              imageClassName="h-5 w-5"
++              imageSrc={brandImageSrc}
+               textClassName={cn(
+                 "text-[10px] font-semibold",
+                 isBrand ? "text-primary-foreground/70" : "text-muted-foreground",
+diff --git a/apps/web/components/ui/portal-brand.tsx b/apps/web/components/ui/portal-brand.tsx
+index 55b39e0..4d948ee 100644
+--- a/apps/web/components/ui/portal-brand.tsx
++++ b/apps/web/components/ui/portal-brand.tsx
+@@ -11,6 +11,7 @@ type PortalBrandProps = {
+   subtitleClassName?: string;
+   imageClassName?: string;
+   imageSize?: number;
++  imageSrc?: string;
+ };
+ 
+ export default function PortalBrand({
+@@ -20,6 +21,7 @@ export default function PortalBrand({
+   subtitleClassName,
+   imageClassName,
+   imageSize = 32,
++  imageSrc = "/pharmindo25.png",
+ }: PortalBrandProps) {
+   return (
+     <div className={cn("flex items-center gap-3", className)}>
+@@ -28,7 +30,7 @@ export default function PortalBrand({
+         style={{ width: imageSize, height: imageSize, minWidth: imageSize, minHeight: imageSize }}
+       >
+         <Image
+-          src="/pharmindo25.png"
++          src={imageSrc}
+           alt="Portal RW 25 Pharmindo"
+           fill
+           sizes={`${imageSize}px`}
+diff --git a/apps/web/components/warga/ProfileHeader.tsx b/apps/web/components/warga/ProfileHeader.tsx
+index 3bf8b90..bb06ffa 100644
+--- a/apps/web/components/warga/ProfileHeader.tsx
++++ b/apps/web/components/warga/ProfileHeader.tsx
+@@ -54,8 +54,9 @@ export default function ProfileHeader({ nama, nik, isDark, onToggleDark, statusB
+         <div className="flex flex-col">
+           <PortalBrand
+             className="gap-1.5"
+-            imageSize={14}
+-            imageClassName="h-3.5 w-3.5"
++            imageSize={20}
++            imageClassName="h-5 w-5"
++            imageSrc="/Pharmindo25_BW.png"
+             textClassName="text-[10px] font-semibold text-muted-foreground"
+           />
+           <div className="flex items-center gap-2 mt-0.5">
+diff --git a/apps/web/components/warga/TabBar.tsx b/apps/web/components/warga/TabBar.tsx
+index 1059de5..1407865 100644
+--- a/apps/web/components/warga/TabBar.tsx
++++ b/apps/web/components/warga/TabBar.tsx
+@@ -1,6 +1,7 @@
+ 'use client';
+ 
+-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
++import { useEffect, useRef } from 'react';
++import { cn } from '@/lib/utils';
+ 
+ interface TabBarProps {
+   tabs: string[];
+@@ -10,21 +11,58 @@ interface TabBarProps {
+ }
+ 
+ export default function TabBar({ tabs, activeTab, onTabChange, className }: TabBarProps) {
+-  const currentTab = tabs[activeTab] ?? tabs[0];
++  const scrollRef = useRef<HTMLDivElement>(null);
++  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
++
++  useEffect(() => {
++    const el = buttonRefs.current[activeTab];
++    const container = scrollRef.current;
++    if (!el || !container) return;
++    const elLeft = el.offsetLeft;
++    const elWidth = el.offsetWidth;
++    const containerWidth = container.offsetWidth;
++    container.scrollTo({
++      left: elLeft - containerWidth / 2 + elWidth / 2,
++      behavior: 'smooth',
++    });
++  }, [activeTab]);
+ 
+   return (
+-    <Tabs value={currentTab} onValueChange={(value) => onTabChange(tabs.findIndex((tab) => tab === value))} className={className}>
+-      <TabsList className="h-auto w-full gap-1.5 rounded-2xl border border-input bg-card p-1.5">
+-        {tabs.map((tab) => (
+-          <TabsTrigger
+-            key={tab}
+-            value={tab}
+-            className="flex-1 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-bold text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:text-primary"
+-          >
+-            {tab}
+-          </TabsTrigger>
+-        ))}
+-      </TabsList>
+-    </Tabs>
++    <div className={cn('relative w-full', className)}>
++      {/* Container rounded */}
++      <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-1.5 shadow-sm">
++        {/* Scroll area */}
++        <div
++          ref={scrollRef}
++          className="flex items-center gap-1 overflow-x-auto scrollbar-none"
++          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
++        >
++          {tabs.map((tab, index) => (
++            <button
++              key={tab}
++              ref={(el) => { buttonRefs.current[index] = el; }}
++              type="button"
++              onClick={() => onTabChange(index)}
++              className={cn(
++                'shrink-0 rounded-xl py-2 px-3.5 text-[13px] font-medium text-center whitespace-nowrap transition-all duration-150',
++                index === activeTab
++                  ? 'border border-[#3B82F6] bg-white text-[#1D4ED8] font-semibold shadow-sm'
++                  : 'border border-transparent text-[#64748B] hover:text-[#374151]',
++              )}
++            >
++              {tab}
++            </button>
++          ))}
++        </div>
++      </div>
++
++      {/* Glass fade hint kanan */}
++      <div
++        className="pointer-events-none absolute right-0 top-0 h-full w-10 rounded-r-2xl"
++        style={{
++          background: 'linear-gradient(to right, transparent, rgba(248,250,252,0.92))',
++        }}
++      />
++    </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/apps/web/next-env.d.ts b/apps/web/next-env.d.ts
+index 3a636e0..cb4c1e3 100644
+--- a/apps/web/next-env.d.ts
++++ b/apps/web/next-env.d.ts
+@@ -1,6 +1,6 @@
+ /// <reference types="next" />
+ /// <reference types="next/image-types/global" />
+-import "./.next/types/routes.d.ts";
++import "./.next/dev/types/routes.d.ts";
+ 
+ // NOTE: This file should not be edited
+ // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.

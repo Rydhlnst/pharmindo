@@ -11,6 +11,7 @@ type PortalBrandProps = {
   subtitleClassName?: string;
   imageClassName?: string;
   imageSize?: number;
+  imageSrc?: string;
 };
 
 export default function PortalBrand({
@@ -20,6 +21,7 @@ export default function PortalBrand({
   subtitleClassName,
   imageClassName,
   imageSize = 32,
+  imageSrc = "/pharmindo25.png",
 }: PortalBrandProps) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
@@ -28,7 +30,7 @@ export default function PortalBrand({
         style={{ width: imageSize, height: imageSize, minWidth: imageSize, minHeight: imageSize }}
       >
         <Image
-          src="/pharmindo25.png"
+          src={imageSrc}
           alt="Portal RW 25 Pharmindo"
           fill
           sizes={`${imageSize}px`}

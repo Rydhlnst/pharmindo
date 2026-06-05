@@ -752,6 +752,7 @@ export default function WargaHomePage() {
       <PageHeader
         title="Beranda Warga"
         variant="brand"
+        brandImageSrc="/Pharmindo25_BW.png"
         className="pb-7"
         rightSlot={
           <>

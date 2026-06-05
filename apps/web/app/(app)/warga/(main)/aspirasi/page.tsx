@@ -85,6 +85,7 @@ export default function WargaAspirasiPage() {
       <PageHeader
         title="Aspirasi Warga"
         description="Pantau status aspirasi dan tanggapan admin."
+        brandImageSrc="/Pharmindo25_BW.png"
         variant="brand"
         className="pb-7"
         titleClassName="text-xl"

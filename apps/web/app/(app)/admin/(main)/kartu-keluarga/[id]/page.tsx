@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { UserPlus, PencilSimple as Pencil, Trash as Trash2, FileText, ArrowLeft, DownloadSimple as Download, UserPlus as UserPlus2 } from '@phosphor-icons/react';
+import { PencilSimple as Pencil, Trash as Trash2, FileText, DownloadSimple as Download, UserPlus as UserPlus2 } from '@phosphor-icons/react';
 
 import {
   AlertDialog,
@@ -66,13 +66,13 @@ type HouseholdAuditLog = {
 
 function getRelationshipBadge(rel: string) {
   const normalized = rel.toLowerCase();
-  if (normalized.includes('kepala keluarga') || normalized.includes('anak laki-laki') || normalized.includes('anak laki laki')) {
+  if (normalized.includes('head_of_family') || normalized.includes('kepala keluarga') || normalized.includes('anak laki-laki') || normalized.includes('anak laki laki')) {
     return 'bg-[#EEF2FF] text-[#3B82F6]';
   }
-  if (normalized.includes('istri')) {
+  if (normalized.includes('spouse') || normalized.includes('istri') || normalized.includes('suami')) {
     return 'bg-pink-50 text-pink-500';
   }
-  if (normalized.includes('anak perempuan')) {
+  if (normalized.includes('child') || normalized.includes('anak perempuan')) {
     return 'bg-purple-50 text-purple-600';
   }
   return 'bg-[#EEF2FF] text-[#3B82F6]';

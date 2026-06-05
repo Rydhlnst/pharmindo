@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { History, Inbox, ShieldCheck, Vote, MessageSquareText, FileText } from 'lucide-react';
+import { History, Inbox } from 'lucide-react';
 
-import type { AspirasiResult, BansosResult, HistoryItem, PemiluResult, PermohonanResult } from '@/types/warga';
+import type { AspirasiResult, BansosResult, HistoryItem, JenisPermohonan, PemiluResult, PermohonanResult } from '@/types/warga';
 
 import PageHeader from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { platformFetch } from '@/lib/api/platform';
 import { useAutoRefresh } from '@/lib/use-auto-refresh';
@@ -58,24 +57,12 @@ function isHistoryItem(value: unknown): value is HistoryItem {
 
 function tabToTipe(tab: TabLabel): HistoryItem['tipe'] | 'all' {
   switch (tab) {
-    case 'Bansos':
-      return 'bansos';
-    case 'Pemilu':
-      return 'pemilu';
-    case 'Laporan':
-      return 'aspirasi';
-    case 'Permohonan':
-      return 'permohonan';
-    default:
-      return 'all';
+    case 'Bansos': return 'bansos';
+    case 'Pemilu': return 'pemilu';
+    case 'Laporan': return 'aspirasi';
+    case 'Permohonan': return 'permohonan';
+    default: return 'all';
   }
-}
-
-function tipeIcon(tipe: HistoryItem['tipe']) {
-  if (tipe === 'bansos') return ShieldCheck;
-  if (tipe === 'pemilu') return Vote;
-  if (tipe === 'permohonan') return FileText;
-  return MessageSquareText;
 }
 
 type HistoryApiItem = {
@@ -87,9 +74,109 @@ type HistoryApiItem = {
   createdAt: string;
 };
 
+function mapHistoryItem(item: HistoryApiItem): HistoryItem {
+  const createdDate = new Date(item.createdAt).toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  if (item.type === 'BANSOS_CHECK') {
+    const eligible = Boolean(item.metadata.eligible);
+    return {
+      id: item.id,
+      tipe: 'bansos',
+      tanggal: createdDate,
+      status: eligible ? 'Aktif' : 'Tidak Layak',
+      statusColor: eligible ? 'green' : 'red',
+      judul: item.title,
+      deskripsi: item.description,
+      detail: {
+        status: eligible ? 'aktif' : 'tidak_layak',
+        nama: String(item.metadata.nama || '-'),
+        nik: String(item.metadata.nik || '-'),
+        program: 'PKH',
+        dtks: new Date(item.createdAt).getFullYear().toString(),
+        keterangan: item.description,
+      },
+    };
+  }
+
+  if (item.type === 'PEMILU_CHECK') {
+    const registered = Boolean(item.metadata.registered);
+    return {
+      id: item.id,
+      tipe: 'pemilu',
+      tanggal: createdDate,
+      status: registered ? 'Terdaftar' : 'Tidak Terdaftar',
+      statusColor: registered ? 'green' : 'red',
+      judul: item.title,
+      deskripsi: item.description,
+      detail: {
+        status: registered ? 'terdaftar' : 'tidak_terdaftar',
+        nama: String(item.metadata.nama || '-'),
+        nik: String(item.metadata.nik || '-'),
+        dptTahun: new Date(item.createdAt).getFullYear().toString(),
+        tps: item.metadata.tps ? String(item.metadata.tps) : undefined,
+        keterangan: item.description,
+      },
+    };
+  }
+
+  if (item.type === 'REQUEST' || item.type === 'MUTATION') {
+    const reqType: JenisPermohonan = item.type === 'MUTATION'
+      ? (item.metadata.type === 'MUTATION_IN' ? 'MUTATION_IN' : 'MUTATION_OUT')
+      : 'HOUSEHOLD_CREATE';
+    const reqStatus = String(item.metadata.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
+    return {
+      id: item.id,
+      tipe: 'permohonan',
+      tanggal: createdDate,
+      status: reqStatus === 'APPROVED' ? 'Disetujui' : reqStatus === 'REJECTED' ? 'Ditolak' : 'Menunggu',
+      statusColor: reqStatus === 'APPROVED' ? 'green' : reqStatus === 'REJECTED' ? 'red' : 'amber',
+      judul: item.title,
+      deskripsi: item.description,
+      detail: {
+        jenis: reqType,
+        tanggal: createdDate,
+        status: reqStatus,
+        ringkasan: item.description,
+        requestId: item.id,
+        alasanPenolakan: typeof item.metadata.rejectionReason === 'string' ? item.metadata.rejectionReason : null,
+      },
+    };
+  }
+
+  const status = String(item.metadata.status || 'SUBMITTED') as 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
+  const adminReply = typeof item.metadata.adminReply === 'string' ? item.metadata.adminReply : null;
+  const repliedByName = typeof item.metadata.repliedByName === 'string' ? item.metadata.repliedByName : null;
+  const repliedAt = typeof item.metadata.repliedAt === 'string' ? item.metadata.repliedAt : null;
+
+  return {
+    id: item.id,
+    tipe: 'aspirasi',
+    tanggal: createdDate,
+    status: status === 'RESOLVED' ? 'Selesai' : status === 'REVIEWED' ? 'Ditanggapi' : 'Terkirim',
+    statusColor: status === 'RESOLVED' ? 'green' : 'amber',
+    judul: item.title,
+    deskripsi: item.description,
+    detail: {
+      jenis: item.metadata.category === 'keluhan' ? 'keluhan' : 'masukan',
+      pelapor: String(item.metadata.pelapor || '-'),
+      tanggal: createdDate,
+      uraian: item.description,
+      status,
+      tanggapanAdmin: adminReply,
+      ditanggapiOleh: repliedByName,
+      tanggalTanggapan: repliedAt,
+    },
+  };
+}
+
 function DetailContent({ item }: { item: HistoryItem }) {
   const rows: Array<{ label: string; value: string }> = [];
   let notes = '-';
+
   if (item.tipe === 'bansos') {
     const detail = item.detail as BansosResult;
     rows.push(
@@ -128,55 +215,44 @@ function DetailContent({ item }: { item: HistoryItem }) {
     notes = detail.uraian || '-';
   }
 
+  const aspirationDetail = item.tipe === 'aspirasi' ? (item.detail as AspirasiResult) : null;
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {rows.map((row) => (
-          <div
-            key={row.label}
-            className="rounded-2xl border border-input bg-background px-3 py-2.5"
-          >
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              {row.label}
-            </p>
-            <p className="mt-1 break-words text-sm font-semibold leading-snug text-foreground">
-              {row.value}
-            </p>
+          <div key={row.label} className="rounded-2xl border border-input bg-background px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{row.label}</p>
+            <p className="mt-1 break-words text-sm font-semibold leading-snug text-foreground">{row.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Keterangan ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â biru muda */}
       <div className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-blue-500">
           {item.tipe === 'permohonan' ? 'Ringkasan' : 'Keterangan'}
         </p>
-        <p className="mt-1 text-sm leading-relaxed text-blue-700">
-          {notes}
-        </p>
+        <p className="mt-1 text-sm leading-relaxed text-blue-700">{notes}</p>
       </div>
 
       {item.tipe === 'aspirasi' ? (
-        /* Tanggapan Admin ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â hijau muda */
         <div className="rounded-2xl border border-green-200 bg-green-50 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-green-600">
-            Tanggapan Admin
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-green-600">Tanggapan Admin</p>
           <p className="mt-1 text-sm leading-relaxed text-green-700">
-            {(item.detail as AspirasiResult).tanggapanAdmin || 'Belum ada tanggapan admin.'}
+            {aspirationDetail?.tanggapanAdmin || 'Belum ada tanggapan admin.'}
           </p>
-          {(item.detail as AspirasiResult).ditanggapiOleh ? (
+          {aspirationDetail?.ditanggapiOleh ? (
             <p className="mt-2 text-xs font-medium text-green-800">
-              {(item.detail as AspirasiResult).ditanggapiOleh}
-              {(item.detail as AspirasiResult).tanggalTanggapan
-                ? ` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ${new Date((item.detail as AspirasiResult).tanggalTanggapan as string).toLocaleDateString('id-ID')}`
+              {aspirationDetail.ditanggapiOleh}
+              {aspirationDetail.tanggalTanggapan
+                ? ` · ${new Date(aspirationDetail.tanggalTanggapan as string).toLocaleDateString('id-ID')}`
                 : ''}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      {item.tipe === 'permohonan' && item.detail && (item.detail as PermohonanResult).status === 'REJECTED' && (item.detail as PermohonanResult).alasanPenolakan ? (
+      {item.tipe === 'permohonan' && (item.detail as PermohonanResult).status === 'REJECTED' && (item.detail as PermohonanResult).alasanPenolakan ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-red-600">Alasan Penolakan</p>
           <p className="mt-1 text-sm leading-relaxed text-red-700">{(item.detail as PermohonanResult).alasanPenolakan}</p>
@@ -186,263 +262,35 @@ function DetailContent({ item }: { item: HistoryItem }) {
   );
 }
 
-export default function HistoryClient({
-  fallbackItems = [],
-}: {
-  fallbackItems?: HistoryItem[];
-}) {
+export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: HistoryItem[] }) {
   const [activeTab, setActiveTab] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [items, setItems] = useState<HistoryItem[]>(() => {
-    try {
-      const stored = safeParseHistory(localStorage.getItem(STORAGE_KEY));
-      return stored.length > 0 ? stored : fallbackItems;
-    } catch {
-      return fallbackItems;
-    }
-  });
+  const [items, setItems] = useState<HistoryItem[]>(fallbackItems);
+
+  useEffect(() => {
+    const stored = safeParseHistory(localStorage.getItem(STORAGE_KEY));
+    if (stored.length > 0) setItems(stored);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-
-    const mapHistoryItem = (item: HistoryApiItem): HistoryItem => {
-      const createdDate = new Date(item.createdAt).toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      });
-
-      if (item.type === 'BANSOS_CHECK') {
-        const eligible = Boolean(item.metadata.eligible);
-        return {
-          id: item.id,
-          tipe: 'bansos',
-          tanggal: createdDate,
-          status: eligible ? 'Aktif' : 'Tidak Layak',
-          statusColor: eligible ? 'green' : 'red',
-          judul: item.title,
-          deskripsi: item.description,
-          detail: {
-            status: eligible ? 'aktif' : 'tidak_layak',
-            nama: String(item.metadata.nama || '-'),
-            nik: String(item.metadata.nik || '-'),
-            program: 'PKH',
-            dtks: new Date(item.createdAt).getFullYear().toString(),
-            keterangan: item.description,
-          },
-        };
-      }
-
-      if (item.type === 'PEMILU_CHECK') {
-        const registered = Boolean(item.metadata.registered);
-        return {
-          id: item.id,
-          tipe: 'pemilu',
-          tanggal: createdDate,
-          status: registered ? 'Terdaftar' : 'Tidak Terdaftar',
-          statusColor: registered ? 'green' : 'red',
-          judul: item.title,
-          deskripsi: item.description,
-          detail: {
-            status: registered ? 'terdaftar' : 'tidak_terdaftar',
-            nama: String(item.metadata.nama || '-'),
-            nik: String(item.metadata.nik || '-'),
-            dptTahun: new Date(item.createdAt).getFullYear().toString(),
-            tps: item.metadata.tps ? String(item.metadata.tps) : undefined,
-            keterangan: item.description,
-          },
-        };
-      }
-
-      if (item.type === 'REQUEST' || item.type === 'MUTATION') {
-        const reqType = item.type === 'MUTATION' ? (item.metadata.type === 'MUTATION_IN' ? 'MUTATION_IN' : 'MUTATION_OUT') : 'HOUSEHOLD_CREATE';
-        const reqStatus = String(item.metadata.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
-        return {
-          id: item.id,
-          tipe: 'permohonan',
-          tanggal: createdDate,
-          status: reqStatus === 'APPROVED' ? 'Disetujui' : reqStatus === 'REJECTED' ? 'Ditolak' : 'Menunggu',
-          statusColor: reqStatus === 'APPROVED' ? 'green' : reqStatus === 'REJECTED' ? 'red' : 'amber',
-          judul: item.title,
-          deskripsi: item.description,
-          detail: {
-            jenis: reqType as any,
-            tanggal: createdDate,
-            status: reqStatus,
-            ringkasan: item.description,
-            requestId: item.id,
-            alasanPenolakan: typeof item.metadata.rejectionReason === 'string' ? item.metadata.rejectionReason : null,
-          }
-        };
-      }
-
-      const status = String(item.metadata.status || 'SUBMITTED') as 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
-      const adminReply = typeof item.metadata.adminReply === 'string' ? item.metadata.adminReply : null;
-      const repliedByName = typeof item.metadata.repliedByName === 'string' ? item.metadata.repliedByName : null;
-      const repliedAt = typeof item.metadata.repliedAt === 'string' ? item.metadata.repliedAt : null;
-
-      return {
-        id: item.id,
-        tipe: 'aspirasi',
-        tanggal: createdDate,
-        status:
-          status === 'RESOLVED'
-            ? 'Selesai'
-            : status === 'REVIEWED'
-              ? 'Ditanggapi'
-              : 'Terkirim',
-        statusColor:
-          status === 'RESOLVED'
-            ? 'green'
-            : status === 'REVIEWED'
-              ? 'amber'
-              : 'amber',
-        judul: item.title,
-        deskripsi: item.description,
-        detail: {
-          jenis: item.metadata.category === 'keluhan' ? 'keluhan' : 'masukan',
-          pelapor: String(item.metadata.pelapor || '-'),
-          tanggal: createdDate,
-          uraian: item.description,
-          status,
-          tanggapanAdmin: adminReply,
-          ditanggapiOleh: repliedByName,
-          tanggalTanggapan: repliedAt,
-        },
-      };
-    };
-
     platformFetch<HistoryApiItem[]>('/history?page=1&limit=20')
       .then(({ data }) => {
         if (!mounted) return;
-        const mapped: HistoryItem[] = data.map(mapHistoryItem);
+        const mapped = data.map(mapHistoryItem);
         setItems(mapped);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
       })
-      .catch(() => {
-        if (!mounted) return;
-      });
-
-    return () => {
-      mounted = false;
-    };
+      .catch(() => {});
+    return () => { mounted = false; };
   }, []);
 
   useAutoRefresh(async () => {
-    const response = await platformFetch<HistoryApiItem[]>('/history?page=1&limit=20');
-
-    const mapped: HistoryItem[] = response.data.map((item) => {
-      const createdDate = new Date(item.createdAt).toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      });
-
-      if (item.type === 'BANSOS_CHECK') {
-        const eligible = Boolean(item.metadata.eligible);
-        return {
-          id: item.id,
-          tipe: 'bansos' as const,
-          tanggal: createdDate,
-          status: eligible ? 'Aktif' : 'Tidak Layak',
-          statusColor: eligible ? 'green' as const : 'red' as const,
-          judul: item.title,
-          deskripsi: item.description,
-          detail: {
-            status: eligible ? 'aktif' : 'tidak_layak',
-            nama: String(item.metadata.nama || '-'),
-            nik: String(item.metadata.nik || '-'),
-            program: 'PKH' as const,
-            dtks: new Date(item.createdAt).getFullYear().toString(),
-            keterangan: item.description,
-          },
-        };
-      }
-
-      if (item.type === 'PEMILU_CHECK') {
-        const registered = Boolean(item.metadata.registered);
-        return {
-          id: item.id,
-          tipe: 'pemilu' as const,
-          tanggal: createdDate,
-          status: registered ? 'Terdaftar' : 'Tidak Terdaftar',
-          statusColor: registered ? 'green' as const : 'red' as const,
-          judul: item.title,
-          deskripsi: item.description,
-          detail: {
-            status: registered ? 'terdaftar' : 'tidak_terdaftar',
-            nama: String(item.metadata.nama || '-'),
-            nik: String(item.metadata.nik || '-'),
-            dptTahun: new Date(item.createdAt).getFullYear().toString(),
-            tps: item.metadata.tps ? String(item.metadata.tps) : undefined,
-            keterangan: item.description,
-          },
-        };
-      }
-
-      if (item.type === 'REQUEST' || item.type === 'MUTATION') {
-        const reqType = item.type === 'MUTATION' ? (item.metadata.type === 'MUTATION_IN' ? 'MUTATION_IN' : 'MUTATION_OUT') : 'HOUSEHOLD_CREATE';
-        const reqStatus = String(item.metadata.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
-        return {
-          id: item.id,
-          tipe: 'permohonan' as const,
-          tanggal: createdDate,
-          status: reqStatus === 'APPROVED' ? 'Disetujui' : reqStatus === 'REJECTED' ? 'Ditolak' : 'Menunggu',
-          statusColor: reqStatus === 'APPROVED' ? 'green' as const : reqStatus === 'REJECTED' ? 'red' as const : 'amber' as const,
-          judul: item.title,
-          deskripsi: item.description,
-          detail: {
-            jenis: reqType as any,
-            tanggal: createdDate,
-            status: reqStatus,
-            ringkasan: item.description,
-            requestId: item.id,
-            alasanPenolakan: typeof item.metadata.rejectionReason === 'string' ? item.metadata.rejectionReason : null,
-          }
-        };
-      }
-
-      const status = String(item.metadata.status || 'SUBMITTED') as 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
-      const adminReply = typeof item.metadata.adminReply === 'string' ? item.metadata.adminReply : null;
-      const repliedByName = typeof item.metadata.repliedByName === 'string' ? item.metadata.repliedByName : null;
-      const repliedAt = typeof item.metadata.repliedAt === 'string' ? item.metadata.repliedAt : null;
-
-      return {
-        id: item.id,
-        tipe: 'aspirasi' as const,
-        tanggal: createdDate,
-        status:
-          status === 'RESOLVED'
-            ? 'Selesai'
-            : status === 'REVIEWED'
-              ? 'Ditanggapi'
-              : 'Terkirim',
-        statusColor:
-          status === 'RESOLVED'
-            ? 'green' as const
-            : status === 'REVIEWED'
-              ? 'amber' as const
-              : 'amber' as const,
-        judul: item.title,
-        deskripsi: item.description,
-        detail: {
-          jenis: item.metadata.category === 'keluhan' ? 'keluhan' : 'masukan',
-          pelapor: String(item.metadata.pelapor || '-'),
-          tanggal: createdDate,
-          uraian: item.description,
-          status,
-          tanggapanAdmin: adminReply,
-          ditanggapiOleh: repliedByName,
-          tanggalTanggapan: repliedAt,
-        },
-      };
-    });
-
+    const { data } = await platformFetch<HistoryApiItem[]>('/history?page=1&limit=20');
+    const mapped = data.map(mapHistoryItem);
     setItems(mapped);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
-  }, {
-    intervalMs: 10000,
-  });
+  }, { intervalMs: 10000 });
 
   const filteredItems = useMemo(() => {
     const selectedTipe = tabToTipe(TABS[activeTab]);
@@ -473,26 +321,26 @@ export default function HistoryClient({
         }
       />
 
-      <WargaPageBody className="flex flex-col gap-5">
-        <TabBar
-          tabs={[...TABS]}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          className="sticky top-0 z-10 mx-auto w-fit max-w-full rounded-2xl bg-white/80 px-2 py-2 shadow-sm backdrop-blur-md"
-        />
+      <WargaPageBody className="flex flex-col gap-3 pb-6">
+        {/* TabBar wrapper — full bleed sticky dengan background */}
+        <div className="sticky top-0 z-10 -mx-5 bg-background px-5 py-2 shadow-[0_1px_0_0_#e5e7eb]">
+          <TabBar
+            tabs={[...TABS]}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        </div>
 
-        <div className="flex flex-col gap-4">
+        {/* Konten list */}
+        <div className="flex flex-col gap-3 pt-1">
           {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-input p-10 text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                 <Inbox className="h-6 w-6 text-muted-foreground/60" />
               </div>
-              <p className="text-sm font-semibold text-foreground">
-                Belum Ada Riwayat
-              </p>
+              <p className="text-sm font-semibold text-foreground">Belum Ada Riwayat</p>
               <p className="mt-1 max-w-[200px] text-xs text-muted-foreground">
-                Anda belum melakukan pengecekan atau mengirim laporan untuk
-                kategori ini.
+                Anda belum melakukan pengecekan atau mengirim laporan untuk kategori ini.
               </p>
             </div>
           ) : (
@@ -505,9 +353,7 @@ export default function HistoryClient({
                 status={item.status}
                 statusColor={item.statusColor}
                 isExpanded={expandedId === item.id}
-                onClick={() =>
-                  setExpandedId(expandedId === item.id ? null : item.id)
-                }
+                onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
               >
                 <DetailContent item={item} />
               </HistoryCard>

@@ -220,7 +220,7 @@ export default function PermohonanPage() {
                       <p>
                         Ref ID: <span className="font-semibold text-[#1E293B]">{item.id}</span>
                       </p>
-                      <span className="hidden sm:inline">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢</span>
+                      <span className="hidden sm:inline">•</span>
                       <p>
                         Tanggal: <span className="font-semibold text-[#1E293B]">{formatDate(item.createdAt)}</span>
                       </p>
@@ -315,7 +315,7 @@ export default function PermohonanPage() {
                       <p>
                         Ref ID: <span className="font-semibold text-[#1E293B]">{item.id}</span>
                       </p>
-                      <span className="hidden sm:inline">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢</span>
+                      <span className="hidden sm:inline">•</span>
                       <p>
                         Tanggal: <span className="font-semibold text-[#1E293B]">{formatDate(item.createdAt)}</span>
                       </p>

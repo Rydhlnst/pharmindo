@@ -1,7 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CaretLeft as ChevronLeft, CaretRight as ChevronRight, Eye, ChatText as MessageSquareText, ArrowClockwise as RefreshCw, MagnifyingGlass as Search } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react';
+import {
+  CaretLeft as ChevronLeft,
+  CaretRight as ChevronRight,
+  Eye,
+  ChatText as MessageSquareText,
+  ArrowClockwise as RefreshCw,
+  MagnifyingGlass as Search,
+  ChatCircleText,
+  CheckCircle,
+  ClipboardText,
+  Files,
+} from '@phosphor-icons/react';
 
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { Button } from '@/components/ui/button';
@@ -188,8 +200,8 @@ export default function AdminLaporanPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-[clamp(14px,1.5vw,18px)] font-bold text-[#1E293B]">Aduan Warga</h2>
-          <p className="mt-1 text-sm text-[#64748B]">Kelola laporan warga dan kirim tanggapan admin.</p>
+          <h2 className="text-[clamp(14px,1.5vw,18px)] font-bold text-[#1E293B]">Manajemen Aduan Warga</h2>
+          <p className="mt-1 text-sm text-[#64748B]">Pantau, kelola, dan respons aduan warga secara terpusat.</p>
         </div>
         <Button
           onClick={() => void loadRows(page, selected?.id ?? null)}
@@ -201,10 +213,38 @@ export default function AdminLaporanPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <SummaryCard label="Aduan baru" value={dashboard?.pendingAspirations ?? summary.submitted} />
-        <SummaryCard label="Sudah ditanggapi" value={summary.reviewed} />
-        <SummaryCard label="Selesai" value={summary.resolved} />
-        <SummaryCard label="Total halaman ini" value={rows.length} />
+        <SummaryCard
+          label="Aduan baru"
+          value={dashboard?.pendingAspirations ?? summary.submitted}
+          icon={ChatCircleText}
+          delta={dashboard?.pendingAspirations ?? summary.submitted}
+          deltaSuffix="Aduan"
+          bg="bg-gradient-to-br from-[#2563EB] to-[#3B82F6]"
+        />
+        <SummaryCard
+          label="Sudah ditanggapi"
+          value={summary.reviewed}
+          icon={ClipboardText}
+          delta={summary.reviewed}
+          deltaSuffix="Ditanggapi"
+          bg="bg-gradient-to-br from-[#4F86F0] to-[#6AA1F7]"
+        />
+        <SummaryCard
+          label="Selesai"
+          value={summary.resolved}
+          icon={CheckCircle}
+          delta={summary.resolved}
+          deltaSuffix="Selesai"
+          bg="bg-gradient-to-br from-[#7CA8F8] to-[#93BCF9]"
+        />
+        <SummaryCard
+          label="Total halaman ini"
+          value={rows.length}
+          icon={Files}
+          delta={rows.length}
+          deltaSuffix="Halaman ini"
+          bg="bg-gradient-to-br from-[#2563EB] to-[#6AA1F7]"
+        />
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:flex-row md:items-center">
@@ -427,11 +467,42 @@ export default function AdminLaporanPage() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({
+  label,
+  value,
+  icon: IconComponent,
+  delta,
+  deltaSuffix,
+  bg,
+}: {
+  label: string;
+  value: number;
+  icon: Icon;
+  delta: number;
+  deltaSuffix: string;
+  bg: string;
+}) {
   return (
-    <div className="rounded-2xl bg-[#2563EB] p-5 text-white">
-      <p className="text-xs text-white/75">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
+    <div className={`group relative min-h-[116px] overflow-hidden rounded-2xl ${bg} p-4 text-white shadow-md transition-shadow hover:shadow-lg`}>
+      <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.08]" />
+      <div className="pointer-events-none absolute right-8 top-8 h-10 w-10 rounded-full bg-white/[0.05]" />
+
+      <div className="relative z-10">
+        <div className="mb-2 flex items-start justify-between">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
+            <IconComponent className="h-4 w-4 text-white" />
+          </div>
+        </div>
+        <p className="text-xs font-medium text-white/80">{label}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          <span className="text-2xl font-bold tracking-tight text-white">{value}</span>
+          {delta > 0 ? (
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+              +{delta} {deltaSuffix}
+            </span>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

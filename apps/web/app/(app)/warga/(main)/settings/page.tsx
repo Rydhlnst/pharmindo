@@ -204,6 +204,7 @@ export default function SettingsPage() {
       <PageHeader
         title={t.title}
         variant="brand"
+        brandImageSrc="/Pharmindo25_BW.png"
         className="pb-7"
         leftSlot={
           <Button
@@ -429,6 +430,7 @@ export default function SettingsPage() {
         <div className="flex flex-col p-6 text-left gap-4">
           <PortalBrand
             imageSize={64}
+            imageSrc="/Pharmindo25_BW.png"
             textClassName="text-lg font-bold text-foreground"
             subtitle="Versi 1.0.0"
             subtitleClassName="text-sm text-muted-foreground"
@@ -440,7 +442,7 @@ export default function SettingsPage() {
           <div className="space-y-1 text-sm text-muted-foreground">
             <p><strong>Versi:</strong> 1.0.0 (Build 2026.04)</p>
             <div>
-              <p><strong>Dikembangkan oleh:</strong> Tim ABDIMAS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Telkom University</p>
+              <p><strong>Dikembangkan oleh:</strong> Tim ABDIMAS — Telkom University</p>
               <ol className="list-decimal list-inside ml-2 mt-1 space-y-0.5 text-xs">
                 <li>Raenaldi Ardiansyah Sidik - Front End Developer</li>
                 <li>Faiq Haqqani - UI/UX Designer</li>

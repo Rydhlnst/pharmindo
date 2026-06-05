@@ -58,19 +58,26 @@ export default function AdminPemiluPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-2xl">
-          <h1 className="text-3xl font-bold tracking-tight text-[color:var(--admin-heading)]">Pemilu</h1>
-          <p className="mt-2 text-sm text-[color:var(--admin-subtle)]">
-            Kelola agenda pemilu, persyaratan, TPS, dan pembagian RT yang terhubung ke jadwal warga.
-          </p>
-        </div>
-        <Button asChild className="rounded-2xl bg-[color:var(--admin-primary)] text-[color:var(--primary-foreground)] hover:bg-[color:var(--admin-primary-strong)]">
-          <Link href="/admin/pemilu/tambah">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Tambah Pemilu
-          </Link>
-        </Button>
+      {/* ── Header Actions ── */}
+      <div className="flex flex-wrap items-stretch gap-4">
+        {/* Tambah Pemilu */}
+        <Link
+          href="/admin/pemilu/tambah"
+          className="relative flex min-w-[200px] flex-1 items-center gap-4 overflow-hidden rounded-2xl bg-[#2563EB] px-[clamp(16px,2vw,24px)] py-[clamp(12px,1.5vh,16px)] text-white transition hover:bg-[#1D4ED8] active:scale-[0.99]"
+        >
+          {/* Decorative circles */}
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/[0.08]" />
+          <div className="pointer-events-none absolute right-16 top-6 h-24 w-24 rounded-full bg-white/[0.12]" />
+          <div className="pointer-events-none absolute -bottom-5 right-40 h-16 w-16 rounded-full bg-white/[0.08]" />
+
+          <div className="relative z-10 flex h-[clamp(36px,5vh,48px)] w-[clamp(36px,5vh,48px)] items-center justify-center rounded-full bg-white/20">
+            <PlusCircle className="h-5 w-5 text-white" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-[clamp(14px,1.5vw,20px)] font-bold">Tambah Pemilu</p>
+            <p className="text-[clamp(11px,1vw,14px)] text-white/80">Kelola agenda dan persyaratan TPS</p>
+          </div>
+        </Link>
       </div>
 
       {error ? (

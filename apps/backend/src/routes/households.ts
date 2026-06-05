@@ -228,7 +228,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
           id: member.id,
           householdId: member.householdId,
           citizenId: member.citizenId,
-          relationship: member.relationship,
+          relationship: normalizeHouseholdRelationship(member.relationship),
           createdAt: toIso(member.createdAt) ?? new Date().toISOString(),
           updatedAt: toIso(member.updatedAt) ?? new Date().toISOString(),
           citizen: mapCitizen(member.citizen),
@@ -425,7 +425,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       .where(and(eq(householdMember.id, memberId), eq(householdMember.householdId, householdId)))
       .limit(1);
     if (!memberRow) throw notFound("Household member not found");
-    if (memberRow.relationship === "HEAD_OF_FAMILY") {
+    if (normalizeHouseholdRelationship(memberRow.relationship) === "HEAD_OF_FAMILY") {
       throw validationError("Head of family cannot be removed before reassigning the role");
     }
     const [deleted] = await getDb()
