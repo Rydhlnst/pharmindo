@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
-import { useAutoRefresh } from '@/lib/use-auto-refresh';
 import { useActionToast } from '@/lib/use-action-toast';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 
 const PAGE_SIZE = 20;
 
@@ -125,10 +125,11 @@ export default function PermohonanPage() {
     };
   }, [refreshRequests, reloadKey]);
 
-  useAutoRefresh(async () => {
-    await refreshRequests();
-  }, {
-    intervalMs: 8000,
+  useSyncVersions(['admin:requests', 'admin:dashboard'], {
+    onVersionsChanged: async (changedKeys) => {
+      if (!changedKeys.includes('admin:requests')) return;
+      await refreshRequests();
+    },
   });
 
   const pagedRequests = useMemo(() => {

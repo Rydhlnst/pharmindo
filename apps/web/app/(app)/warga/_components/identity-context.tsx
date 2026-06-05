@@ -5,11 +5,13 @@ import { createContext, useContext } from "react";
 export type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED";
 
 export type IdentityContextValue = {
+  userId: string;
   userName: string;
   userEmail: string;
   maskedNik: string;
   verificationStatus: VerificationStatus;
   rejectionReason?: string | null;
+  refreshIdentity: () => Promise<void>;
 };
 
 export const IdentityContext = createContext<IdentityContextValue | null>(null);

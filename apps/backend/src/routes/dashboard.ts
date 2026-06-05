@@ -9,52 +9,29 @@ import {
   getDb,
   household,
   mutation,
-  serviceRequest,
   user,
-  userIdentity,
 } from "@abdimas/db";
 
 import { getRoleLabel } from "../lib/admin-access.js";
 import { ok } from "../lib/response.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import { getCanonicalDashboardBadges, getCanonicalLiveStats } from "../services/admin-reporting.js";
 
 export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string; role: string } } }>()
   .use("*", adminMiddleware)
   .get("/", async (c) => {
     const db = getDb();
     const [
-      [{ totalWarga }],
-      [{ totalKK }],
-      [{ totalMutasi }],
-      [{ pendingRequests }],
-      [{ pendingVerifications }],
-      [{ pendingMutations }],
-      [{ pendingAspirations }],
+      liveStats,
+      badgeStats,
       [{ deltaWarga }],
       [{ deltaKK }],
       [{ deltaMutasi }],
       latestLogRows,
       latestAspirationRows,
     ] = await Promise.all([
-      db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(eq(citizen.isArchived, false)),
-      db.select({ totalKK: sql<number>`count(*)::int` }).from(household),
-      db.select({ totalMutasi: sql<number>`count(*)::int` }).from(mutation),
-      db
-        .select({ pendingRequests: sql<number>`count(*)::int` })
-        .from(serviceRequest)
-        .where(eq(serviceRequest.status, "PENDING")),
-      db
-        .select({ pendingVerifications: sql<number>`count(*)::int` })
-        .from(userIdentity)
-        .where(eq(userIdentity.verificationStatus, "PENDING")),
-      db
-        .select({ pendingMutations: sql<number>`count(*)::int` })
-        .from(mutation)
-        .where(eq(mutation.status, "PENDING")),
-      db
-        .select({ pendingAspirations: sql<number>`count(*)::int` })
-        .from(aspiration)
-        .where(eq(aspiration.status, "SUBMITTED")),
+      getCanonicalLiveStats(),
+      getCanonicalDashboardBadges(),
       db
         .select({ deltaWarga: sql<number>`count(*)::int` })
         .from(citizen)
@@ -62,7 +39,7 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
       db
         .select({ deltaKK: sql<number>`count(*)::int` })
         .from(household)
-        .where(sql`${household.createdAt} >= now() - interval '7 days'`),
+        .where(and(eq(household.status, "ACTIVE"), sql`${household.createdAt} >= now() - interval '7 days'`)),
       db
         .select({ deltaMutasi: sql<number>`count(*)::int` })
         .from(mutation)
@@ -119,20 +96,20 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
       success: true as const,
       data: {
         stats: {
-          totalWarga: Number(totalWarga || 0),
-          totalKK: Number(totalKK || 0),
-          totalMutasi: Number(totalMutasi || 0),
-          pendingRequests: Number(pendingRequests || 0),
+          totalWarga: liveStats.totalWarga,
+          totalKK: liveStats.totalKK,
+          totalMutasi: liveStats.totalMutasi,
+          pendingRequests: liveStats.pendingRequests,
           ...(dW > 0 ? { deltaWarga: dW } : {}),
           ...(dK > 0 ? { deltaKK: dK } : {}),
           ...(dM > 0 ? { deltaMutasi: dM } : {}),
         },
         latestActivities,
         notificationBadges: {
-          pendingVerifications: Number(pendingVerifications || 0),
-          pendingRequests: Number(pendingRequests || 0),
-          pendingMutations: Number(pendingMutations || 0),
-          pendingAspirations: Number(pendingAspirations || 0),
+          pendingVerifications: badgeStats.pendingVerifications,
+          pendingRequests: liveStats.pendingRequests,
+          pendingMutations: badgeStats.pendingMutations,
+          pendingAspirations: badgeStats.pendingAspirations,
         },
       },
     };

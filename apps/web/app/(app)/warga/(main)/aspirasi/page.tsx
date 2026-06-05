@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, MessageSquareText, RefreshCw } from 'lucide-react';
 
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
-import { useAutoRefresh } from '@/lib/use-auto-refresh';
+import { useIdentity } from '@/app/(app)/warga/_components/identity-context';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -48,6 +49,7 @@ function statusClass(status: AspirasiStatus) {
 }
 
 export default function WargaAspirasiPage() {
+  const identity = useIdentity();
   const [items, setItems] = useState<AspirasiItem[]>([]);
   const [filter, setFilter] = useState<'ALL' | AspirasiStatus>('ALL');
   const [loading, setLoading] = useState(true);
@@ -71,8 +73,10 @@ export default function WargaAspirasiPage() {
     void load();
   }, []);
 
-  useAutoRefresh(() => load(), {
-    intervalMs: 10000,
+  useSyncVersions([`user:${identity.userId}:aspirations`], {
+    onVersionsChanged: async () => {
+      await load();
+    },
   });
 
   const filtered = useMemo(() => {

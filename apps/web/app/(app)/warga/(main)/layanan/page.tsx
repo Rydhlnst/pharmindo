@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ArrowLeft, FileText, RefreshCw } from 'lucide-react';
 
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
-import { useAutoRefresh } from '@/lib/use-auto-refresh';
 import { useIdentity } from '@/app/(app)/warga/_components/identity-context';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
 import PageHeader from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -124,8 +124,10 @@ export default function WargaLayananPage() {
     void load();
   }, []);
 
-  useAutoRefresh(() => load(), {
-    intervalMs: 10000,
+  useSyncVersions([`user:${identity.userId}:requests`, `user:${identity.userId}:history`], {
+    onVersionsChanged: async () => {
+      await load();
+    },
   });
 
   const filteredItems = useMemo(() => {

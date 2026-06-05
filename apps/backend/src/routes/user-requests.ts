@@ -20,6 +20,7 @@ import { buildPageMeta, getOffset } from "../lib/pagination.js";
 import { created, ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
 import { buildObjectKeyForEntity, buildObjectUrl, deleteObject, ensureStorageConfigured, uploadObject, validateUpload } from "../lib/storage.js";
+import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery } from "../lib/validation.js";
 import { authMiddleware, verifiedWargaMiddleware } from "../middleware/auth.js";
 
@@ -211,6 +212,12 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
     serviceRequestResponseSchema.parse(payload);
+    await bumpSyncKeys([
+      adminSyncKey("requests"),
+      adminSyncKey("dashboard"),
+      userSyncKey(sessionUser.id, "requests"),
+      userSyncKey(sessionUser.id, "history"),
+    ]);
     return created(c, payload.data);
   })
   .post("/member-create", async (c) => {
@@ -268,6 +275,12 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
     serviceRequestResponseSchema.parse(payload);
+    await bumpSyncKeys([
+      adminSyncKey("requests"),
+      adminSyncKey("dashboard"),
+      userSyncKey(sessionUser.id, "requests"),
+      userSyncKey(sessionUser.id, "history"),
+    ]);
     return created(c, payload.data);
   })
   .post("/mutation", async (c) => {
@@ -330,6 +343,12 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
     serviceRequestResponseSchema.parse(payload);
+    await bumpSyncKeys([
+      adminSyncKey("requests"),
+      adminSyncKey("dashboard"),
+      userSyncKey(sessionUser.id, "requests"),
+      userSyncKey(sessionUser.id, "history"),
+    ]);
     return created(c, payload.data);
   })
   .post("/bansos", async (c) => {
@@ -469,5 +488,11 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
     serviceRequestResponseSchema.parse(payload);
+    await bumpSyncKeys([
+      adminSyncKey("requests"),
+      adminSyncKey("dashboard"),
+      userSyncKey(sessionUser.id, "requests"),
+      userSyncKey(sessionUser.id, "history"),
+    ]);
     return created(c, payload.data);
   });

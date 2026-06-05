@@ -11,7 +11,7 @@ import {
   idParamSchema,
   updateCitizenSchema,
 } from "@abdimas/contracts";
-import { citizen, getDb, household, householdMember } from "@abdimas/db";
+import { citizen, getDb } from "@abdimas/db";
 
 import { notFound } from "../lib/errors.js";
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
@@ -120,6 +120,18 @@ function mapCitizen(
   };
 }
 
+const resolvedHouseholdNumberSql = sql<string | null>`(
+  select h.kk_number
+  from household_members hm
+  inner join households h on h.id = hm.household_id
+  where hm.citizen_id = ${citizen.id}
+    and h.status = 'ACTIVE'
+  order by
+    case when hm.relationship = 'HEAD_OF_FAMILY' then 0 else 1 end,
+    hm.created_at asc
+  limit 1
+)`;
+
 export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string; role: string } } }>()
   .use("*", adminMiddleware)
   .get("/", async (c) => {
@@ -153,11 +165,9 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const rows = await db
       .select({
         ...citizenColumns,
-        noKK: household.kkNumber,
+        noKK: resolvedHouseholdNumberSql,
       })
       .from(citizen)
-      .leftJoin(householdMember, eq(householdMember.citizenId, citizen.id))
-      .leftJoin(household, eq(household.id, householdMember.householdId))
       .where(where)
       .orderBy(desc(citizen.createdAt))
       .limit(query.limit)
@@ -217,11 +227,9 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const row = await getDb()
       .select({
         ...citizenColumns,
-        noKK: household.kkNumber,
+        noKK: resolvedHouseholdNumberSql,
       })
       .from(citizen)
-      .leftJoin(householdMember, eq(householdMember.citizenId, citizen.id))
-      .leftJoin(household, eq(household.id, householdMember.householdId))
       .where(eq(citizen.id, id))
       .limit(1);
     if (!row[0]) throw notFound("Citizen not found");

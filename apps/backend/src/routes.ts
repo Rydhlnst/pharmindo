@@ -1,4 +1,4 @@
-import { and, eq, ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
@@ -12,7 +12,7 @@ import {
   sessionResponseSchema,
   userIdParamSchema,
 } from "@abdimas/contracts";
-import { getDb, user, userIdentity } from "@abdimas/db";
+import { getDb, uiSyncVersion, user, userIdentity } from "@abdimas/db";
 
 import { adminUsersRoutes } from "./routes/admin-users.js";
 import { adminActivitiesRoutes, scheduleRoutes } from "./routes/activities.js";
@@ -46,6 +46,14 @@ const querySchema = z.object({
 
 const rejectVerificationSchema = z.object({
   reason: z.string().trim().min(1, "Reason is required").max(255),
+});
+
+const syncVersionsQuerySchema = z.object({
+  keys: z
+    .string()
+    .trim()
+    .min(1)
+    .transform((value) => value.split(",").map((key) => key.trim()).filter(Boolean)),
 });
 
 export function createApp() {
@@ -123,6 +131,43 @@ export function createApp() {
     const identity = await resolveIdentity(sessionUser.id);
     if (!identity) return fail(c, "NOT_FOUND", "Identity not found", 404);
     return c.json(meIdentityResponseSchema.parse(identity));
+  });
+
+  app.get("/sync/versions", authMiddleware, async (c) => {
+    const sessionUser = c.get("sessionUser");
+    const parsed = syncVersionsQuerySchema.safeParse({
+      keys: c.req.query("keys") || "",
+    });
+    if (!parsed.success) return fail(c, "VALIDATION_ERROR", "Invalid sync keys", 400);
+
+    const keys = [...new Set(parsed.data.keys)];
+    const isAdmin = sessionUser.role === "ADMIN" || sessionUser.role === "SUPER_ADMIN";
+    const unauthorizedKey = keys.find((key) => {
+      if (isAdmin) return !key.startsWith("admin:");
+      return key !== `user:${sessionUser.id}:identity`
+        && key !== `user:${sessionUser.id}:requests`
+        && key !== `user:${sessionUser.id}:history`
+        && key !== `user:${sessionUser.id}:aspirations`;
+    });
+    if (unauthorizedKey) return fail(c, "FORBIDDEN", "Forbidden sync scope", 403);
+
+    const rows = keys.length > 0
+      ? await getDb()
+          .select()
+          .from(uiSyncVersion)
+          .where(inArray(uiSyncVersion.scopeKey, keys))
+      : [];
+
+    const rowMap = new Map(rows.map((row) => [row.scopeKey, row]));
+    const versions: Record<string, number> = {};
+    const updatedAt: Record<string, string | null> = {};
+    for (const key of keys) {
+      const row = rowMap.get(key);
+      versions[key] = row?.version ?? 0;
+      updatedAt[key] = row?.updatedAt?.toISOString() ?? null;
+    }
+
+    return ok(c, { versions, updatedAt });
   });
 
   app.get("/admin/verifications", adminMiddleware, async (c) => {

@@ -9,7 +9,8 @@ import type { AspirasiResult, BansosResult, HistoryItem, JenisPermohonan, Pemilu
 import PageHeader from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { platformFetch } from '@/lib/api/platform';
-import { useAutoRefresh } from '@/lib/use-auto-refresh';
+import { useIdentity } from '@/app/(app)/warga/_components/identity-context';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
 
 import TabBar from '@/components/warga/TabBar';
@@ -262,6 +263,7 @@ function DetailContent({ item }: { item: HistoryItem }) {
 }
 
 export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: HistoryItem[] }) {
+  const identity = useIdentity();
   const [activeTab, setActiveTab] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [items, setItems] = useState<HistoryItem[]>(() => {
@@ -282,12 +284,23 @@ export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: 
     return () => { mounted = false; };
   }, []);
 
-  useAutoRefresh(async () => {
+  const refreshHistory = async () => {
     const { data } = await platformFetch<HistoryApiItem[]>('/history?page=1&limit=20');
     const mapped = data.map(mapHistoryItem);
     setItems(mapped);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
-  }, { intervalMs: 10000 });
+  };
+
+  useSyncVersions([
+    `user:${identity.userId}:history`,
+    `user:${identity.userId}:requests`,
+    `user:${identity.userId}:aspirations`,
+    `user:${identity.userId}:identity`,
+  ], {
+    onVersionsChanged: async () => {
+      await refreshHistory();
+    },
+  });
 
   const filteredItems = useMemo(() => {
     const selectedTipe = tabToTipe(TABS[activeTab]);

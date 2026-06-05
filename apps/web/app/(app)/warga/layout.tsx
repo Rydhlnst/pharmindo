@@ -11,11 +11,12 @@ export default async function WargaLayout({ children }: { children: React.ReactN
   if (!identity) redirect("/register");
 
   return (
-    <WargaShellClient
-      identity={{
-        userName: identity.userName || session.user.name,
-        userEmail: identity.userEmail || session.user.email,
-        maskedNik: identity.maskedNik,
+      <WargaShellClient
+        identity={{
+          userId: identity.userId,
+          userName: identity.userName || session.user.name,
+          userEmail: identity.userEmail || session.user.email,
+          maskedNik: identity.maskedNik,
         verificationStatus: identity.verificationStatus,
         rejectionReason: identity.rejectionReason,
       }}

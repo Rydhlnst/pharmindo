@@ -21,46 +21,34 @@ import { ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
 import { parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import {
+  buildCanonicalCitizenWhere,
+  buildCanonicalMutationWhere,
+  buildDateFilter,
+  buildTimestampFilter,
+  getCanonicalDashboardBadges,
+  getCanonicalLiveStats,
+  getFilteredDemographics,
+  getFilteredPendingRequests,
+  getFilteredRtBreakdown,
+} from "../services/admin-reporting.js";
 
 type ReportFilter = z.infer<typeof reportFilterSchema>;
 
-function buildTimestampFilter(column: { name: string }, filter: ReportFilter) {
-  const conditions: ReturnType<typeof sql>[] = [];
-  if (filter.tahun) conditions.push(sql`extract(year from ${column}) = ${filter.tahun}`);
-  if (filter.bulan) conditions.push(sql`extract(month from ${column}) = ${filter.bulan}`);
-  return conditions.length ? and(...conditions) : undefined;
-}
-
-function buildDateFilter(column: { name: string }, filter: ReportFilter) {
-  const conditions: ReturnType<typeof sql>[] = [];
-  if (filter.tahun) conditions.push(sql`extract(year from ${column}) = ${filter.tahun}`);
-  if (filter.bulan) conditions.push(sql`extract(month from ${column}) = ${filter.bulan}`);
-  return conditions.length ? and(...conditions) : undefined;
-}
-
-function buildCitizenWhere(filter: ReportFilter) {
-  return and(
-    eq(citizen.isArchived, false),
-    filter.rt ? eq(citizen.rt, filter.rt) : undefined,
-    buildTimestampFilter(citizen.createdAt, filter),
-  );
-}
-
-function buildHouseholdWhere(filter: ReportFilter) {
-  return and(
-    filter.rt ? eq(household.rt, filter.rt) : undefined,
-    buildTimestampFilter(household.createdAt, filter),
-  );
-}
-
-function buildMutationWhere(filter: ReportFilter) {
-  return filter.tahun || filter.bulan
-    ? and(
-        buildDateFilter(mutation.mutationDate, filter),
-        sql`${mutation.mutationDate} is not null`,
-      )
-    : undefined;
-}
+const MONTH_LABELS = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+] as const;
 
 function parseReportFilter(c: { req: { query: (key: string) => string | undefined } }) {
   return parseQuery(
@@ -73,68 +61,43 @@ function parseReportFilter(c: { req: { query: (key: string) => string | undefine
   );
 }
 
-async function getSummaryData(filter: ReportFilter = {}) {
-  const db = getDb();
-  const citizenWhere = buildCitizenWhere(filter);
-  const householdWhere = buildHouseholdWhere(filter);
-  const mutationWhere = buildMutationWhere(filter);
-
-  const [
-    [{ totalWarga }],
-    [{ totalKK }],
-    [{ totalMutasi }],
-    [{ pendingRequests }],
-    rtRows,
-  ] = await Promise.all([
-    db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(citizenWhere),
-    db.select({ totalKK: sql<number>`count(*)::int` }).from(household).where(householdWhere),
-    db.select({ totalMutasi: sql<number>`count(*)::int` }).from(mutation).where(mutationWhere),
-    db
-      .select({ pendingRequests: sql<number>`count(*)::int` })
-      .from(serviceRequest)
-      .where(and(eq(serviceRequest.status, "PENDING"), buildTimestampFilter(serviceRequest.createdAt, filter))),
-    db
-      .select({
-        rt: citizen.rt,
-        rw: citizen.rw,
-        warga: sql<number>`count(*)::int`,
-      })
-      .from(citizen)
-      .where(citizenWhere)
-      .groupBy(citizen.rt, citizen.rw)
-      .orderBy(citizen.rt),
-  ]);
-
-  return {
-    stats: {
-      totalWarga: Number(totalWarga || 0),
-      totalKK: Number(totalKK || 0),
-      totalMutasi: Number(totalMutasi || 0),
-      pendingRequests: Number(pendingRequests || 0),
-    },
-    rtRows,
-  };
+function formatReportPeriod(filter: ReportFilter) {
+  const segments: string[] = [];
+  if (filter.bulan && MONTH_LABELS[filter.bulan - 1]) segments.push(MONTH_LABELS[filter.bulan - 1]);
+  if (filter.tahun) segments.push(String(filter.tahun));
+  if (filter.rt) segments.push(`RT ${filter.rt}`);
+  return segments.join(" - ") || "Semua Periode";
 }
+
+function buildExportFilename(prefix: string, filter: ReportFilter, ext: "csv" | "pdf" | "xlsx") {
+  const parts = [prefix];
+  if (filter.tahun) parts.push(String(filter.tahun));
+  if (filter.bulan) parts.push(String(filter.bulan).padStart(2, "0"));
+  if (filter.rt) parts.push(`rt-${filter.rt}`);
+  return `${parts.join("-").toLowerCase()}.${ext}`;
+}
+
+function toCsvValue(value: unknown) {
+  const normalized = String(value ?? "").replace(/"/g, '""');
+  return `"${normalized}"`;
+}
+
+const CSV_DELIMITER = ";";
 
 export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; role: string } } }>()
   .use("*", adminMiddleware)
   .get("/summary", async (c) => {
-    const filter = parseReportFilter(c);
-    const summary = await getSummaryData(filter);
+    const [liveStats, badgeStats] = await Promise.all([getCanonicalLiveStats(), getCanonicalDashboardBadges()]);
     const payload = {
       success: true as const,
       data: {
-        stats: summary.stats,
+        stats: liveStats,
         latestActivities: [],
         notificationBadges: {
-          pendingVerifications: 0,
-          pendingRequests: summary.stats.pendingRequests,
-          pendingMutations: 0,
-          pendingAspirations: await getDb()
-            .select({ total: sql<number>`count(*)::int` })
-            .from(aspiration)
-            .where(eq(aspiration.status, "SUBMITTED"))
-            .then((rows) => Number(rows[0]?.total || 0)),
+          pendingVerifications: badgeStats.pendingVerifications,
+          pendingRequests: liveStats.pendingRequests,
+          pendingMutations: badgeStats.pendingMutations,
+          pendingAspirations: badgeStats.pendingAspirations,
         },
       },
     };
@@ -143,92 +106,18 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   })
   .get("/rt-breakdown", async (c) => {
     const filter = parseReportFilter(c);
-    const db = getDb();
-    const rows = await db
-      .select({
-        rt: citizen.rt,
-        rw: citizen.rw,
-        warga: sql<number>`count(*)::int`,
-        kk: sql<number>`(
-          select count(*)::int from households h
-          where h.rt = ${citizen.rt}
-            and h.rw = ${citizen.rw}
-            ${filter.tahun ? sql`and extract(year from h.created_at) = ${filter.tahun}` : sql``}
-            ${filter.bulan ? sql`and extract(month from h.created_at) = ${filter.bulan}` : sql``}
-        )`,
-        mutasi: sql<number>`(
-          select count(*)::int from mutations m
-          inner join citizens c2 on c2.id = m.citizen_id
-          where c2.rt = ${citizen.rt}
-            and c2.rw = ${citizen.rw}
-            ${filter.tahun ? sql`and extract(year from m.mutation_date) = ${filter.tahun}` : sql``}
-            ${filter.bulan ? sql`and extract(month from m.mutation_date) = ${filter.bulan}` : sql``}
-        )`,
-        produktif: sql<number>`count(*) filter (where extract(year from age(current_date, ${citizen.birthDate})) between 16 and 60)::int`,
-      })
-      .from(citizen)
-      .where(buildCitizenWhere(filter))
-      .groupBy(citizen.rt, citizen.rw)
-      .orderBy(citizen.rt);
-
     const payload = {
       success: true as const,
-      data: rows.map((row) => ({
-        rt: row.rt,
-        rw: row.rw,
-        kk: Number(row.kk || 0),
-        warga: Number(row.warga || 0),
-        mutasi: Number(row.mutasi || 0),
-        produktif: Number(row.produktif || 0),
-      })),
+      data: await getFilteredRtBreakdown(filter),
     };
     rtBreakdownResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/demographics", async (c) => {
     const filter = parseReportFilter(c);
-    const where = buildCitizenWhere(filter);
-    const rows = await getDb()
-      .select({
-        gender: citizen.gender,
-        birthDate: citizen.birthDate,
-      })
-      .from(citizen)
-      .where(where);
-
-    const ageGroups = [
-      { label: "0-12" as const, value: 0 },
-      { label: "13-17" as const, value: 0 },
-      { label: "18-35" as const, value: 0 },
-      { label: "36-59" as const, value: 0 },
-      { label: "60+" as const, value: 0 },
-    ];
-    let male = 0;
-    let female = 0;
-    const currentYear = new Date().getFullYear();
-
-    for (const row of rows) {
-      const age = currentYear - new Date(row.birthDate).getFullYear();
-      if (age <= 12) ageGroups[0].value += 1;
-      else if (age <= 17) ageGroups[1].value += 1;
-      else if (age <= 35) ageGroups[2].value += 1;
-      else if (age <= 59) ageGroups[3].value += 1;
-      else ageGroups[4].value += 1;
-
-      if (row.gender === "L") male += 1;
-      if (row.gender === "P") female += 1;
-    }
-
     const payload = {
       success: true as const,
-      data: {
-        totalCitizens: rows.length,
-        ageGroups,
-        gender: {
-          male,
-          female,
-        },
-      },
+      data: await getFilteredDemographics(filter),
     };
     reportDemographicsResponseSchema.parse(payload);
     return ok(c, payload.data);
@@ -244,12 +133,10 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
     const rtId = c.req.param("rtId").replace(/^RT\s*/i, "").padStart(2, "0");
     const where = parsed.q
       ? and(
-          eq(citizen.isArchived, false),
-          eq(citizen.rt, rtId),
-          buildTimestampFilter(citizen.createdAt, parsed),
+          buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: rtId }),
           sql`(${citizen.name} ilike ${`%${parsed.q}%`} or ${citizen.nik} ilike ${`%${parsed.q}%`})`,
         )
-      : and(eq(citizen.isArchived, false), eq(citizen.rt, rtId), buildTimestampFilter(citizen.createdAt, parsed));
+      : buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: rtId });
     const db = getDb();
     const [{ total }] = await db
       .select({ total: sql<number>`count(*)::int` })
@@ -292,12 +179,43 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
     citizenListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
+  .get("/export/csv", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
+    const filter = parseReportFilter(c);
+    const rows = await getDb()
+      .select()
+      .from(citizen)
+      .where(buildCanonicalCitizenWhere(filter))
+      .orderBy(citizen.rt, citizen.rw, citizen.name);
+
+    const headers = ["NIK", "Nama", "Jenis Kelamin", "Tanggal Lahir", "RT", "RW", "Status", "Alamat", "Pekerjaan"];
+    const csvRows = [
+      "sep=;",
+      headers.map(toCsvValue).join(CSV_DELIMITER),
+      ...rows.map((row) =>
+        [
+          row.nik,
+          row.name,
+          row.gender,
+          row.birthDate,
+          row.rt,
+          row.rw,
+          row.status,
+          row.address,
+          row.occupation,
+        ].map(toCsvValue).join(CSV_DELIMITER),
+      ),
+    ];
+
+    c.header("content-type", "text/csv; charset=utf-8");
+    c.header("content-disposition", `attachment; filename="${buildExportFilename("report-warga", filter, "csv")}"`);
+    return c.body(`\uFEFF${csvRows.join("\n")}`);
+  })
   .get("/export/xlsx", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
     const rows = await getDb()
       .select()
       .from(citizen)
-      .where(buildCitizenWhere(filter))
+      .where(buildCanonicalCitizenWhere(filter))
       .orderBy(citizen.rt, citizen.name);
     const workbook = XLSX.utils.book_new();
     const sheet = XLSX.utils.json_to_sheet(
@@ -314,12 +232,17 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
     XLSX.utils.book_append_sheet(workbook, sheet, "Citizens");
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     c.header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    c.header("content-disposition", 'attachment; filename="report-citizens.xlsx"');
+    c.header("content-disposition", `attachment; filename="${buildExportFilename("report-warga", filter, "xlsx")}"`);
     return c.body(buffer);
   })
   .get("/export/pdf", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
-    const summary = await getSummaryData(filter);
+    const [summary, demographics, rtBreakdown, pendingRequests] = await Promise.all([
+      getCanonicalLiveStats(),
+      getFilteredDemographics(filter),
+      getFilteredRtBreakdown(filter),
+      getFilteredPendingRequests(filter),
+    ]);
     const doc = new PDFDocument({ margin: 48 });
     const chunks: Uint8Array[] = [];
     doc.on("data", (chunk) => chunks.push(chunk));
@@ -327,16 +250,84 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       doc.on("end", () => resolve(Buffer.concat(chunks)));
     });
 
-    doc.fontSize(20).text("ABDimas Report Summary");
-    doc.moveDown();
-    doc.fontSize(12).text(`Total Warga: ${summary.stats.totalWarga}`);
-    doc.text(`Total KK: ${summary.stats.totalKK}`);
-    doc.text(`Total Mutasi: ${summary.stats.totalMutasi}`);
-    doc.text(`Pending Requests: ${summary.stats.pendingRequests}`);
-    doc.moveDown();
-    doc.text("RT Breakdown:");
-    for (const row of summary.rtRows) {
-      doc.text(`RT ${row.rt}/RW ${row.rw} - ${row.warga} warga`);
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const left = doc.page.margins.left;
+    const statGap = 12;
+    const statWidth = (pageWidth - statGap) / 2;
+
+    const drawStatCard = (x: number, y: number, label: string, value: number) => {
+      doc.save();
+      doc.roundedRect(x, y, statWidth, 62, 12).fillAndStroke("#EFF6FF", "#BFDBFE");
+      doc.fillColor("#475569").fontSize(10).text(label, x + 12, y + 12, { width: statWidth - 24 });
+      doc.fillColor("#1D4ED8").fontSize(20).text(String(value), x + 12, y + 28, { width: statWidth - 24 });
+      doc.restore();
+    };
+
+    doc.fillColor("#0F172A").fontSize(21).text("Laporan Data Warga RW");
+    doc.fillColor("#475569").fontSize(11).text(`Periode: ${formatReportPeriod(filter)}`);
+    doc.text(`Diunduh: ${new Date().toLocaleString("id-ID")}`);
+
+    let y = doc.y + 18;
+    drawStatCard(left, y, "Total Warga", summary.totalWarga);
+    drawStatCard(left + statWidth + statGap, y, "Total KK", summary.totalKK);
+    y += 74;
+    drawStatCard(left, y, "Total Mutasi", summary.totalMutasi);
+    drawStatCard(left + statWidth + statGap, y, "Permohonan Pending", pendingRequests);
+
+    y += 88;
+    doc.fillColor("#0F172A").fontSize(14).text("Ringkasan Demografi", left, y);
+    y = doc.y + 8;
+    doc.fillColor("#334155").fontSize(11).text(`Total Penduduk Tercatat: ${demographics.totalCitizens}`, left, y);
+    doc.text(`Laki-laki: ${demographics.gender.male} | Perempuan: ${demographics.gender.female}`, left, doc.y + 4);
+    doc.text(
+      demographics.ageGroups.map((group) => `${group.label}: ${group.value}`).join(" | "),
+      left,
+      doc.y + 4,
+      { width: pageWidth },
+    );
+
+    y = doc.y + 24;
+    doc.fillColor("#0F172A").fontSize(14).text("Rekap RT / RW", left, y);
+    y = doc.y + 10;
+
+    const columns = [
+      { label: "Wilayah", width: 120 },
+      { label: "KK", width: 70 },
+      { label: "Warga", width: 80 },
+      { label: "Mutasi", width: 80 },
+      { label: "Produktif", width: 90 },
+    ] as const;
+
+    doc.save();
+    doc.roundedRect(left, y, pageWidth, 24, 8).fill("#DBEAFE");
+    let headerX = left + 10;
+    for (const column of columns) {
+      doc.fillColor("#1D4ED8").fontSize(10).text(column.label, headerX, y + 7, { width: column.width });
+      headerX += column.width;
+    }
+    doc.restore();
+    y += 30;
+
+    for (const row of rtBreakdown) {
+      if (y > doc.page.height - 80) {
+        doc.addPage();
+        y = doc.page.margins.top;
+      }
+
+      doc.roundedRect(left, y, pageWidth, 24, 6).fill("#FFFFFF").stroke("#E2E8F0");
+      const values = [
+        `RT ${row.rt} / RW ${row.rw}`,
+        String(row.kk),
+        String(row.warga),
+        String(row.mutasi),
+        String(row.produktif),
+      ];
+      let rowX = left + 10;
+      values.forEach((value, index) => {
+        doc.fillColor("#334155").fontSize(10).text(value, rowX, y + 7, { width: columns[index].width });
+        rowX += columns[index].width;
+      });
+      y += 28;
     }
     doc.end();
 
@@ -344,7 +335,7 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
     return new Response(new Uint8Array(buffer), {
       headers: {
         "content-type": "application/pdf",
-        "content-disposition": 'attachment; filename="report-summary.pdf"',
+        "content-disposition": `attachment; filename="${buildExportFilename("report-ringkasan", filter, "pdf")}"`,
       },
     });
   });

@@ -12,6 +12,7 @@ import {
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
 import { created, ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
+import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { parseJson, parseQuery } from "../lib/validation.js";
 import { authMiddleware, verifiedWargaMiddleware } from "../middleware/auth.js";
 
@@ -129,5 +130,11 @@ export const aspirationsRoutes = new Hono<{ Variables: { sessionUser: { id: stri
       },
     };
     aspirationResponseSchema.parse(payload);
+    await bumpSyncKeys([
+      adminSyncKey("aspirations"),
+      adminSyncKey("dashboard"),
+      userSyncKey(sessionUser.id, "aspirations"),
+      userSyncKey(sessionUser.id, "history"),
+    ]);
     return created(c, payload.data);
   });

@@ -48,11 +48,11 @@ export const householdMember = pgTable(
   },
   (t) => ({
     householdIdx: index("household_members_household_id_idx").on(t.householdId),
-    citizenIdx: index("household_members_citizen_id_idx").on(t.citizenId),
     householdCitizenUq: uniqueIndex("household_members_household_citizen_uq").on(
       t.householdId,
       t.citizenId,
     ),
+    citizenUq: uniqueIndex("household_members_citizen_id_uq").on(t.citizenId),
   }),
 );
 

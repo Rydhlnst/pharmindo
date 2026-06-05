@@ -9,6 +9,7 @@ import AdminCalendar from '@/components/admin/AdminCalendar';
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { Button } from '@/components/ui/button';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 
 /* ── Types ── */
 
@@ -132,6 +133,20 @@ export default function AdminDashboardPage() {
       if (stored) setHiddenActivities(JSON.parse(stored));
     } catch { }
   }, []);
+
+  useSyncVersions(['admin:dashboard'], {
+    onVersionsChanged: async (changedKeys) => {
+      if (!changedKeys.includes('admin:dashboard')) return;
+      try {
+        const response = await platformFetch<DashboardResponse>('/admin/dashboard');
+        setDashboard(response.data);
+        setDashboardError(null);
+      } catch (error) {
+        setDashboard(null);
+        setDashboardError(getPlatformErrorMessage(error, 'Gagal memuat dashboard admin.'));
+      }
+    },
+  });
 
   const dismissActivity = (id: string) => {
     setHiddenActivities((prev) => {

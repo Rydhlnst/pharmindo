@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Landmark, MessageSquare } from 'lucide-react';
 
 import { platformFetch } from '@/lib/api/platform';
-import { useAutoRefresh } from '@/lib/use-auto-refresh';
+import { useSyncVersions } from '@/lib/use-sync-versions';
+import { useIdentity } from '@/app/(app)/warga/_components/identity-context';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
@@ -59,6 +60,7 @@ function relativeTime(iso: string) {
 }
 
 export default function CommentCarousel({ refreshKey = 0 }: { refreshKey?: number }) {
+  const identity = useIdentity();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<ReplyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,12 +115,12 @@ export default function CommentCarousel({ refreshKey = 0 }: { refreshKey?: numbe
     };
   }, [refreshKey]);
 
-  useAutoRefresh(async () => {
-    const response = await platformFetch<ReplyItem[]>('/aspirations?page=1&limit=20&repliedOnly=true');
-    setItems(response.data.filter((item) => item.adminReply));
-    setLoading(false);
-  }, {
-    intervalMs: 10000,
+  useSyncVersions([`user:${identity.userId}:aspirations`], {
+    onVersionsChanged: async () => {
+      const response = await platformFetch<ReplyItem[]>('/aspirations?page=1&limit=20&repliedOnly=true');
+      setItems(response.data.filter((item) => item.adminReply));
+      setLoading(false);
+    },
   });
 
   const visibleItems = useMemo(() => items.slice(0, 20), [items]);

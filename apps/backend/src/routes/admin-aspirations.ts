@@ -15,6 +15,7 @@ import { createAuditLogService } from "../lib/admin-logs.js";
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
 import { ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
+import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
 
@@ -239,5 +240,11 @@ export const adminAspirationsRoutes = new Hono<{ Variables: { sessionUser: { id:
         citizenRw: null,
       },
     };
+    await bumpSyncKeys([
+      adminSyncKey("aspirations"),
+      adminSyncKey("dashboard"),
+      userSyncKey(updated.userId, "aspirations"),
+      userSyncKey(updated.userId, "history"),
+    ]);
     return ok(c, payload.data);
   });

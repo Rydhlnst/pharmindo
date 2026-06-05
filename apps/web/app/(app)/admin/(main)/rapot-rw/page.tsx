@@ -133,7 +133,7 @@ export default function RapotPage() {
       try {
         const summaryParams = buildFilterParams(appliedFilter);
         const [summaryResponse, rtResponse, citizenResponse] = await Promise.all([
-          platformFetch<SummaryData>(`/admin/reports/summary${summaryParams.size ? `?${summaryParams.toString()}` : ''}`),
+          platformFetch<SummaryData>('/admin/reports/summary'),
           platformFetch<RtRow[]>(`/admin/reports/rt-breakdown${summaryParams.size ? `?${summaryParams.toString()}` : ''}`),
           platformFetch<DemographicsData>(`/admin/reports/demographics${summaryParams.size ? `?${summaryParams.toString()}` : ''}`),
         ]);
@@ -234,33 +234,38 @@ export default function RapotPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-[clamp(14px,1.5vw,18px)] font-bold text-[#1E293B]">Laporan Data Warga Siap Cetak</h2>
           <p className="mt-1 text-sm font-medium text-[#3B82F6]">Filter Aktif: {activeFilter}</p>
+          <p className="mt-1 text-xs text-[#64748B]">Kartu ringkasan menampilkan total data aktif saat ini. Filter hanya berlaku untuk rekap, detail RT, dan ekspor.</p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={() => window.open(`/api/platform/admin/reports/export/pdf${exportQuery}`, '_blank')}
-            className="flex items-center gap-2 rounded-xl bg-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2563EB]"
-          >
-            <Download className="h-4 w-4" />
-            Unduh PDF
-          </Button>
-          <Button
-            onClick={() => window.open(`/api/platform/admin/reports/export/xlsx${exportQuery}`, '_blank')}
-            className="flex items-center gap-2 rounded-xl bg-[#EFF6FF] px-4 py-2.5 text-sm font-semibold text-[#3B82F6] transition hover:bg-[#E0E7FF]"
-          >
-            <Download className="h-4 w-4" />
-            Unduh Excel
-          </Button>
+        <div className="flex min-w-[280px] flex-col items-stretch gap-2 rounded-2xl border border-[#DBEAFE] bg-white p-3 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">Ekspor Laporan</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => window.open(`/api/platform/admin/reports/export/pdf${exportQuery}`, '_blank')}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2563EB]"
+            >
+              <Download className="h-4 w-4" />
+              Unduh PDF
+            </Button>
+            <Button
+              onClick={() => window.open(`/api/platform/admin/reports/export/csv${exportQuery}`, '_blank')}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#EFF6FF] px-4 py-2.5 text-sm font-semibold text-[#2563EB] transition hover:bg-[#DBEAFE]"
+            >
+              <Download className="h-4 w-4" />
+              Unduh CSV
+            </Button>
+          </div>
+          <p className="text-xs text-[#64748B]">File mengikuti filter bulan, tahun, dan RT yang sedang aktif.</p>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         <select
           value={tahun}
-          onChange={(e: any) => setTahun(e.target.value)}
+          onChange={(e) => setTahun(e.target.value)}
           className="h-10 rounded-xl border-0 bg-[#3B82F6] px-4 text-sm font-medium text-white outline-none"
         >
           <option value="2026">2026</option>
@@ -268,7 +273,7 @@ export default function RapotPage() {
         </select>
         <select
           value={bulan}
-          onChange={(e: any) => setBulan(e.target.value)}
+          onChange={(e) => setBulan(e.target.value)}
           className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
         >
           {MONTH_OPTIONS.map((option) => (
@@ -279,7 +284,7 @@ export default function RapotPage() {
         </select>
         <select
           value={rt}
-          onChange={(e: any) => setRt(e.target.value)}
+          onChange={(e) => setRt(e.target.value)}
           className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
         >
           <option value="">Pilih RT</option>
@@ -450,7 +455,7 @@ export default function RapotPage() {
                 type="text"
                 placeholder="Cari nama atau NIK..."
                 value={searchQuery}
-                onChange={(e: any) => {
+                onChange={(e) => {
                   setSearchQuery(e.target.value);
                 }}
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-[#3B82F6] focus:bg-white"

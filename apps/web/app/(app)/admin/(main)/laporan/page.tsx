@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
-import { useAutoRefresh } from '@/lib/use-auto-refresh';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 
 const PAGE_SIZE = 20;
 
@@ -141,10 +141,6 @@ export default function AdminLaporanPage() {
     void loadRows(page, selected?.id ?? null);
   }, [page, status, debouncedSearch]);
 
-  useAutoRefresh(() => loadRows(page, selected?.id ?? null), {
-    intervalMs: 8000,
-  });
-
   useEffect(() => {
     let active = true;
 
@@ -163,6 +159,22 @@ export default function AdminLaporanPage() {
       active = false;
     };
   }, []);
+
+  useSyncVersions(['admin:aspirations', 'admin:dashboard'], {
+    onVersionsChanged: async (changedKeys) => {
+      if (changedKeys.includes('admin:aspirations')) {
+        await loadRows(page, selected?.id ?? null);
+      }
+      if (changedKeys.includes('admin:dashboard')) {
+        try {
+          const response = await platformFetch<DashboardResponse>('/admin/dashboard');
+          setDashboard(response.data.notificationBadges);
+        } catch {
+          setDashboard(null);
+        }
+      }
+    },
+  });
 
   const summary = useMemo(() => {
     const submitted = rows.filter((item) => item.status === 'SUBMITTED').length;

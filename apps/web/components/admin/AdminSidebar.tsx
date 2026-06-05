@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 
 import { platformFetch } from '@/lib/api/platform';
 import { authClient } from '@/lib/auth-client';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import PortalBrand from '@/components/ui/portal-brand';
@@ -83,24 +84,29 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
   const [hasPendingVerifications, setHasPendingVerifications] = useState(false);
 
+  const loadNotificationBadges = async () => {
+    try {
+      const [requestsResponse, verificationsResponse] = await Promise.all([
+        platformFetch<unknown[]>('/admin/requests?page=1&limit=1&status=PENDING'),
+        platformFetch<unknown[]>('/admin/verifications?status=PENDING'),
+      ]);
+      setHasPendingRequests(requestsResponse.data.length > 0);
+      setHasPendingVerifications(verificationsResponse.data.length > 0);
+    } catch {
+      // silently ignore error
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
-    Promise.all([
-      platformFetch<unknown[]>('/admin/requests?page=1&limit=1&status=PENDING'),
-      platformFetch<unknown[]>('/admin/verifications?status=PENDING'),
-    ])
-      .then(([requestsResponse, verificationsResponse]) => {
-        if (!mounted) return;
-        setHasPendingRequests(requestsResponse.data.length > 0);
-        setHasPendingVerifications(verificationsResponse.data.length > 0);
-      })
-      .catch(() => {
-        // silently ignore error
-      });
-    return () => {
-      mounted = false;
-    };
+    void loadNotificationBadges();
   }, []);
+
+  useSyncVersions(['admin:dashboard'], {
+    onVersionsChanged: async (changedKeys) => {
+      if (!changedKeys.includes('admin:dashboard')) return;
+      await loadNotificationBadges();
+    },
+  });
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';

@@ -17,6 +17,7 @@ export const sessionResponseSchema = z.object({
 });
 
 export const meIdentityResponseSchema = z.object({
+  userId: z.string(),
   userName: z.string(),
   userEmail: z.string().email(),
   maskedNik: z.string(),

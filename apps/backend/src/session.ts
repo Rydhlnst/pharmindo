@@ -117,6 +117,7 @@ export async function resolveIdentity(userId: string) {
   if (!identity) return null;
 
   return {
+    userId,
     userName: identity.userName,
     userEmail: identity.userEmail,
     maskedNik: maskNikFromParts(identity.maskedNik, identity.maskedNikLast4),

@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
 import { useActionToast } from '@/lib/use-action-toast';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { cn } from '@/lib/utils';
 
 const STATUSES: VerificationStatus[] = ['PENDING', 'VERIFIED', 'REJECTED'];
@@ -117,6 +118,13 @@ export default function AdminVerificationPage() {
       active = false;
     };
   }, [query, reloadKey]);
+
+  useSyncVersions(['admin:verification', 'admin:dashboard'], {
+    onVersionsChanged: async (changedKeys) => {
+      if (!changedKeys.includes('admin:verification')) return;
+      setReloadKey((value) => value + 1);
+    },
+  });
 
   const items = buckets[STATUS_KEYS[status]] as AdminVerificationItem[];
   const counts = buckets.counts;

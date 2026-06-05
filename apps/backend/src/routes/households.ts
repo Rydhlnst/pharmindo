@@ -89,7 +89,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       );
     }
     if (query.rt) filters.push(eq(household.rt, query.rt));
-    const where = filters.length > 0 ? and(...filters) : undefined;
+    const where = filters.length > 0 ? and(eq(household.status, "ACTIVE"), ...filters) : eq(household.status, "ACTIVE");
 
     const db = getDb();
     const [{ total }] = await db

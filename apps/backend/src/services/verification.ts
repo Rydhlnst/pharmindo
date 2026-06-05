@@ -5,6 +5,7 @@ import { citizen, getDb, household, householdMember, userIdentity } from "@abdim
 import { createAuditLogService } from "../lib/admin-logs.js";
 import { decryptNik } from "../lib/nik.js";
 import { conflict, notFound, validationError } from "../lib/errors.js";
+import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { normalizeHouseholdRelationship } from "./households.js";
 
 function assertIdentityProfileComplete(identity: typeof userIdentity.$inferSelect) {
@@ -175,6 +176,12 @@ export async function approveVerificationService(input: { adminId: string; userI
     metadata: { userId: input.userId },
   });
 
+  await bumpSyncKeys([
+    adminSyncKey("verification"),
+    adminSyncKey("dashboard"),
+    userSyncKey(input.userId, "identity"),
+  ]);
+
   return updated;
 }
 
@@ -207,6 +214,12 @@ export async function rejectVerificationService(input: { adminId: string; userId
     entityId: input.userId,
     metadata: { userId: input.userId, reason },
   });
+
+  await bumpSyncKeys([
+    adminSyncKey("verification"),
+    adminSyncKey("dashboard"),
+    userSyncKey(input.userId, "identity"),
+  ]);
 
   return updated;
 }

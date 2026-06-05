@@ -301,4 +301,31 @@ describe("householdsRoutes", () => {
     expect(json.data.deletedCitizenIds).toEqual(["citizen-1", "citizen-2"]);
     expect(json.data.retainedCitizenIds).toEqual([]);
   });
+
+  it("[ERR] rejects creating a household when the selected head citizen already belongs to another active household", async () => {
+    dbState.selectQueue.push([], [{ id: "citizen-22", rt: "03", rw: "11" }], [{ total: 1 }]);
+
+    const app = createApp();
+    const response = await app.request("/admin/households", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kkNumber: "3201010101010199",
+        headCitizenId: "citizen-22",
+        address: "Jl Sinkron No 2",
+        rt: "03",
+        rw: "11",
+        status: "ACTIVE",
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: {
+        code: "CONFLICT",
+        message: "Head citizen already belongs to an active household",
+      },
+    });
+  });
 });

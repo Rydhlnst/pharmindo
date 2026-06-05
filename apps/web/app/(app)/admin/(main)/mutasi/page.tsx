@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 
 const PAGE_SIZE = 20;
 
@@ -61,6 +62,15 @@ export default function MutasiPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
 
+  const loadPendingRequestsBadge = async () => {
+    try {
+      const res = await platformFetch<any[]>('/admin/requests?page=1&limit=1&status=PENDING');
+      setHasPendingRequests(res.data.length > 0);
+    } catch {
+      // silently ignore error
+    }
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery.trim());
@@ -101,20 +111,23 @@ export default function MutasiPage() {
 
     void load();
 
-    platformFetch<any[]>('/admin/requests?page=1&limit=1&status=PENDING')
-      .then((res: any) => {
-        if (active && res.data) {
-          setHasPendingRequests(res.data.length > 0);
-        }
-      })
-      .catch(() => {
-        // silently ignore error
-      });
+    void loadPendingRequestsBadge();
 
     return () => {
       active = false;
     };
   }, [currentPage, debouncedSearchQuery, activeType, reloadKey]);
+
+  useSyncVersions(['admin:mutations', 'admin:requests'], {
+    onVersionsChanged: async (changedKeys) => {
+      if (changedKeys.includes('admin:mutations')) {
+        setReloadKey((value) => value + 1);
+      }
+      if (changedKeys.includes('admin:requests')) {
+        await loadPendingRequestsBadge();
+      }
+    },
+  });
 
   const filteredRows = rows;
 

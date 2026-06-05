@@ -59,6 +59,7 @@ export async function getIdentityOrNull(): Promise<MeIdentityResponse | null> {
   if (!identity) return null;
 
   return {
+    userId: session.user.id,
     userName: session.user.name,
     userEmail: session.user.email,
     maskedNik: maskedNik(identity),

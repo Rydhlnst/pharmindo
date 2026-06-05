@@ -4,6 +4,7 @@ import { citizen, getDb, historyEntry, mutation, serviceRequest } from "@abdimas
 
 import { createAuditLogService } from "../lib/admin-logs.js";
 import { conflict, notFound, validationError } from "../lib/errors.js";
+import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { createHouseholdService } from "./households.js";
 import { approveMutationService } from "./mutations.js";
 
@@ -215,6 +216,14 @@ export async function approveRequestService(input: { adminId: string; requestId:
     status: "APPROVED",
   });
 
+  await bumpSyncKeys([
+    adminSyncKey("requests"),
+    adminSyncKey("dashboard"),
+    ...(updated.type === "MUTATION_IN" || updated.type === "MUTATION_OUT" ? [adminSyncKey("mutations")] : []),
+    userSyncKey(updated.requestedBy, "requests"),
+    userSyncKey(updated.requestedBy, "history"),
+  ]);
+
   return updated;
 }
 
@@ -253,6 +262,13 @@ export async function rejectRequestService(input: { adminId: string; requestId: 
     status: "REJECTED",
     rejectionReason: updated.rejectionReason,
   });
+
+  await bumpSyncKeys([
+    adminSyncKey("requests"),
+    adminSyncKey("dashboard"),
+    userSyncKey(updated.requestedBy, "requests"),
+    userSyncKey(updated.requestedBy, "history"),
+  ]);
 
   return updated;
 }
