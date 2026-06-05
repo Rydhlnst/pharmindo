@@ -50,7 +50,7 @@ export interface PemiluResult {
 /** Jenis laporan aspirasi */
 export type JenisAspirasi = 'masukan' | 'keluhan';
 export type StatusAspirasi = 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
-export type JenisPermohonan = 'HOUSEHOLD_CREATE' | 'MUTATION_IN' | 'MUTATION_OUT' | 'BANSOS_APPLICATION';
+export type JenisPermohonan = 'HOUSEHOLD_CREATE' | 'MEMBER_CREATE' | 'MUTATION_IN' | 'MUTATION_OUT' | 'BANSOS_APPLICATION';
 export type StatusPermohonan = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 /** Hasil pengiriman aspirasi */

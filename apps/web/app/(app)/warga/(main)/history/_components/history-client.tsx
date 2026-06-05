@@ -8,7 +8,6 @@ import type { AspirasiResult, BansosResult, HistoryItem, JenisPermohonan, Pemilu
 
 import PageHeader from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { platformFetch } from '@/lib/api/platform';
 import { useAutoRefresh } from '@/lib/use-auto-refresh';
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
@@ -126,7 +125,7 @@ function mapHistoryItem(item: HistoryApiItem): HistoryItem {
   if (item.type === 'REQUEST' || item.type === 'MUTATION') {
     const reqType: JenisPermohonan = item.type === 'MUTATION'
       ? (item.metadata.type === 'MUTATION_IN' ? 'MUTATION_IN' : 'MUTATION_OUT')
-      : 'HOUSEHOLD_CREATE';
+      : (String(item.metadata.requestType || 'HOUSEHOLD_CREATE') as JenisPermohonan);
     const reqStatus = String(item.metadata.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
     return {
       id: item.id,
@@ -199,7 +198,7 @@ function DetailContent({ item }: { item: HistoryItem }) {
   } else if (item.tipe === 'permohonan') {
     const detail = item.detail as PermohonanResult;
     rows.push(
-      { label: 'Jenis', value: detail.jenis === 'HOUSEHOLD_CREATE' ? 'Pembuatan KK' : detail.jenis === 'MUTATION_IN' ? 'Mutasi Masuk' : detail.jenis === 'MUTATION_OUT' ? 'Mutasi Keluar' : 'Lainnya' },
+      { label: 'Jenis', value: detail.jenis === 'HOUSEHOLD_CREATE' ? 'Pembuatan KK' : detail.jenis === 'MEMBER_CREATE' ? 'Tambah Anggota KK' : detail.jenis === 'MUTATION_IN' ? 'Mutasi Masuk' : detail.jenis === 'MUTATION_OUT' ? 'Mutasi Keluar' : 'Lainnya' },
       { label: 'Tanggal', value: detail.tanggal || item.tanggal },
       { label: 'Status', value: detail.status === 'APPROVED' ? 'Disetujui' : detail.status === 'REJECTED' ? 'Ditolak' : 'Menunggu' },
     );
@@ -265,12 +264,10 @@ function DetailContent({ item }: { item: HistoryItem }) {
 export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: HistoryItem[] }) {
   const [activeTab, setActiveTab] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [items, setItems] = useState<HistoryItem[]>(fallbackItems);
-
-  useEffect(() => {
+  const [items, setItems] = useState<HistoryItem[]>(() => {
     const stored = safeParseHistory(localStorage.getItem(STORAGE_KEY));
-    if (stored.length > 0) setItems(stored);
-  }, []);
+    return stored.length > 0 ? stored : fallbackItems;
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -305,6 +302,7 @@ export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: 
         eyebrow="Aktivitas"
         description="Pantau status pengecekan bansos, pemilu, permohonan, dan tindak lanjut laporan."
         variant="brand"
+        brandImageSrc="/Pharmindo25_BW.png"
         className="pb-7"
         titleClassName="text-xl"
         rightSlot={
