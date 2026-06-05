@@ -20,6 +20,7 @@ import {
 import { platformFetch } from '@/lib/api/platform';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActionToast } from '@/lib/use-action-toast';
+import { RT_OPTIONS } from '@/lib/rt-options';
 
 /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Constants ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
@@ -77,8 +78,6 @@ const HUBUNGAN_OPTIONS = [
   'Pembantu',
   'Lainnya',
 ];
-
-const RT_OPTIONS = Array.from({ length: 5 }, (_, i) => String(i + 1).padStart(2, '0'));
 
 const STATUS_KEPENDUDUKAN_OPTIONS = [
   { label: 'Penduduk Tetap', value: 'PENDUDUK_TETAP' },

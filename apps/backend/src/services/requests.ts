@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-import { getDb, historyEntry, mutation, serviceRequest } from "@abdimas/db";
+import { citizen, getDb, historyEntry, mutation, serviceRequest } from "@abdimas/db";
 
 import { createAuditLogService } from "../lib/admin-logs.js";
 import { conflict, notFound, validationError } from "../lib/errors.js";
@@ -144,17 +144,29 @@ export async function approveRequestService(input: { adminId: string; requestId:
 
   if (row.type === "MUTATION_IN" || row.type === "MUTATION_OUT") {
     const payload = row.payload as Record<string, unknown>;
+    let targetCitizenId =
+      payload.citizenId && typeof payload.citizenId === "string" ? payload.citizenId : null;
+
+    if (!targetCitizenId && payload.nik && typeof payload.nik === "string") {
+      const [matchedCitizen] = await db
+        .select({ id: citizen.id })
+        .from(citizen)
+        .where(and(eq(citizen.nik, payload.nik), eq(citizen.isArchived, false)))
+        .limit(1);
+      targetCitizenId = matchedCitizen?.id ?? null;
+    }
+
     if (payload.mutationId && typeof payload.mutationId === "string") {
       await approveMutationService({
         adminId: input.adminId,
         mutationId: payload.mutationId,
         status: "APPROVED",
       });
-    } else if (payload.citizenId && typeof payload.citizenId === "string") {
+    } else if (targetCitizenId) {
       const [createdMutation] = await db
         .insert(mutation)
         .values({
-          citizenId: payload.citizenId,
+          citizenId: targetCitizenId,
           type: row.type === "MUTATION_IN" ? "IN" : "OUT",
           status: "APPROVED",
           fromAddress: typeof payload.fromAddress === "string" ? payload.fromAddress : null,
@@ -173,7 +185,7 @@ export async function approveRequestService(input: { adminId: string; requestId:
         metadata: { requestId: row.id, requestType: row.type },
       });
     } else {
-      throw validationError("Mutation request payload must include mutationId or citizenId");
+      throw validationError("Mutation request payload must include a valid citizenId or NIK");
     }
   }
 

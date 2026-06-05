@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RT_OPTIONS } from '@/lib/rt-options';
 
 type RequestType = 'HOUSEHOLD_CREATE' | 'MUTATION_IN' | 'MUTATION_OUT' | 'BANSOS_APPLICATION';
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -185,7 +186,6 @@ export default function WargaLayananPage() {
     <WargaPage>
       <PageHeader
         title="Layanan RT"
-        eyebrow="Portal RW 25 Cimahi"
         description="Ajukan permohonan dan pantau status review admin."
         variant="brand"
         className="pb-7"
@@ -278,7 +278,19 @@ export default function WargaLayananPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="kk-rt">RT</Label>
-                    <Input id="kk-rt" value={rt} onChange={(e) => setRt(e.target.value.replace(/\D/g, '').slice(0, 3))} />
+                    <select
+                      id="kk-rt"
+                      value={rt}
+                      onChange={(e) => setRt(e.target.value)}
+                      className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    >
+                      <option value="">Pilih RT</option>
+                      {RT_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          RT {option}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="kk-rw">RW</Label>
@@ -329,16 +341,24 @@ export default function WargaLayananPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="target-rt">RT tujuan</Label>
-                    <Input
+                    <select
                       id="target-rt"
                       value={mutationForm.targetRt}
                       onChange={(e) =>
                         setMutationForm((prev) => ({
                           ...prev,
-                          targetRt: e.target.value.replace(/\D/g, '').slice(0, 3),
+                          targetRt: e.target.value,
                         }))
                       }
-                    />
+                      className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    >
+                      <option value="">Pilih RT</option>
+                      {RT_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          RT {option}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="mutation-phone">Nomor telepon</Label>

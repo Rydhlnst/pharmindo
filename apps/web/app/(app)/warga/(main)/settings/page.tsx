@@ -6,18 +6,13 @@ import { useTheme } from '@/app/(app)/warga/_components/theme-context';
 import { useIdentity } from '@/app/(app)/warga/_components/identity-context';
 import {
   ArrowLeft,
-  Moon,
-  Sun,
   Bell,
   Globe,
-  ShieldCheck,
   LogOut,
   ChevronRight,
   Info,
   Smartphone,
   Check,
-  Heart,
-  Landmark,
 } from 'lucide-react';
 import SlideUpSheet from '@/components/warga/SlideUpSheet';
 import StatusPopup from '@/components/warga/StatusPopup';
@@ -26,6 +21,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { platformFetch } from '@/lib/api/platform';
 import PageHeader from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
+import PortalBrand from '@/components/ui/portal-brand';
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
 import {
   AlertDialog,
@@ -115,7 +111,7 @@ const DICT: Record<string, Record<string, string>> = {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { isDark, toggleDark } = useTheme();
+  useTheme();
   const identity = useIdentity();
   const { toast } = useToast();
   const [notifikasi, setNotifikasi] = useState(false);
@@ -297,7 +293,7 @@ export default function SettingsPage() {
                     setNotifStatus(p);
                     window.dispatchEvent(new CustomEvent('notif-updated'));
                     if (p === 'granted') {
-                      new Notification('Portal RW 25', { body: 'Notifikasi berhasil diaktifkan!', icon: '/favicon.ico' });
+                      new Notification('Pharmindo25', { body: 'Notifikasi berhasil diaktifkan!', icon: '/favicon.ico' });
                     } else {
                       return;
                     }
@@ -387,11 +383,11 @@ export default function SettingsPage() {
         </Button>
 
         <p className="text-center text-[11px] text-muted-foreground/70 transition-colors duration-300">
-          {loadingPreferences ? 'Memuat pengaturan...' : 'ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© 2026 Abdi Masyarakat ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â RW 25 Kota Cimahi'}
+          {loadingPreferences ? 'Memuat pengaturan...' : '© 2026 Abdi Masyarakat — Pharmindo25'}
         </p>
       </WargaPageBody>
 
-      {/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚Â INTERAKTIF (SHEETS & POPUPS) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚Â */}
+      {/* INTERAKTIF (SHEETS & POPUPS) */}
 
       {/* Sheet: Pilihan Bahasa */}
       <SlideUpSheet
@@ -431,17 +427,14 @@ export default function SettingsPage() {
         title={t.appAbout}
       >
         <div className="flex flex-col p-6 text-left gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg shrink-0">
-              <Landmark className="w-8 h-8 text-white" aria-hidden="true" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-foreground">Portal RW 25</h3>
-              <p className="text-sm text-muted-foreground">Versi 1.0.0</p>
-            </div>
-          </div>
+          <PortalBrand
+            imageSize={64}
+            textClassName="text-lg font-bold text-foreground"
+            subtitle="Versi 1.0.0"
+            subtitleClassName="text-sm text-muted-foreground"
+          />
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-            Portal RW 25 adalah sistem informasi digital untuk mengelola data kependudukan warga di lingkungan RW 025, Kota Cimahi. Aplikasi ini membantu pengurus RW mengelola data warga, kartu keluarga, mutasi penduduk, dan permohonan secara efisien.
+            Pharmindo25 adalah sistem informasi digital untuk mengelola data kependudukan warga di lingkungan RW 025, Kota Cimahi. Aplikasi ini membantu pengurus RW mengelola data warga, kartu keluarga, mutasi penduduk, dan permohonan secara efisien.
           </p>
           <div className="w-full h-px bg-input my-2" />
           <div className="space-y-1 text-sm text-muted-foreground">

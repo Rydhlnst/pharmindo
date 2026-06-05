@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle as CheckCircle2, CaretRight as ChevronRight, Shield } from '@phosphor-icons/react';
 
 import { platformFetch } from '@/lib/api/platform';
+import { RT_OPTIONS } from '@/lib/rt-options';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useActionToast } from '@/lib/use-action-toast';
-
-const RT_OPTIONS = ['01', '02', '03'] as const;
 const ACCESS_SCOPE_OPTIONS = [
   {
     value: 'RT' as const,

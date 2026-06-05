@@ -18,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { platformFetch } from '@/lib/api/platform';
 import { useActionToast } from '@/lib/use-action-toast';
+import { RT_OPTIONS } from '@/lib/rt-options';
 
 type FormState = {
   kkNumber: string;
@@ -204,7 +205,7 @@ export default function TambahKartuKeluargaPage() {
 
       await runWithToast(
         () =>
-          platformFetch('/user-requests/household-create', {
+          platformFetch('/requests/household-create', {
             method: 'POST',
             body: JSON.stringify({
               kkNumber: form.kkNumber,
@@ -230,13 +231,13 @@ export default function TambahKartuKeluargaPage() {
   };
 
   return (
-    <div className="flex w-full flex-col gap-6 p-4 md:p-6 pb-24">
-      {/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Header ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */}
+    <div className="safe-top flex w-full flex-col gap-6 p-4 md:p-6 pb-24">
+      {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => setShowExitModal(true)}
-          className="flex items-center gap-1 text-sm md:text-base font-semibold text-violet-600 transition hover:opacity-80 bg-transparent border-none outline-none"
+          className="flex items-center gap-1 text-sm md:text-base font-semibold text-blue-600 transition hover:opacity-80 bg-transparent border-none outline-none"
         >
           <ChevronLeft className="h-5 w-5" />
           <span className="hidden sm:inline">Keluar Halaman</span>
@@ -257,30 +258,30 @@ export default function TambahKartuKeluargaPage() {
           variant="outline"
           className="relative flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 md:px-5 py-2 md:py-2.5 text-xs md:text-sm font-semibold text-[#1E293B] transition hover:bg-gray-50"
         >
-          <Save className="h-4 w-4 text-[#8B5CF6]" />
+          <Save className="h-4 w-4 text-blue-500" />
           <span className="hidden sm:inline">Draft</span>
           {hasDraft && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-red-500" />}
         </Button>
       </div>
 
-      {/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Title Card ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */}
-      <div className="relative overflow-hidden rounded-[12px] bg-[#F5F3FF] p-4 md:p-6">
-        <div className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-[#8B5CF6]/[0.05]" />
-        <div className="pointer-events-none absolute right-12 top-2 h-24 w-24 rounded-full bg-[#8B5CF6]/[0.08]" />
+      {/* Title Card */}
+      <div className="relative overflow-hidden rounded-[12px] bg-[#EFF6FF] p-4 md:p-6">
+        <div className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-blue-500/[0.05]" />
+        <div className="pointer-events-none absolute right-12 top-2 h-24 w-24 rounded-full bg-blue-500/[0.08]" />
 
         <div className="relative z-10">
-          <h1 className="text-xl md:text-2xl font-bold text-[#8B5CF6]">Tambah Kartu Keluarga Baru</h1>
-          <p className="mt-1 text-xs md:text-sm text-[#8B5CF6]/80">
+          <h1 className="text-xl md:text-2xl font-bold text-blue-600">Tambah Kartu Keluarga Baru</h1>
+          <p className="mt-1 text-xs md:text-sm text-blue-600/80">
             Isi semua field wajib bertanda bintang merah. Data akan tersimpan ke modul Kartu Keluarga.
           </p>
         </div>
       </div>
 
-      <div className="flex items-start md:items-center gap-3 rounded-[12px] bg-[#F5F3FF] px-4 md:px-6 py-4 border border-violet-100">
-        <CheckCircle2 className="h-5 w-5 text-[#8B5CF6] shrink-0 mt-0.5 md:mt-0" />
+      <div className="flex items-start md:items-center gap-3 rounded-[12px] bg-[#EFF6FF] px-4 md:px-6 py-4 border border-blue-100">
+        <CheckCircle2 className="h-5 w-5 text-blue-600 shrink-0 mt-0.5 md:mt-0" />
         <div>
-          <p className="text-sm font-bold text-[#8B5CF6]">Periksa kembali sebelum menyimpan.</p>
-          <p className="text-xs md:text-sm text-[#8B5CF6]/80">Pastikan semua data sudah benar. Kamu masih bisa kembali ke langkah sebelumnya untuk koreksi data</p>
+          <p className="text-sm font-bold text-blue-600">Periksa kembali sebelum menyimpan.</p>
+          <p className="text-xs md:text-sm text-blue-600/80">Pastikan semua data sudah benar. Kamu masih bisa kembali ke langkah sebelumnya untuk koreksi data</p>
         </div>
       </div>
 
@@ -290,7 +291,7 @@ export default function TambahKartuKeluargaPage() {
         </div>
       )}
 
-      {/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Form Content ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */}
+      {/* Form Content */}
       <form id="kk-form" onSubmit={handleSubmit} className="flex flex-col gap-6">
 
 
@@ -344,12 +345,12 @@ export default function TambahKartuKeluargaPage() {
             <div className="flex flex-col gap-2">
               <Label className="mb-1.5 block text-sm font-semibold text-[#1E293B]">RT</Label>
               <Select value={form.rt} onValueChange={(val: any) => handleFieldChange('rt', val)}>
-                <SelectTrigger className="[&>svg]:text-[#7C3AED] [&>svg]:opacity-100 h-11 appearance-none rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#1E293B] outline-none transition focus:border-[#7C3AED] focus:ring-2 focus:ring-violet-100">
+                <SelectTrigger className="[&>svg]:text-blue-600 [&>svg]:opacity-100 h-11 appearance-none rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#1E293B] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
                   <SelectValue placeholder="Pilih RT" />
                 </SelectTrigger>
                 <SelectContent>
-                  {['01', '02', '03'].map((rt) => (
-                    <SelectItem key={rt} value={rt} className="focus:bg-violet-50 focus:text-violet-600">
+                  {RT_OPTIONS.map((rt) => (
+                    <SelectItem key={rt} value={rt} className="focus:bg-blue-50 focus:text-blue-600">
                       RT {rt}
                     </SelectItem>
                   ))}
@@ -359,7 +360,7 @@ export default function TambahKartuKeluargaPage() {
             <div className="flex flex-col gap-2">
               <Label className="mb-1.5 block text-sm font-semibold text-[#1E293B]">RW</Label>
               <Select value={form.rw} onValueChange={(val: any) => handleFieldChange('rw', val)} disabled>
-                <SelectTrigger className="[&>svg]:text-[#7C3AED] [&>svg]:opacity-100 h-11 appearance-none rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm text-[#1E293B] outline-none opacity-100 [&>svg]:hidden">
+                <SelectTrigger className="[&>svg]:text-blue-600 [&>svg]:opacity-100 h-11 appearance-none rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm text-[#1E293B] outline-none opacity-100 [&>svg]:hidden">
                   <SelectValue placeholder="RW 25" />
                 </SelectTrigger>
                 <SelectContent>
@@ -404,7 +405,7 @@ export default function TambahKartuKeluargaPage() {
                 Alasan Pembuatan<span className="text-red-500">*</span>
               </Label>
               <Select value={form.reason} onValueChange={(val: any) => handleFieldChange('reason', val)}>
-                <SelectTrigger className="[&>svg]:text-[#7C3AED] [&>svg]:opacity-100 h-11 appearance-none rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#1E293B] outline-none transition focus:border-[#7C3AED] focus:ring-2 focus:ring-violet-100">
+                <SelectTrigger className="[&>svg]:text-blue-600 [&>svg]:opacity-100 h-11 appearance-none rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#1E293B] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
                   <SelectValue placeholder="Baru" />
                 </SelectTrigger>
                 <SelectContent>
@@ -418,13 +419,13 @@ export default function TambahKartuKeluargaPage() {
           </div>
         </div>
 
-        {/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Action Buttons ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */}
+        {/* Action Buttons */}
         <div className="mt-4 flex flex-col-reverse md:flex-row justify-end gap-3 pb-8">
           <Button
             type="button"
             onClick={handleSaveDraft}
             variant="outline"
-            className="flex w-full md:w-auto items-center justify-center gap-2 rounded-xl border border-[#7C3AED] bg-white px-8 py-4 md:py-6 text-sm md:text-base font-semibold text-[#7C3AED] transition hover:bg-violet-50 shadow-sm"
+            className="flex w-full md:w-auto items-center justify-center gap-2 rounded-xl border border-blue-500 bg-white px-8 py-4 md:py-6 text-sm md:text-base font-semibold text-blue-600 transition hover:bg-blue-50 shadow-sm"
           >
             <Save className="h-5 w-5" />
             Simpan Draft
@@ -432,7 +433,7 @@ export default function TambahKartuKeluargaPage() {
           <Button
             type="submit"
             disabled={loading}
-            className="flex w-full md:w-auto items-center justify-center gap-2 rounded-xl bg-[#7C3AED] px-8 py-4 md:py-6 text-sm md:text-base font-bold text-white shadow-sm transition hover:bg-[#6D28D9]"
+            className="flex w-full md:w-auto items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 py-4 md:py-6 text-sm md:text-base font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
           >
             {loading ? 'Menyimpan...' : 'Simpan Kartu Keluarga'}
           </Button>
@@ -451,7 +452,7 @@ export default function TambahKartuKeluargaPage() {
           <div className="mt-4 flex flex-col gap-3">
             <Button
               onClick={handleLoadDraft}
-              className="w-full rounded-xl bg-[#7C3AED] py-3 text-sm font-bold text-white transition hover:bg-[#6D28D9]"
+              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
             >
               Muat Draft
             </Button>
@@ -487,7 +488,7 @@ export default function TambahKartuKeluargaPage() {
                 setShowExitModal(false);
                 router.back();
               }}
-              className="w-full rounded-xl bg-[#7C3AED] py-3 text-sm font-bold text-white transition hover:bg-[#6D28D9]"
+              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
             >
               Simpan Draft & Keluar
             </Button>

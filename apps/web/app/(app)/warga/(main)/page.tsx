@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   ArrowRight,
@@ -52,6 +53,7 @@ import CommentCarousel from '@/components/warga/CommentCarousel';
 import QuickActionsPanel from '@/components/warga/QuickActionsPanel';
 
 import { formatBansosPeriod } from '@/lib/bansos';
+import { RT_OPTIONS } from '@/lib/rt-options';
 
 import type {
   BansosResult,
@@ -79,6 +81,8 @@ type PendudukForm = {
 
 type MutationForm = {
   type: 'MUTATION_IN' | 'MUTATION_OUT' | '';
+  subjectName: string;
+  subjectNik: string;
   mutationDate: string;
   fromAddress: string;
   toAddress: string;
@@ -108,6 +112,8 @@ const INITIAL_PENDUDUK_FORM: PendudukForm = {
 
 const INITIAL_MUTATION_FORM: MutationForm = {
   type: '',
+  subjectName: '',
+  subjectNik: '',
   mutationDate: '',
   fromAddress: '',
   toAddress: '',
@@ -122,8 +128,6 @@ const INITIAL_HOUSEHOLD_FORM: HouseholdForm = {
   rt: '',
   rw: '25',
 };
-
-const RT_OPTIONS = ['01', '02', '03', '04', '05'];
 
 const BANSOS_PROGRAMS = [
   {
@@ -166,6 +170,7 @@ type BansosProgramCard = {
 };
 
 export default function WargaHomePage() {
+  const router = useRouter();
   const { isDark, toggleDark } = useTheme();
   const identity = useIdentity();
   const { toast } = useToast();
@@ -206,6 +211,12 @@ export default function WargaHomePage() {
   const [pendudukErrors, setPendudukErrors] = useState<Partial<Record<keyof PendudukForm, string>>>({});
   const [mutationErrors, setMutationErrors] = useState<Partial<Record<keyof MutationForm, string>>>({});
   const [householdErrors, setHouseholdErrors] = useState<Partial<Record<keyof HouseholdForm, string>>>({});
+
+  // Mutasi — auto-fill data diri
+  const [mutationUseOwnData, setMutationUseOwnData] = useState<boolean | null>(null); // null = belum dipilih
+  const [mutationPersonName, setMutationPersonName] = useState('');
+  const [mutationPersonNik, setMutationPersonNik] = useState('');
+  const [loadingOwnData, setLoadingOwnData] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -513,7 +524,11 @@ export default function WargaHomePage() {
       });
       return;
     }
-    if (sheet === 'aspirasi' || sheet === 'penduduk' || sheet === 'mutasi' || sheet === 'tambahKk') {
+    if (sheet === 'tambahKk') {
+      router.push('/warga/kk');
+      return;
+    }
+    if (sheet === 'aspirasi' || sheet === 'penduduk' || sheet === 'mutasi') {
       setBlockedMessage(null);
       setActiveSheet(sheet);
     }
@@ -550,6 +565,8 @@ export default function WargaHomePage() {
   const validateMutationForm = () => {
     const nextErrors: Partial<Record<keyof MutationForm, string>> = {};
     if (!mutationForm.type) nextErrors.type = 'Jenis mutasi wajib dipilih.';
+    if (mutationForm.subjectName.trim().length < 2) nextErrors.subjectName = 'Nama wajib diisi minimal 2 karakter.';
+    if (!/^\d{16}$/.test(mutationForm.subjectNik)) nextErrors.subjectNik = 'NIK wajib 16 digit angka.';
     if (!mutationForm.mutationDate) nextErrors.mutationDate = 'Tanggal mutasi wajib diisi.';
     if (mutationForm.type === 'MUTATION_IN' && !mutationForm.toAddress.trim()) nextErrors.toAddress = 'Alamat tujuan wajib diisi untuk mutasi masuk.';
     if (mutationForm.type === 'MUTATION_OUT' && !mutationForm.fromAddress.trim()) nextErrors.fromAddress = 'Alamat asal wajib diisi untuk mutasi keluar.';
@@ -574,7 +591,7 @@ export default function WargaHomePage() {
     if (!validatePendudukForm()) return;
     setSubmitting('penduduk');
     try {
-      await platformFetch('/user-requests/member-create', {
+      await platformFetch('/requests/member-create', {
         method: 'POST',
         body: JSON.stringify({
           nik: pendudukForm.nik,
@@ -604,14 +621,58 @@ export default function WargaHomePage() {
     }
   };
 
+  const handleMutationSelfFill = async () => {
+    setLoadingOwnData(true);
+    try {
+      // Fetch citizen profile dari backend
+      const res = await platformFetch<{ id: string; nik: string; name: string; phone?: string }>('/me/identity');
+      const citizen = res.data as any;
+      const nikVal = citizen?.nik || citizen?.maskedNik || '';
+      const nameVal = citizen?.name || citizen?.userName || identity.userName || '';
+      updateMutationForm('subjectNik', nikVal);
+      updateMutationForm('subjectName', nameVal);
+      setMutationPersonNik(nikVal);
+      setMutationPersonName(nameVal);
+      // Jika ada phone dari profil
+      if (citizen?.phone) {
+        updateMutationForm('phone', citizen.phone);
+      }
+      setMutationUseOwnData(true);
+      toast({
+        title: 'Data diisi otomatis',
+        description: 'NIK dan nama telah diisi dari profil akun Anda.',
+        variant: 'success',
+      });
+    } catch {
+      // Fallback ke identity context
+      const fallbackName = identity.userName || '';
+      const fallbackNik = '';
+      updateMutationForm('subjectName', fallbackName);
+      updateMutationForm('subjectNik', fallbackNik);
+      setMutationPersonName(fallbackName);
+      setMutationPersonNik(fallbackNik);
+      setMutationUseOwnData(true);
+      toast({
+        title: 'Data diisi dari profil',
+        description: 'Nama berhasil diisi. Lengkapi NIK manual jika belum tersedia.',
+        variant: 'success',
+      });
+    } finally {
+      setLoadingOwnData(false);
+    }
+  };
+
   const handleMutationSubmit = async () => {
     if (!validateMutationForm()) return;
     setSubmitting('mutasi');
     try {
-      await platformFetch('/user-requests/mutation', {
+      await platformFetch('/requests/mutation', {
         method: 'POST',
         body: JSON.stringify({
           type: mutationForm.type,
+          subjectSource: mutationUseOwnData ? 'SELF' : 'OTHER',
+          subjectName: mutationForm.subjectName.trim(),
+          subjectNik: mutationForm.subjectNik.trim(),
           mutationDate: mutationForm.mutationDate,
           fromAddress: mutationForm.fromAddress.trim() || undefined,
           toAddress: mutationForm.toAddress.trim() || undefined,
@@ -621,6 +682,9 @@ export default function WargaHomePage() {
         }),
       });
       setMutationForm(INITIAL_MUTATION_FORM);
+      setMutationUseOwnData(null);
+      setMutationPersonName('');
+      setMutationPersonNik('');
       setActiveSheet(null);
       setPopup({ variant: 'warning', judul: 'Pengajuan Mutasi Terkirim' });
       toast({
@@ -640,7 +704,7 @@ export default function WargaHomePage() {
     if (!validateHouseholdForm()) return;
     setSubmitting('tambahKk');
     try {
-      await platformFetch('/user-requests/household-create', {
+      await platformFetch('/requests/household-create', {
         method: 'POST',
         body: JSON.stringify({
           kkNumber: householdForm.kkNumber,
@@ -812,7 +876,7 @@ export default function WargaHomePage() {
                 deskripsi="Periksa status pemilih Anda di DPT."
                 badge="Pemilu"
                 variant="compact"
-                tone="sky"
+                tone="primary"
                 onClick={() => setActiveSheet('pemilu')}
                 delay={100}
               />
@@ -1271,93 +1335,250 @@ export default function WargaHomePage() {
         deskripsi="Ajukan mutasi masuk atau keluar untuk direview admin."
       >
         <div className="flex max-h-[72dvh] flex-col gap-4 overflow-y-auto pr-1">
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm font-semibold text-foreground">Jenis Mutasi</Label>
-            <RadioGroup
-              value={mutationForm.type}
-              onValueChange={(value) => updateMutationForm('type', value)}
-              className="grid grid-cols-2 gap-2"
-            >
-              {[
-                ['MUTATION_IN', 'Mutasi Masuk'],
-                ['MUTATION_OUT', 'Mutasi Keluar'],
-              ].map(([value, label]) => (
-                <Label
-                  key={value}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-2 rounded-2xl border p-3 text-sm font-semibold',
-                    mutationForm.type === value ? 'border-primary/30 bg-primary text-primary-foreground' : 'border-border bg-card'
-                  )}
+
+          {/* ── Step 0: Pilih data siapa ── */}
+          {mutationUseOwnData === null ? (
+            <div className="flex flex-col gap-3">
+              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+                <p className="text-sm font-semibold text-foreground">Mutasi untuk siapa?</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pilih apakah pengajuan mutasi ini untuk data diri Anda sendiri atau untuk orang lain (anggota keluarga, dll).
+                </p>
+              </div>
+
+              {/* Opsi: data sendiri */}
+              <button
+                type="button"
+                onClick={() => void handleMutationSelfFill()}
+                disabled={loadingOwnData}
+                className={cn(
+                  'flex w-full items-center gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left transition hover:bg-primary/10 active:scale-[0.99]',
+                  loadingOwnData && 'opacity-60'
+                )}
+              >
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <CheckCircle2 className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-foreground">
+                    {loadingOwnData ? 'Memuat data...' : 'Gunakan Data Saya'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Auto-isi NIK &amp; nama dari profil akun Anda.
+                  </p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-primary" />
+              </button>
+
+              {/* Opsi: data orang lain */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMutationUseOwnData(false);
+                  setMutationPersonName('');
+                  setMutationPersonNik('');
+                  updateMutationForm('subjectName', '');
+                  updateMutationForm('subjectNik', '');
+                }}
+                className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left transition hover:bg-muted/60 active:scale-[0.99]"
+              >
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <AlertCircle className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-foreground">Data Orang Lain</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Isi manual untuk anggota keluarga atau pihak lain.
+                  </p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* ── Info banner data yang digunakan ── */}
+              <div className={cn(
+                'flex items-start gap-3 rounded-2xl border p-3.5',
+                mutationUseOwnData
+                  ? 'border-primary/20 bg-primary/5'
+                  : 'border-border bg-muted/40'
+              )}>
+                <div className={cn(
+                  'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl',
+                  mutationUseOwnData ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                )}>
+                  {mutationUseOwnData ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {mutationUseOwnData ? 'Menggunakan data akun Anda' : 'Menggunakan data orang lain'}
+                  </p>
+                  {mutationUseOwnData && (mutationPersonName || mutationPersonNik) ? (
+                    <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                      {mutationPersonName && (
+                        <div className="rounded-lg bg-background px-2.5 py-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Nama</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground">{mutationPersonName}</p>
+                        </div>
+                      )}
+                      {mutationPersonNik && (
+                        <div className="rounded-lg bg-background px-2.5 py-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">NIK</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground">{mutationPersonNik}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMutationUseOwnData(null);
+                    setMutationPersonName('');
+                    setMutationPersonNik('');
+                    setMutationForm((prev) => ({
+                      ...prev,
+                      subjectName: '',
+                      subjectNik: '',
+                    }));
+                  }}
+                  className="shrink-0 rounded-lg p-1 text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
                 >
-                  <RadioGroupItem value={value} />
-                  {label}
-                </Label>
-              ))}
-            </RadioGroup>
-            {mutationErrors.type ? <p className="text-xs text-destructive">{mutationErrors.type}</p> : null}
-          </div>
+                  <AlertCircle className="size-3.5" />
+                </button>
+              </div>
 
-          <FormInput
-            label="Tanggal Mutasi"
-            type="date"
-            value={mutationForm.mutationDate}
-            onChange={(e) => updateMutationForm('mutationDate', e.target.value)}
-            error={mutationErrors.mutationDate}
-          />
-          <FormTextarea
-            label="Alamat Asal"
-            value={mutationForm.fromAddress}
-            onChange={(value) => updateMutationForm('fromAddress', value)}
-            placeholder="Alamat lama atau asal perpindahan"
-            maxLength={255}
-            error={mutationErrors.fromAddress}
-          />
-          <FormTextarea
-            label="Alamat Tujuan"
-            value={mutationForm.toAddress}
-            onChange={(value) => updateMutationForm('toAddress', value)}
-            placeholder="Alamat baru atau tujuan perpindahan"
-            maxLength={255}
-            error={mutationErrors.toAddress}
-          />
+              <div className="rounded-2xl border border-border bg-background p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Data yang diajukan</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {mutationUseOwnData
+                        ? 'Nama dan NIK diambil dari akun aktif agar sumber data terlihat jelas.'
+                        : 'Isi nama dan NIK warga yang akan dimutasi.'}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="rounded-full">
+                    {mutationUseOwnData ? 'Data sendiri' : 'Orang lain'}
+                  </Badge>
+                </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <SelectField
-              label="RT Tujuan"
-              value={mutationForm.targetRt}
-              onValueChange={(value) => updateMutationForm('targetRt', value)}
-              placeholder="Pilih RT"
-              error={mutationErrors.targetRt}
-              options={RT_OPTIONS.map((rt) => `RT ${rt}`)}
-              getValue={(label) => label.replace('RT ', '')}
-            />
-            <FormInput
-              label="Nomor Telepon"
-              value={mutationForm.phone}
-              onChange={(e) => updateMutationForm('phone', e.target.value.replace(/[^\d+]/g, '').slice(0, 20))}
-              placeholder="08..."
-              inputMode="tel"
-              error={mutationErrors.phone}
-            />
-          </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormInput
+                    label="Nama Lengkap"
+                    value={mutationForm.subjectName}
+                    onChange={(e) => updateMutationForm('subjectName', e.target.value)}
+                    placeholder="Nama sesuai data warga"
+                    readOnly={mutationUseOwnData && Boolean(mutationForm.subjectName)}
+                    error={mutationErrors.subjectName}
+                    hint={mutationUseOwnData ? 'Terisi otomatis dari profil akun.' : 'Masukkan nama warga yang dimutasi.'}
+                    className={mutationUseOwnData ? 'bg-muted' : ''}
+                  />
+                  <FormInput
+                    label="NIK"
+                    value={mutationForm.subjectNik}
+                    onChange={(e) => updateMutationForm('subjectNik', e.target.value.replace(/\D/g, '').slice(0, 16))}
+                    placeholder="16 digit NIK"
+                    inputMode="numeric"
+                    maxLength={16}
+                    readOnly={mutationUseOwnData && Boolean(mutationPersonNik)}
+                    error={mutationErrors.subjectNik}
+                    hint={mutationUseOwnData ? 'Terisi otomatis dari profil akun jika tersedia.' : 'Masukkan NIK warga yang dimutasi.'}
+                    className={mutationUseOwnData ? 'bg-muted' : ''}
+                  />
+                </div>
+              </div>
 
-          <FormTextarea
-            label="Alasan Mutasi"
-            value={mutationForm.reason}
-            onChange={(value) => updateMutationForm('reason', value)}
-            placeholder="Contoh: pindah domisili karena pekerjaan"
-            maxLength={255}
-            error={mutationErrors.reason}
-          />
+              {/* ── Form fields ── */}
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-sm font-semibold text-foreground">Jenis Mutasi</Label>
+                <RadioGroup
+                  value={mutationForm.type}
+                  onValueChange={(value) => updateMutationForm('type', value)}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {[
+                    ['MUTATION_IN', 'Mutasi Masuk'],
+                    ['MUTATION_OUT', 'Mutasi Keluar'],
+                  ].map(([value, label]) => (
+                    <Label
+                      key={value}
+                      className={cn(
+                        'flex cursor-pointer items-center gap-2 rounded-2xl border p-3 text-sm font-semibold',
+                        mutationForm.type === value ? 'border-primary/30 bg-primary text-primary-foreground' : 'border-border bg-card'
+                      )}
+                    >
+                      <RadioGroupItem value={value} />
+                      {label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+                {mutationErrors.type ? <p className="text-xs text-destructive">{mutationErrors.type}</p> : null}
+              </div>
 
-          <Button
-            type="button"
-            onClick={handleMutationSubmit}
-            disabled={submitting === 'mutasi'}
-            className="h-12 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            {submitting === 'mutasi' ? 'Mengirim...' : 'Kirim Pengajuan'}
-          </Button>
+              <FormInput
+                label="Tanggal Mutasi"
+                type="date"
+                value={mutationForm.mutationDate}
+                onChange={(e) => updateMutationForm('mutationDate', e.target.value)}
+                error={mutationErrors.mutationDate}
+              />
+              <FormTextarea
+                label="Alamat Asal"
+                value={mutationForm.fromAddress}
+                onChange={(value) => updateMutationForm('fromAddress', value)}
+                placeholder="Alamat lama atau asal perpindahan"
+                maxLength={255}
+                error={mutationErrors.fromAddress}
+              />
+              <FormTextarea
+                label="Alamat Tujuan"
+                value={mutationForm.toAddress}
+                onChange={(value) => updateMutationForm('toAddress', value)}
+                placeholder="Alamat baru atau tujuan perpindahan"
+                maxLength={255}
+                error={mutationErrors.toAddress}
+              />
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <SelectField
+                  label="RT Tujuan"
+                  value={mutationForm.targetRt}
+                  onValueChange={(value) => updateMutationForm('targetRt', value)}
+                  placeholder="Pilih RT"
+                  error={mutationErrors.targetRt}
+                  options={RT_OPTIONS.map((rt) => `RT ${rt}`)}
+                  getValue={(label) => label.replace('RT ', '')}
+                />
+                <FormInput
+                  label="Nomor Telepon"
+                  value={mutationForm.phone}
+                  onChange={(e) => updateMutationForm('phone', e.target.value.replace(/[^\d+]/g, '').slice(0, 20))}
+                  placeholder="08..."
+                  inputMode="tel"
+                  error={mutationErrors.phone}
+                />
+              </div>
+
+              <FormTextarea
+                label="Alasan Mutasi"
+                value={mutationForm.reason}
+                onChange={(value) => updateMutationForm('reason', value)}
+                placeholder="Contoh: pindah domisili karena pekerjaan"
+                maxLength={255}
+                error={mutationErrors.reason}
+              />
+
+              <Button
+                type="button"
+                onClick={handleMutationSubmit}
+                disabled={submitting === 'mutasi'}
+                className="h-12 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                {submitting === 'mutasi' ? 'Mengirim...' : 'Kirim Pengajuan'}
+              </Button>
+            </>
+          )}
         </div>
       </SlideUpSheet>
 

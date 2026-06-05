@@ -283,6 +283,19 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     if (!citizenRow) throw notFound("Citizen profile not found");
 
     const requestType = body.type === "MUTATION_IN" ? "MUTATION_IN" : "MUTATION_OUT";
+    const subjectSource = body.subjectSource === "OTHER" ? "OTHER" : "SELF";
+    const subjectName = subjectSource === "OTHER" ? body.subjectName?.trim() || citizenRow.name : citizenRow.name;
+    const subjectNik = subjectSource === "OTHER" ? body.subjectNik?.trim() || citizenRow.nik : citizenRow.nik;
+
+    let targetCitizenId: string | null = citizenRow.id;
+    if (subjectSource === "OTHER") {
+      const [matchedCitizen] = await db
+        .select({ id: citizen.id })
+        .from(citizen)
+        .where(and(eq(citizen.nik, subjectNik), eq(citizen.isArchived, false)))
+        .limit(1);
+      targetCitizenId = matchedCitizen?.id ?? null;
+    }
 
     const [createdRow] = await db
       .insert(serviceRequest)
@@ -291,9 +304,11 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
         status: "PENDING",
         requestedBy: sessionUser.id,
         payload: {
-          citizenId: citizenRow.id,
-          nama: citizenRow.name,
-          nik: citizenRow.nik,
+          citizenId: targetCitizenId,
+          requesterCitizenId: citizenRow.id,
+          subjectSource,
+          nama: subjectName,
+          nik: subjectNik,
           mutationDate: body.mutationDate,
           fromAddress: body.fromAddress ?? null,
           toAddress: body.toAddress ?? null,

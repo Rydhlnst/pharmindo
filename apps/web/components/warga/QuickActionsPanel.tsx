@@ -45,6 +45,29 @@ type QuickActionItem =
     };
 
 const QUICK_ACTIONS: QuickActionItem[] = [
+  // Baris 1: Layanan utama kependudukan
+  {
+    key: 'penduduk',
+    label: 'Data Penduduk',
+    desc: 'Data kependudukan',
+    action: 'penduduk',
+    icon: Users,
+  },
+  {
+    key: 'mutasi',
+    label: 'Mutasi',
+    desc: 'Pindah/Datang',
+    action: 'mutasi',
+    icon: ArrowRightLeft,
+  },
+  {
+    key: 'nambah_kk',
+    label: 'Pengajuan KK',
+    desc: 'Tambah KK & Anggota',
+    action: 'tambahKk',
+    icon: FilePlus2,
+  },
+  // Baris 2: Layanan pendukung
   {
     key: 'jadwal',
     label: 'Jadwal RW',
@@ -65,28 +88,6 @@ const QUICK_ACTIONS: QuickActionItem[] = [
     desc: 'Status & tanggapan',
     action: 'aspirasi',
     icon: MessageSquareText,
-  },
-
-  {
-    key: 'penduduk',
-    label: 'Data Penduduk',
-    desc: 'Data kependudukan',
-    action: 'penduduk',
-    icon: Users,
-  },
-  {
-    key: 'mutasi',
-    label: 'Mutasi',
-    desc: 'Pindah/Datang',
-    action: 'mutasi',
-    icon: ArrowRightLeft,
-  },
-  {
-    key: 'nambah_kk',
-    label: 'Tambah KK',
-    desc: 'Pengajuan KK baru',
-    action: 'tambahKk',
-    icon: FilePlus2,
   },
 ];
 

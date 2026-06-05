@@ -12,16 +12,16 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Abdi Masyarakat â€” Portal RW 25 Cimahi",
+  title: "Abdi Masyarakat — Pharmindo25",
   description:
-    "Layanan digital warga RW 25 Cimahi: cek bansos, kelayakan pemilu, aspirasi, dan jadwal kegiatan.",
+    "Layanan digital warga Pharmindo25: cek bansos, kelayakan pemilu, aspirasi, dan jadwal kegiatan.",
   manifest: "/manifest.webmanifest",
   themeColor: "#2563eb",
   colorScheme: "light",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "RW25 Cimahi",
+    title: "Pharmindo25",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],

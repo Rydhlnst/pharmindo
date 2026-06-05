@@ -1,7 +1,9 @@
 import { z } from "zod";
 
-export const rtScopeCodeOptions = ["01", "02", "03"] as const;
+export const rtScopeCodeOptions = ["01", "02", "03", "04"] as const;
 export const rtScopeCodeSchema = z.enum(rtScopeCodeOptions);
+export const rtCodeSchema = rtScopeCodeSchema;
+export const rwCodeSchema = z.string().trim().regex(/^\d{1,3}$/, "RW must be 1-3 numeric digits");
 export const halfHourTimeSchema = z.string().regex(/^([01]\d|2[0-3]):(00|30)$/, "Time must use 30-minute slots");
 
 export const apiErrorCodeSchema = z.enum([
@@ -28,7 +30,7 @@ export const userIdParamSchema = z.object({
 });
 
 export const rtQuerySchema = z.object({
-  rt: z.string().trim().regex(/^\d{1,3}$/).optional(),
+  rt: rtCodeSchema.optional(),
 });
 
 export const pageMetaSchema = z.object({

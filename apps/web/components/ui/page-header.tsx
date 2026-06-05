@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Landmark } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import PortalBrand from "@/components/ui/portal-brand";
 
 type PageHeaderVariant = "default" | "brand";
 
@@ -23,7 +23,7 @@ interface PageHeaderProps {
 export default function PageHeader({
   title,
   description,
-  eyebrow = "Portal RW 25 Cimahi",
+  eyebrow = "Portal RW 25 Pharmindo",
   leftSlot,
   rightSlot,
   bottomSlot,
@@ -56,15 +56,26 @@ export default function PageHeader({
 
       <div className={cn("relative z-10 flex items-start justify-between gap-3", contentClassName)}>
         <div className="min-w-0 flex-1">
-          <div
-            className={cn(
-              "flex items-center gap-1.5 text-[10px] font-semibold",
-              isBrand ? "text-primary-foreground/70" : "text-muted-foreground",
-            )}
-          >
-            <Landmark className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="truncate">{eyebrow}</span>
-          </div>
+          {eyebrow === "Portal RW 25 Pharmindo" ? (
+            <PortalBrand
+              className="gap-1.5"
+              imageSize={14}
+              imageClassName="h-3.5 w-3.5"
+              textClassName={cn(
+                "text-[10px] font-semibold",
+                isBrand ? "text-primary-foreground/70" : "text-muted-foreground",
+              )}
+            />
+          ) : (
+            <p
+              className={cn(
+                "text-[10px] font-semibold",
+                isBrand ? "text-primary-foreground/70" : "text-muted-foreground",
+              )}
+            >
+              {eyebrow}
+            </p>
+          )}
           <h1 className={cn("mt-1 text-lg font-bold tracking-tight", titleClassName)}>{title}</h1>
           {description ? (
             <p

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createApiSuccessSchema, paginationQuerySchema } from "./common";
+import { createApiSuccessSchema, paginationQuerySchema, rtCodeSchema, rwCodeSchema } from "./common";
 
 export const requestTypeSchema = z.enum(["HOUSEHOLD_CREATE", "MEMBER_CREATE", "MUTATION_IN", "MUTATION_OUT", "BANSOS_APPLICATION"]);
 export const requestStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
@@ -31,8 +31,8 @@ export const requestDecisionSchema = z.object({
 export const createHouseholdRequestSchema = z.object({
   kkNumber: z.string().trim().regex(/^\d{16}$/, "KK number must be exactly 16 numeric digits"),
   address: z.string().trim().min(5).max(255),
-  rt: z.string().trim().regex(/^\d{1,3}$/, "RT must be 1-3 numeric digits"),
-  rw: z.string().trim().regex(/^\d{1,3}$/, "RW must be 1-3 numeric digits"),
+  rt: rtCodeSchema,
+  rw: rwCodeSchema,
 });
 
 export const createMemberRequestSchema = z.object({
@@ -50,10 +50,13 @@ export const createMemberRequestSchema = z.object({
 
 export const createMutationRequestSchema = z.object({
   type: wargaMutationRequestTypeSchema,
+  subjectSource: z.enum(["SELF", "OTHER"]).optional(),
+  subjectName: z.string().trim().min(1, "Subject name is required").max(120).optional(),
+  subjectNik: z.string().trim().regex(/^\d{16}$/, "Subject NIK must be 16 digits").optional(),
   mutationDate: z.string().date(),
   fromAddress: z.string().trim().max(255).optional(),
   toAddress: z.string().trim().max(255).optional(),
-  targetRt: z.string().trim().regex(/^\d{1,3}$/, "Target RT must be numeric").optional(),
+  targetRt: rtCodeSchema.optional(),
   phone: z.string().trim().max(40).optional(),
   reason: z.string().trim().min(1, "Reason is required").max(255),
 }).superRefine((value, ctx) => {

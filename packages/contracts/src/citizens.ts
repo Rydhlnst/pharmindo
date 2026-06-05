@@ -1,11 +1,10 @@
 import { z } from "zod";
 
-import { createApiSuccessSchema, paginationQuerySchema } from "./common";
+import { createApiSuccessSchema, paginationQuerySchema, rtCodeSchema, rwCodeSchema } from "./common";
 
 export const citizenStatusSchema = z.enum(["PENDUDUK_TETAP", "NGEKOST"]);
 export const citizenGenderSchema = z.enum(["L", "P"]);
 const nikSchema = z.string().regex(/^\d{16}$/, "NIK must be exactly 16 numeric digits");
-const rtRwSchema = z.string().trim().regex(/^\d{1,3}$/, "RT/RW must be 1-3 numeric digits");
 const birthDateSchema = z
   .string()
   .trim()
@@ -51,8 +50,8 @@ export const citizenSchema = z.object({
 export const citizenListQuerySchema = paginationQuerySchema.extend({
   q: z.string().trim().optional(),
   status: citizenStatusSchema.optional(),
-  rt: rtRwSchema.optional(),
-  rw: rtRwSchema.optional(),
+  rt: rtCodeSchema.optional(),
+  rw: rwCodeSchema.optional(),
 });
 
 export const createCitizenSchema = z.object({
@@ -68,8 +67,8 @@ export const createCitizenSchema = z.object({
   education: z.string().min(2).max(120),
   bloodType: z.string().max(10).optional(),
   address: z.string().min(5).max(255),
-  rt: rtRwSchema,
-  rw: rtRwSchema,
+  rt: rtCodeSchema,
+  rw: rwCodeSchema,
   status: citizenStatusSchema.default("PENDUDUK_TETAP"),
 });
 

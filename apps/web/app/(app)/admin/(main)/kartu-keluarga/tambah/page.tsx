@@ -18,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { platformFetch } from '@/lib/api/platform';
 import { useActionToast } from '@/lib/use-action-toast';
+import { RT_OPTIONS } from '@/lib/rt-options';
 
 type FormState = {
   kkNumber: string;
@@ -445,7 +446,7 @@ export default function TambahKartuKeluargaPage() {
                     <SelectValue placeholder="Pilih RT" />
                   </SelectTrigger>
                   <SelectContent>
-                    {['01', '02', '03'].map((rt) => (
+                    {RT_OPTIONS.map((rt) => (
                       <SelectItem key={rt} value={rt}>
                         RT {rt}
                       </SelectItem>

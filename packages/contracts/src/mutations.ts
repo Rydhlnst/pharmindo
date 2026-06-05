@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createApiSuccessSchema, paginationQuerySchema } from "./common";
+import { createApiSuccessSchema, paginationQuerySchema, rtCodeSchema } from "./common";
 
 export const mutationTypeSchema = z.enum(["IN", "OUT", "MOVE", "DEATH", "BIRTH"]);
 export const mutationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
@@ -59,7 +59,7 @@ export const createMutationSchema = z.object({
   mutationDate: z.string().date(),
   fromAddress: z.string().max(255).optional(),
   toAddress: z.string().max(255).optional(),
-  targetRt: z.string().trim().regex(/^\d{1,3}$/, "Target RT must be numeric").optional(),
+  targetRt: rtCodeSchema.optional(),
   phone: z.string().max(40).optional(),
   reason: z.string().trim().min(1, "Reason is required").max(255),
 }).superRefine((value, ctx) => {

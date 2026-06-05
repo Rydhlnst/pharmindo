@@ -1,7 +1,7 @@
 {
-  "name": "Abdi Masyarakat — Portal RW 25 Cimahi",
-  "short_name": "RW25 Cimahi",
-  "description": "Layanan digital warga RW 25 Cimahi: cek bansos, kelayakan pemilu, aspirasi, dan jadwal kegiatan.",
+  "name": "Abdi Masyarakat — Pharmindo25",
+  "short_name": "Pharmindo25",
+  "description": "Layanan digital warga Pharmindo25: cek bansos, kelayakan pemilu, aspirasi, dan jadwal kegiatan.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -84,7 +84,6 @@ export default function WargaAspirasiPage() {
     <WargaPage>
       <PageHeader
         title="Aspirasi Warga"
-        eyebrow="Portal RW 25 Cimahi"
         description="Pantau status aspirasi dan tanggapan admin."
         variant="brand"
         className="pb-7"

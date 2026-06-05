@@ -1,5 +1,6 @@
 'use client';
 import { Button } from '@/components/ui/button';
+import PortalBrand from '@/components/ui/portal-brand';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -378,15 +379,12 @@ export default function AdminSettingsPage() {
 
           {activeDialog === 'tentang' && (
             <div className="flex flex-col gap-4 mt-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F6ECE6]">
-                  <Smartphone className="h-8 w-8 text-[#A44A3F]" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#18212F]">Portal RW 25</h3>
-                  <p className="text-sm text-[#667085]">Versi 1.0.0</p>
-                </div>
-              </div>
+              <PortalBrand
+                imageSize={64}
+                textClassName="text-lg font-bold text-[#18212F]"
+                subtitle="Versi 1.0.0"
+                subtitleClassName="text-sm text-[#667085]"
+              />
               <p className="text-sm leading-relaxed text-[#667085]">
                 Portal RW 25 adalah sistem informasi digital untuk mengelola data kependudukan warga di lingkungan RW 025, Kota Cimahi. Aplikasi ini membantu pengurus RW mengelola data warga, kartu keluarga, mutasi penduduk, dan permohonan secara efisien.
               </p>

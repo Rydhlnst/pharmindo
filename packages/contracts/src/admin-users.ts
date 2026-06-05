@@ -1,12 +1,11 @@
 import { z } from "zod";
 
 import { appRoleSchema } from "./auth";
-import { createApiSuccessSchema, paginationQuerySchema } from "./common";
+import { createApiSuccessSchema, paginationQuerySchema, rtCodeSchema } from "./common";
 
 export const adminUserStatusSchema = z.enum(["ACTIVE", "INACTIVE"]);
 export const adminScopeSchema = z.enum(["RW", "RT"]);
-export const rtCodeSchema = z.enum(["01", "02", "03"]);
-export const managedRtCodesSchema = z.array(rtCodeSchema).max(3);
+export const managedRtCodesSchema = z.array(rtCodeSchema).max(4);
 
 export const adminUserSchema = z.object({
   id: z.string(),

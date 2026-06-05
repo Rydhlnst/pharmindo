@@ -15,7 +15,7 @@ function normalizeRtCode(value?: string | null) {
   return match[1].padStart(2, "0");
 }
 
-export const ADMIN_RT_OPTIONS = ["01", "02", "03"] as const;
+export const ADMIN_RT_OPTIONS = ["01", "02", "03", "04"] as const;
 const ADMIN_RT_SET = new Set<string>(ADMIN_RT_OPTIONS);
 
 export function normalizeManagedRtCodes(values?: string[] | null) {

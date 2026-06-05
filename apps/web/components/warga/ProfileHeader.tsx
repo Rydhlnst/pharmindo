@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { User, Copy, Settings, Moon, Sun, Check, Landmark } from 'lucide-react';
+import { User, Copy, Settings, Moon, Sun, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import PortalBrand from '@/components/ui/portal-brand';
 
 interface ProfileHeaderProps {
   nama: string;
@@ -51,10 +52,12 @@ export default function ProfileHeader({ nama, nik, isDark, onToggleDark, statusB
 
         {/* Info Pengguna */}
         <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground transition-colors duration-300">
-            <Landmark className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Portal RW 25 Cimahi</span>
-          </div>
+          <PortalBrand
+            className="gap-1.5"
+            imageSize={14}
+            imageClassName="h-3.5 w-3.5"
+            textClassName="text-[10px] font-semibold text-muted-foreground"
+          />
           <div className="flex items-center gap-2 mt-0.5">
             <h2 className="text-[15px] font-bold text-foreground leading-tight tracking-tight transition-colors duration-300">
               {nama}
