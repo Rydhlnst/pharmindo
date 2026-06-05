@@ -1,10 +1,20 @@
 'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowClockwise as RefreshCw,
+  CaretLeft as ChevronLeft,
+  CaretRight as ChevronRight,
+  ChartBar,
+  DownloadSimple as Download,
+  Eye,
+  FileText,
+  Funnel,
+  MagnifyingGlass as Search,
+  Users,
+} from '@phosphor-icons/react';
+
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-
-import { useEffect, useState } from 'react';
-import { DownloadSimple as Download, Users, FileText, ArrowClockwise as RefreshCw, Eye, MagnifyingGlass as Search, CaretLeft as ChevronLeft, CaretRight as ChevronRight } from '@phosphor-icons/react';
-
 import {
   Dialog,
   DialogContent,
@@ -12,6 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { platformFetch } from '@/lib/api/platform';
 
 const PAGE_SIZE = 20;
@@ -70,10 +82,169 @@ type DemographicsData = {
   };
 };
 
+type DistributionItem = {
+  label: string;
+  value: number;
+  share: number;
+};
+
+type AnalyticsData = {
+  totalCitizens: number;
+  productiveAge: number;
+  children: number;
+  seniors: number;
+  occupation: DistributionItem[];
+  education: DistributionItem[];
+  religion: DistributionItem[];
+  maritalStatus: DistributionItem[];
+  bloodType: DistributionItem[];
+  residentStatus: DistributionItem[];
+};
+
+const EMPTY_DEMOGRAPHICS: DemographicsData = {
+  totalCitizens: 0,
+  ageGroups: [
+    { label: '0-12', value: 0 },
+    { label: '13-17', value: 0 },
+    { label: '18-35', value: 0 },
+    { label: '36-59', value: 0 },
+    { label: '60+', value: 0 },
+  ],
+  gender: { male: 0, female: 0 },
+};
+
+const EMPTY_ANALYTICS: AnalyticsData = {
+  totalCitizens: 0,
+  productiveAge: 0,
+  children: 0,
+  seniors: 0,
+  occupation: [],
+  education: [],
+  religion: [],
+  maritalStatus: [],
+  bloodType: [],
+  residentStatus: [],
+};
+
+function buildFilterParams(filter: { tahun: string; bulan: string; rt: string }) {
+  const params = new URLSearchParams();
+  if (filter.tahun) params.set('tahun', filter.tahun);
+  if (filter.bulan) params.set('bulan', filter.bulan);
+  if (filter.rt) params.set('rt', filter.rt);
+  return params;
+}
+
+function formatCitizenStatusLabel(value: string) {
+  if (value === 'PENDUDUK_TETAP') return 'Penduduk Tetap';
+  if (value === 'NGEKOST') return 'Ngekost';
+  return value.replaceAll('_', ' ');
+}
+
+function formatDistributionLabel(section: string, label: string) {
+  if (section === 'residentStatus') return formatCitizenStatusLabel(label);
+  if (label === 'BELUM_KAWIN') return 'Belum Kawin';
+  if (label === 'CERAI_HIDUP') return 'Cerai Hidup';
+  if (label === 'CERAI_MATI') return 'Cerai Mati';
+  return label;
+}
+
+function DistributionPanel({
+  title,
+  items,
+  section,
+  tone = 'blue',
+  emptyLabel,
+}: {
+  title: string;
+  items: DistributionItem[];
+  section: 'occupation' | 'education' | 'religion' | 'maritalStatus' | 'bloodType' | 'residentStatus';
+  tone?: 'blue' | 'green' | 'rose';
+  emptyLabel: string;
+}) {
+  const palette =
+    tone === 'green'
+      ? {
+          bar: 'from-[#22C55E] to-[#16A34A]',
+          track: 'bg-[#DCFCE7]',
+          pill: 'bg-[#DCFCE7] text-[#166534]',
+        }
+      : tone === 'rose'
+        ? {
+            bar: 'from-[#F472B6] to-[#EC4899]',
+            track: 'bg-[#FCE7F3]',
+            pill: 'bg-[#FCE7F3] text-[#9D174D]',
+          }
+        : {
+            bar: 'from-[#60A5FA] to-[#2563EB]',
+            track: 'bg-[#DBEAFE]',
+            pill: 'bg-[#EFF6FF] text-[#1D4ED8]',
+          };
+
+  const visibleItems = items.slice(0, 6);
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-6">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold text-[#1E293B]">{title}</h3>
+          <p className="mt-1 text-xs text-[#64748B]">Menampilkan kategori terbesar dari data aktif sesuai filter.</p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${palette.pill}`}>
+          {items.length} kategori
+        </span>
+      </div>
+
+      {visibleItems.length > 0 ? (
+        <div className="space-y-4">
+          {visibleItems.map((item) => (
+            <div key={`${section}-${item.label}`} className="space-y-2">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium text-[#1E293B]">{formatDistributionLabel(section, item.label)}</span>
+                <span className="text-xs font-semibold text-[#64748B]">
+                  {item.value} warga • {item.share.toFixed(1)}%
+                </span>
+              </div>
+              <div className={`h-2.5 overflow-hidden rounded-full ${palette.track}`}>
+                <div
+                  className={`h-full rounded-full bg-gradient-to-r ${palette.bar}`}
+                  style={{ width: `${Math.min(item.share, 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-[#F8FAFC] px-4 py-10 text-center text-sm text-[#64748B]">
+          {emptyLabel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SpotlightCard({
+  title,
+  value,
+  helper,
+}: {
+  title: string;
+  value: string;
+  helper: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#DBEAFE] bg-gradient-to-br from-[#EFF6FF] to-white p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">{title}</p>
+      <p className="mt-3 text-xl font-bold text-[#1E293B]">{value}</p>
+      <p className="mt-2 text-sm text-[#64748B]">{helper}</p>
+    </div>
+  );
+}
+
 export default function RapotPage() {
   const [tahun, setTahun] = useState('2026');
   const [bulan, setBulan] = useState('');
   const [rt, setRt] = useState('');
+  const [activeView, setActiveView] = useState<'overview' | 'livelihood' | 'social'>('overview');
   const [stats, setStats] = useState<SummaryData['stats']>({
     totalWarga: 0,
     totalKK: 0,
@@ -81,17 +252,8 @@ export default function RapotPage() {
     pendingRequests: 0,
   });
   const [rtData, setRtData] = useState<RtRow[]>([]);
-  const [demographics, setDemographics] = useState<DemographicsData>({
-    totalCitizens: 0,
-    ageGroups: [
-      { label: '0-12', value: 0 },
-      { label: '13-17', value: 0 },
-      { label: '18-35', value: 0 },
-      { label: '36-59', value: 0 },
-      { label: '60+', value: 0 },
-    ],
-    gender: { male: 0, female: 0 },
-  });
+  const [demographics, setDemographics] = useState<DemographicsData>(EMPTY_DEMOGRAPHICS);
+  const [analytics, setAnalytics] = useState<AnalyticsData>(EMPTY_ANALYTICS);
   const [viewedRT, setViewedRT] = useState<RtRow | null>(null);
   const [rtCitizens, setRtCitizens] = useState<CitizenRow[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,24 +267,16 @@ export default function RapotPage() {
     rt: '',
   });
 
-  const buildFilterParams = (filter: { tahun: string; bulan: string; rt: string }) => {
-    const params = new URLSearchParams();
-    if (filter.tahun) params.set('tahun', filter.tahun);
-    if (filter.bulan) params.set('bulan', filter.bulan);
-    if (filter.rt) params.set('rt', filter.rt);
-    return params;
-  };
-
-  const activeFilter = (() => {
+  const activeFilter = useMemo(() => {
     const bulanLabel = MONTH_OPTIONS.find((option) => option.value === appliedFilter.bulan)?.label ?? 'Semua Bulan';
     return `${bulanLabel} ${appliedFilter.tahun}${appliedFilter.rt ? ` - RT ${appliedFilter.rt}` : ''}`;
-  })();
+  }, [appliedFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery.trim());
       setCurrentPage(1);
-    }, 1000);
+    }, 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -132,32 +286,26 @@ export default function RapotPage() {
     async function load() {
       try {
         const summaryParams = buildFilterParams(appliedFilter);
-        const [summaryResponse, rtResponse, citizenResponse] = await Promise.all([
+        const query = summaryParams.size ? `?${summaryParams.toString()}` : '';
+        const [summaryResponse, rtResponse, demographicResponse, analyticsResponse] = await Promise.all([
           platformFetch<SummaryData>('/admin/reports/summary'),
-          platformFetch<RtRow[]>(`/admin/reports/rt-breakdown${summaryParams.size ? `?${summaryParams.toString()}` : ''}`),
-          platformFetch<DemographicsData>(`/admin/reports/demographics${summaryParams.size ? `?${summaryParams.toString()}` : ''}`),
+          platformFetch<RtRow[]>(`/admin/reports/rt-breakdown${query}`),
+          platformFetch<DemographicsData>(`/admin/reports/demographics${query}`),
+          platformFetch<AnalyticsData>(`/admin/reports/analytics${query}`),
         ]);
 
         if (!active) return;
         setStats(summaryResponse.data.stats);
         setRtData(rtResponse.data);
-        setDemographics(citizenResponse.data);
+        setDemographics(demographicResponse.data);
+        setAnalytics(analyticsResponse.data);
       } catch (error) {
         console.error(error);
         if (!active) return;
         setStats({ totalWarga: 0, totalKK: 0, totalMutasi: 0, pendingRequests: 0 });
         setRtData([]);
-        setDemographics({
-          totalCitizens: 0,
-          ageGroups: [
-            { label: '0-12', value: 0 },
-            { label: '13-17', value: 0 },
-            { label: '18-35', value: 0 },
-            { label: '36-59', value: 0 },
-            { label: '60+', value: 0 },
-          ],
-          gender: { male: 0, female: 0 },
-        });
+        setDemographics(EMPTY_DEMOGRAPHICS);
+        setAnalytics(EMPTY_ANALYTICS);
       }
     }
 
@@ -167,18 +315,6 @@ export default function RapotPage() {
       active = false;
     };
   }, [appliedFilter]);
-
-  const ageGroups = demographics.ageGroups;
-  const maxAgeValue = Math.max(...ageGroups.map((g) => g.value), 1);
-  const lakiLaki = demographics.gender.male;
-  const perempuan = demographics.gender.female;
-  const genderTotal = lakiLaki + perempuan || 1;
-
-  const handleOpenDetail = async (row: RtRow) => {
-    setViewedRT(row);
-    setSearchQuery('');
-    setCurrentPage(1);
-  };
 
   useEffect(() => {
     if (!viewedRT) return;
@@ -214,13 +350,13 @@ export default function RapotPage() {
     };
   }, [viewedRT, currentPage, debouncedSearchQuery, appliedFilter]);
 
-  const handleApplyFilter = () => {
-    setAppliedFilter({ tahun, bulan, rt });
-  };
-
+  const ageGroups = demographics.ageGroups;
+  const maxAgeValue = Math.max(...ageGroups.map((group) => group.value), 1);
+  const lakiLaki = demographics.gender.male;
+  const perempuan = demographics.gender.female;
+  const genderTotal = lakiLaki + perempuan || 1;
   const exportParams = buildFilterParams(appliedFilter);
   const exportQuery = exportParams.size ? `?${exportParams.toString()}` : '';
-
   const totalKK = rtData.reduce((acc, row) => acc + row.kk, 0);
   const totalWarga = rtData.reduce((acc, row) => acc + row.warga, 0);
   const totalMutasi = rtData.reduce((acc, row) => acc + row.mutasi, 0);
@@ -232,13 +368,30 @@ export default function RapotPage() {
       ? `Total RW ${rwValues[0]}`
       : 'Total Semua RT';
 
+  const primaryOccupation = analytics.occupation[0];
+  const primaryEducation = analytics.education[0];
+  const primaryReligion = analytics.religion[0];
+  const residentMix = analytics.residentStatus[0];
+
+  const handleApplyFilter = () => {
+    setAppliedFilter({ tahun, bulan, rt });
+  };
+
+  const handleOpenDetail = async (row: RtRow) => {
+    setViewedRT(row);
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-[clamp(14px,1.5vw,18px)] font-bold text-[#1E293B]">Laporan Data Warga Siap Cetak</h2>
           <p className="mt-1 text-sm font-medium text-[#3B82F6]">Filter Aktif: {activeFilter}</p>
-          <p className="mt-1 text-xs text-[#64748B]">Kartu ringkasan menampilkan total data aktif saat ini. Filter hanya berlaku untuk rekap, detail RT, dan ekspor.</p>
+          <p className="mt-1 text-xs text-[#64748B]">
+            Kartu ringkasan menampilkan total data aktif saat ini. Filter hanya berlaku untuk rekap, detail RT, infografis, dan ekspor.
+          </p>
         </div>
         <div className="flex min-w-[280px] flex-col items-stretch gap-2 rounded-2xl border border-[#DBEAFE] bg-white p-3 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">Ekspor Laporan</p>
@@ -262,42 +415,53 @@ export default function RapotPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <select
-          value={tahun}
-          onChange={(e) => setTahun(e.target.value)}
-          className="h-10 rounded-xl border-0 bg-[#3B82F6] px-4 text-sm font-medium text-white outline-none"
-        >
-          <option value="2026">2026</option>
-          <option value="2025">2025</option>
-        </select>
-        <select
-          value={bulan}
-          onChange={(e) => setBulan(e.target.value)}
-          className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
-        >
-          {MONTH_OPTIONS.map((option) => (
-            <option key={option.value || 'all'} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={rt}
-          onChange={(e) => setRt(e.target.value)}
-          className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
-        >
-          <option value="">Pilih RT</option>
-          <option value="01">RT 01</option>
-          <option value="02">RT 02</option>
-          <option value="03">RT 03</option>
-        </select>
-        <Button
-          onClick={handleApplyFilter}
-          className="h-10 rounded-xl bg-[#3B82F6] px-6 text-sm font-semibold text-white transition hover:bg-[#2563EB]"
-        >
-          Terapkan
-        </Button>
+      <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3">
+          <select
+            value={tahun}
+            onChange={(e) => setTahun(e.target.value)}
+            className="h-10 rounded-xl border-0 bg-[#3B82F6] px-4 text-sm font-medium text-white outline-none"
+          >
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+          <select
+            value={bulan}
+            onChange={(e) => setBulan(e.target.value)}
+            className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
+          >
+            {MONTH_OPTIONS.map((option) => (
+              <option key={option.value || 'all'} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={rt}
+            onChange={(e) => setRt(e.target.value)}
+            className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
+          >
+            <option value="">Pilih RT</option>
+            <option value="01">RT 01</option>
+            <option value="02">RT 02</option>
+            <option value="03">RT 03</option>
+          </select>
+          <Button
+            onClick={handleApplyFilter}
+            className="h-10 rounded-xl bg-[#3B82F6] px-6 text-sm font-semibold text-white transition hover:bg-[#2563EB]"
+          >
+            <Funnel className="mr-2 h-4 w-4" />
+            Terapkan
+          </Button>
+        </div>
+
+        <div className="rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">Ketersediaan Data</p>
+          <p className="mt-2 text-sm font-semibold text-[#1E293B]">Base salary / income range belum tersedia di master warga.</p>
+          <p className="mt-1 text-xs text-[#64748B]">
+            Halaman ini hanya menampilkan sumber data warga yang kanonik. Jika nanti ingin ada analitik gaji, perlu sumber data khusus dan endpoint terpisah.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
@@ -328,65 +492,213 @@ export default function RapotPage() {
             <p className="mt-1 text-2xl font-bold">{stats.totalMutasi} <span className="text-sm font-medium">Laporan</span></p>
           </div>
         </div>
+        <div className="relative overflow-hidden rounded-2xl bg-[#0F172A] p-5 text-white">
+          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
+          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
+          <div className="relative z-10">
+            <ChartBar className="mb-2 h-5 w-5 text-white/60" />
+            <p className="text-xs text-white/70">Permohonan Pending</p>
+            <p className="mt-1 text-2xl font-bold">{stats.pendingRequests} <span className="text-sm font-medium">Antrian</span></p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
-        <div className="rounded-2xl border border-gray-100 bg-white p-6">
-          <h3 className="mb-6 text-base font-bold text-[#1E293B]">Distribusi Kelompok Umur</h3>
-          <div className="flex items-end justify-between gap-4" style={{ height: 'clamp(150px, 25vh, 200px)' }}>
-            {ageGroups.map((group) => {
-              const isHighest = group.value === maxAgeValue && maxAgeValue > 0;
-              return (
-                <div key={group.label} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${isHighest ? 'bg-[#2563EB] text-white shadow-sm' : 'bg-[#EFF6FF] text-[#3B82F6]'}`}>
-                    {group.value} Jiwa
-                  </span>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <SpotlightCard
+          title="Usia Produktif"
+          value={`${analytics.productiveAge} Jiwa`}
+          helper={`${analytics.totalCitizens > 0 ? ((analytics.productiveAge / analytics.totalCitizens) * 100).toFixed(1) : '0.0'}% dari warga aktif di filter ini.`}
+        />
+        <SpotlightCard
+          title="Pekerjaan Dominan"
+          value={primaryOccupation ? formatDistributionLabel('occupation', primaryOccupation.label) : 'Belum ada data'}
+          helper={primaryOccupation ? `${primaryOccupation.value} warga` : 'Lengkapi data pekerjaan warga untuk melihat pola.'}
+        />
+        <SpotlightCard
+          title="Pendidikan Dominan"
+          value={primaryEducation ? formatDistributionLabel('education', primaryEducation.label) : 'Belum ada data'}
+          helper={primaryEducation ? `${primaryEducation.value} warga` : 'Lengkapi data pendidikan warga untuk melihat pola.'}
+        />
+        <SpotlightCard
+          title="Komposisi Terbesar"
+          value={residentMix ? formatDistributionLabel('residentStatus', residentMix.label) : 'Belum ada data'}
+          helper={residentMix ? `${residentMix.share.toFixed(1)}% dari warga aktif` : 'Belum ada status kependudukan yang dapat diringkas.'}
+        />
+      </div>
+
+      <Tabs value={activeView} onValueChange={(value) => setActiveView(value as typeof activeView)} className="space-y-5">
+        <TabsList className="h-auto w-full justify-start gap-2 rounded-2xl border border-gray-100 bg-white p-2">
+          <TabsTrigger value="overview" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="livelihood" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+            Pekerjaan & Pendidikan
+          </TabsTrigger>
+          <TabsTrigger value="social" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+            Sosial & Status
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-0 space-y-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              <h3 className="mb-6 text-base font-bold text-[#1E293B]">Distribusi Kelompok Umur</h3>
+              <div className="flex items-end justify-between gap-4" style={{ height: 'clamp(150px, 25vh, 200px)' }}>
+                {ageGroups.map((group) => {
+                  const isHighest = group.value === maxAgeValue && maxAgeValue > 0;
+                  return (
+                    <div key={group.label} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${isHighest ? 'bg-[#2563EB] text-white shadow-sm' : 'bg-[#EFF6FF] text-[#3B82F6]'}`}>
+                        {group.value} Jiwa
+                      </span>
+                      <div
+                        className={`w-full rounded-t-lg transition-all duration-500 ease-out ${
+                          isHighest
+                            ? 'bg-gradient-to-t from-[#3B82F6] to-[#2563EB] shadow-[0_-4px_10px_rgba(37,99,235,0.2)]'
+                            : 'bg-[#93C5FD] opacity-80'
+                        }`}
+                        style={{ height: `${(group.value / maxAgeValue) * 100}%`, minHeight: '16px' }}
+                      />
+                      <span className={`text-xs transition-colors ${isHighest ? 'font-bold text-[#2563EB]' : 'font-medium text-[#64748B]'}`}>{group.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden flex flex-col items-center justify-center rounded-2xl bg-[#2563EB] p-6 text-white">
+              <div className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/[0.06]" />
+              <div className="pointer-events-none absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/[0.06]" />
+              <div className="relative z-10 flex w-full flex-col items-center">
+                <h3 className="mb-6 self-start text-base font-bold">Komposisi Gender</h3>
+                <div className="relative">
                   <div
-                    className={`w-full rounded-t-lg transition-all duration-500 ease-out ${
-                      isHighest
-                        ? 'bg-gradient-to-t from-[#3B82F6] to-[#2563EB] shadow-[0_-4px_10px_rgba(37,99,235,0.2)]'
-                        : 'bg-[#93C5FD] opacity-80'
-                    }`}
-                    style={{ height: `${(group.value / maxAgeValue) * 100}%`, minHeight: '16px' }}
+                    className="h-44 w-44 rounded-full"
+                    style={{
+                      background: `conic-gradient(#86EFAC 0% ${(lakiLaki / genderTotal) * 100}%, #F9A8D4 ${(lakiLaki / genderTotal) * 100}% 100%)`,
+                    }}
                   />
-                  <span className={`text-xs transition-colors ${isHighest ? 'font-bold text-[#2563EB]' : 'font-medium text-[#64748B]'}`}>{group.label}</span>
+                  <div className="absolute inset-5 flex flex-col items-center justify-center rounded-full bg-[#2563EB]">
+                    <span className="text-[11px] text-white/60">dari Total</span>
+                    <span className="text-lg font-bold">{demographics.totalCitizens} Jiwa</span>
+                  </div>
                 </div>
-              );
-            })}
+                <div className="mt-5 flex flex-wrap gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-[#86EFAC]" />
+                    <span>Laki-Laki <span className="font-bold">{Math.round((lakiLaki / genderTotal) * 100)}%</span> ({lakiLaki} Jiwa)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-[#F9A8D4]" />
+                    <span>Perempuan <span className="font-bold">{Math.round((perempuan / genderTotal) * 100)}%</span> ({perempuan} Jiwa)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="relative overflow-hidden flex flex-col items-center justify-center rounded-2xl bg-[#2563EB] p-6 text-white">
-          <div className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/[0.06]" />
-          <div className="pointer-events-none absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/[0.06]" />
-          
-          <div className="relative z-10 flex w-full flex-col items-center">
-            <h3 className="mb-6 self-start text-base font-bold">Komposisi Gender</h3>
-            <div className="relative">
-              <div
-                className="h-44 w-44 rounded-full"
-                style={{
-                  background: `conic-gradient(#86EFAC 0% ${(lakiLaki / genderTotal) * 100}%, #F9A8D4 ${(lakiLaki / genderTotal) * 100}% 100%)`,
-                }}
-              />
-              <div className="absolute inset-5 flex flex-col items-center justify-center rounded-full bg-[#2563EB]">
-                <span className="text-[11px] text-white/60">dari Total</span>
-                <span className="text-lg font-bold">{demographics.totalCitizens} Jiwa</span>
-              </div>
-            </div>
-            <div className="mt-5 flex gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-[#86EFAC]" />
-                <span>Laki-Laki <span className="font-bold">{Math.round((lakiLaki / genderTotal) * 100)}%</span> ({lakiLaki} Jiwa)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-[#F9A8D4]" />
-                <span>Perempuan <span className="font-bold">{Math.round((perempuan / genderTotal) * 100)}%</span> ({perempuan} Jiwa)</span>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DistributionPanel
+              title="Top Pekerjaan"
+              items={analytics.occupation}
+              section="occupation"
+              tone="blue"
+              emptyLabel="Belum ada distribusi pekerjaan untuk filter ini."
+            />
+            <DistributionPanel
+              title="Agama Warga"
+              items={analytics.religion}
+              section="religion"
+              tone="green"
+              emptyLabel="Belum ada distribusi agama untuk filter ini."
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="livelihood" className="mt-0 space-y-5">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DistributionPanel
+              title="Sebaran Pekerjaan"
+              items={analytics.occupation}
+              section="occupation"
+              tone="blue"
+              emptyLabel="Belum ada distribusi pekerjaan untuk filter ini."
+            />
+            <DistributionPanel
+              title="Sebaran Pendidikan"
+              items={analytics.education}
+              section="education"
+              tone="green"
+              emptyLabel="Belum ada distribusi pendidikan untuk filter ini."
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <SpotlightCard
+              title="Kelompok Anak"
+              value={`${analytics.children} Jiwa`}
+              helper="Warga usia 0-17 tahun pada filter aktif."
+            />
+            <SpotlightCard
+              title="Kelompok Produktif"
+              value={`${analytics.productiveAge} Jiwa`}
+              helper="Warga usia 18-59 tahun pada filter aktif."
+            />
+            <SpotlightCard
+              title="Kelompok Lansia"
+              value={`${analytics.seniors} Jiwa`}
+              helper="Warga usia 60 tahun ke atas pada filter aktif."
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="social" className="mt-0 space-y-5">
+          <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+            <DistributionPanel
+              title="Status Kependudukan"
+              items={analytics.residentStatus}
+              section="residentStatus"
+              tone="blue"
+              emptyLabel="Belum ada status kependudukan untuk filter ini."
+            />
+            <DistributionPanel
+              title="Status Perkawinan"
+              items={analytics.maritalStatus}
+              section="maritalStatus"
+              tone="rose"
+              emptyLabel="Belum ada status perkawinan untuk filter ini."
+            />
+            <DistributionPanel
+              title="Golongan Darah"
+              items={analytics.bloodType}
+              section="bloodType"
+              tone="green"
+              emptyLabel="Belum ada golongan darah untuk filter ini."
+            />
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DistributionPanel
+              title="Agama"
+              items={analytics.religion}
+              section="religion"
+              tone="green"
+              emptyLabel="Belum ada distribusi agama untuk filter ini."
+            />
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6">
+              <h3 className="text-base font-bold text-[#1E293B]">Catatan Sumber Data</h3>
+              <div className="mt-4 space-y-3 text-sm text-[#64748B]">
+                <p>Semua grafik di halaman ini memakai data warga aktif yang sama dengan dashboard admin.</p>
+                <p>Filter bulan dan tahun membaca periode pembuatan data warga untuk kebutuhan rekap dan analitik halaman ini.</p>
+                <p>Jika ingin analitik pendapatan atau base salary, itu harus datang dari domain data terpisah dan tidak boleh dicampur ke master warga tanpa definisi yang jelas.</p>
+                <p className="font-medium text-[#1E293B]">
+                  Agama dominan: {primaryReligion ? formatDistributionLabel('religion', primaryReligion.label) : 'Belum ada data'}
+                </p>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <div>
         <h3 className="mb-4 text-base font-bold text-[#1E293B]">Rekapitulasi Per RT</h3>
@@ -480,7 +792,7 @@ export default function RapotPage() {
                         <td className="px-4 py-3 text-[#64748B]">{citizen.nik}</td>
                         <td className="px-4 py-3 text-[#64748B]">{citizen.address}</td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-600">{citizen.status}</span>
+                          <span className="inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-600">{formatCitizenStatusLabel(citizen.status)}</span>
                         </td>
                       </tr>
                     ))

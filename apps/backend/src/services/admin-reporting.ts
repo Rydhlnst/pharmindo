@@ -33,6 +33,25 @@ type DemographicsData = {
   };
 };
 
+type DistributionItem = {
+  label: string;
+  value: number;
+  share: number;
+};
+
+type InfographicData = {
+  totalCitizens: number;
+  productiveAge: number;
+  children: number;
+  seniors: number;
+  occupation: DistributionItem[];
+  education: DistributionItem[];
+  religion: DistributionItem[];
+  maritalStatus: DistributionItem[];
+  bloodType: DistributionItem[];
+  residentStatus: DistributionItem[];
+};
+
 export function buildTimestampFilter(column: { name: string }, filter: ReportFilter) {
   const conditions: ReturnType<typeof sql>[] = [];
   if (filter.tahun) conditions.push(sql`extract(year from ${column}) = ${filter.tahun}`);
@@ -194,6 +213,64 @@ export async function getFilteredDemographics(filter: ReportFilter = {}): Promis
     totalCitizens: rows.length,
     ageGroups,
     gender: { male, female },
+  };
+}
+
+function buildDistribution(values: Array<string | null | undefined>, fallback: string) {
+  const total = values.length || 1;
+  const counts = new Map<string, number>();
+
+  for (const rawValue of values) {
+    const label = rawValue?.trim() || fallback;
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([label, value]) => ({
+      label,
+      value,
+      share: Number(((value / total) * 100).toFixed(1)),
+    }))
+    .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label));
+}
+
+export async function getFilteredInfographicData(filter: ReportFilter = {}): Promise<InfographicData> {
+  const rows = await getDb()
+    .select({
+      birthDate: citizen.birthDate,
+      occupation: citizen.occupation,
+      education: citizen.education,
+      religion: citizen.religion,
+      maritalStatus: citizen.maritalStatus,
+      bloodType: citizen.bloodType,
+      status: citizen.status,
+    })
+    .from(citizen)
+    .where(buildCanonicalCitizenWhere(filter));
+
+  const currentYear = new Date().getFullYear();
+  let productiveAge = 0;
+  let children = 0;
+  let seniors = 0;
+
+  for (const row of rows) {
+    const age = currentYear - new Date(row.birthDate).getFullYear();
+    if (age <= 17) children += 1;
+    if (age >= 18 && age <= 59) productiveAge += 1;
+    if (age >= 60) seniors += 1;
+  }
+
+  return {
+    totalCitizens: rows.length,
+    productiveAge,
+    children,
+    seniors,
+    occupation: buildDistribution(rows.map((row) => row.occupation), "Belum Diisi"),
+    education: buildDistribution(rows.map((row) => row.education), "Belum Diisi"),
+    religion: buildDistribution(rows.map((row) => row.religion), "Belum Diisi"),
+    maritalStatus: buildDistribution(rows.map((row) => row.maritalStatus), "Belum Diisi"),
+    bloodType: buildDistribution(rows.map((row) => row.bloodType), "Tidak Diketahui"),
+    residentStatus: buildDistribution(rows.map((row) => row.status), "Belum Diisi"),
   };
 }
 

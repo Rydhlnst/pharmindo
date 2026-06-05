@@ -124,7 +124,7 @@ const resolvedHouseholdNumberSql = sql<string | null>`(
   select h.kk_number
   from household_members hm
   inner join households h on h.id = hm.household_id
-  where hm.citizen_id = ${citizen.id}
+  where hm.citizen_id = "citizens"."id"
     and h.status = 'ACTIVE'
   order by
     case when hm.relationship = 'HEAD_OF_FAMILY' then 0 else 1 end,

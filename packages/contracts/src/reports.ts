@@ -53,6 +53,25 @@ export const reportDemographicsSchema = z.object({
   }),
 });
 
+export const reportDistributionItemSchema = z.object({
+  label: z.string(),
+  value: z.number().int().min(0),
+  share: z.number().min(0).max(100),
+});
+
+export const reportInfographicSchema = z.object({
+  totalCitizens: z.number().int().min(0),
+  productiveAge: z.number().int().min(0),
+  children: z.number().int().min(0),
+  seniors: z.number().int().min(0),
+  occupation: z.array(reportDistributionItemSchema),
+  education: z.array(reportDistributionItemSchema),
+  religion: z.array(reportDistributionItemSchema),
+  maritalStatus: z.array(reportDistributionItemSchema),
+  bloodType: z.array(reportDistributionItemSchema),
+  residentStatus: z.array(reportDistributionItemSchema),
+});
+
 export const reportFilterSchema = z.object({
   tahun: z.coerce.number().int().min(2000).max(3000).optional(),
   bulan: z.coerce.number().int().min(1).max(12).optional(),
@@ -66,3 +85,4 @@ export const reportCitizenDrilldownQuerySchema = paginationQuerySchema.merge(rep
 export const reportSummaryResponseSchema = createApiSuccessSchema(dashboardSummarySchema);
 export const rtBreakdownResponseSchema = createApiSuccessSchema(z.array(rtBreakdownItemSchema));
 export const reportDemographicsResponseSchema = createApiSuccessSchema(reportDemographicsSchema);
+export const reportInfographicResponseSchema = createApiSuccessSchema(reportInfographicSchema);

@@ -11,6 +11,7 @@ import {
   reportDemographicsResponseSchema,
   reportCitizenDrilldownQuerySchema,
   reportFilterSchema,
+  reportInfographicResponseSchema,
   reportSummaryResponseSchema,
   rtBreakdownResponseSchema,
 } from "@abdimas/contracts";
@@ -29,6 +30,7 @@ import {
   getCanonicalDashboardBadges,
   getCanonicalLiveStats,
   getFilteredDemographics,
+  getFilteredInfographicData,
   getFilteredPendingRequests,
   getFilteredRtBreakdown,
 } from "../services/admin-reporting.js";
@@ -120,6 +122,15 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       data: await getFilteredDemographics(filter),
     };
     reportDemographicsResponseSchema.parse(payload);
+    return ok(c, payload.data);
+  })
+  .get("/analytics", async (c) => {
+    const filter = parseReportFilter(c);
+    const payload = {
+      success: true as const,
+      data: await getFilteredInfographicData(filter),
+    };
+    reportInfographicResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/rt/:rtId/citizens", async (c) => {
