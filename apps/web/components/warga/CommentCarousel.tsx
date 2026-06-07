@@ -77,19 +77,7 @@ export default function CommentCarousel({ refreshKey = 0 }: { refreshKey?: numbe
   const dotsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (dotsRef.current) {
-      const activeDot = dotsRef.current.children[activeIndex] as HTMLElement;
-      if (activeDot) {
-        const containerWidth = dotsRef.current.clientWidth;
-        const dotLeft = activeDot.offsetLeft;
-        const dotWidth = activeDot.clientWidth;
-
-        dotsRef.current.scrollTo({
-          left: dotLeft - containerWidth / 2 + dotWidth / 2,
-          behavior: 'smooth',
-        });
-      }
-    }
+    // No longer need to scroll dots container
   }, [activeIndex]);
 
   useEffect(() => {
@@ -238,26 +226,16 @@ export default function CommentCarousel({ refreshKey = 0 }: { refreshKey?: numbe
             </div>
 
             {visibleItems.length > 1 && (
-              <div className="mt-2 flex justify-center pb-2">
-                <div
-                  ref={dotsRef}
-                  className="flex items-center gap-1.5 overflow-x-auto max-w-[80px] scroll-smooth px-[32px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mask-edges"
-                  style={{ maskImage: 'linear-gradient(to right, transparent, black 20%, black 80%, transparent)' }}
-                >
-                  {visibleItems.map((_, idx) => {
-                    const distance = Math.abs(activeIndex - idx);
-                    return (
-                      <div
-                        key={idx}
-                        className={cn(
-                          'shrink-0 h-1.5 rounded-full transition-all duration-300',
-                          activeIndex === idx ? 'w-4 bg-primary' : 'w-1.5 bg-primary/20',
-                          distance > 2 ? 'opacity-30 scale-75' : 'opacity-100 scale-100'
-                        )}
-                      />
-                    );
-                  })}
-                </div>
+              <div className="mt-3 flex flex-wrap justify-center gap-1.5 pb-1">
+                {visibleItems.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={cn(
+                      'h-1.5 rounded-full transition-all duration-300',
+                      activeIndex === idx ? 'w-4 bg-primary' : 'w-1.5 bg-primary/30'
+                    )}
+                  />
+                ))}
               </div>
             )}
           </div>

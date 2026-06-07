@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { History, Inbox } from 'lucide-react';
+import { History, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { AspirasiResult, BansosResult, HistoryItem, JenisPermohonan, PemiluResult, PermohonanResult } from '@/types/warga';
 
@@ -265,8 +265,10 @@ function DetailContent({ item }: { item: HistoryItem }) {
 export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: HistoryItem[] }) {
   const identity = useIdentity();
   const [activeTab, setActiveTab] = useState(0);
+  const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [items, setItems] = useState<HistoryItem[]>(() => {
+    if (typeof window === 'undefined') return fallbackItems;
     const stored = safeParseHistory(localStorage.getItem(STORAGE_KEY));
     return stored.length > 0 ? stored : fallbackItems;
   });
@@ -308,6 +310,10 @@ export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: 
     return items.filter((item) => item.tipe === selectedTipe);
   }, [items, activeTab]);
 
+  const ITEMS_PER_PAGE = 5;
+  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
   return (
     <WargaPage>
       <PageHeader
@@ -338,7 +344,10 @@ export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: 
           <TabBar
             tabs={[...TABS]}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setPage(1);
+            }}
           />
         </div>
 
@@ -355,20 +364,48 @@ export default function HistoryClient({ fallbackItems = [] }: { fallbackItems?: 
               </p>
             </div>
           ) : (
-            filteredItems.map((item) => (
-              <HistoryCard
-                key={item.id}
-                judul={item.judul}
-                deskripsi={item.deskripsi}
-                tanggal={item.tanggal}
-                status={item.status}
-                statusColor={item.statusColor}
-                isExpanded={expandedId === item.id}
-                onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-              >
-                <DetailContent item={item} />
-              </HistoryCard>
-            ))
+            <>
+              {paginatedItems.map((item) => (
+                <HistoryCard
+                  key={item.id}
+                  judul={item.judul}
+                  deskripsi={item.deskripsi}
+                  tanggal={item.tanggal}
+                  status={item.status}
+                  statusColor={item.statusColor}
+                  isExpanded={expandedId === item.id}
+                  onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                >
+                  <DetailContent item={item} />
+                </HistoryCard>
+              ))}
+              
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-4 mb-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="rounded-full w-9 h-9 border-input bg-background"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-foreground" />
+                  </Button>
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Hal {page} dari {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="rounded-full w-9 h-9 border-input bg-background"
+                  >
+                    <ChevronRight className="h-4 w-4 text-foreground" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </WargaPageBody>

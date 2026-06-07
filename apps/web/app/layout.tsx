@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
@@ -16,8 +16,6 @@ export const metadata: Metadata = {
   description:
     "Layanan digital warga Pharmindo25: cek bansos, kelayakan pemilu, aspirasi, dan jadwal kegiatan.",
   manifest: "/manifest.webmanifest",
-  themeColor: "#2563eb",
-  colorScheme: "light",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -27,6 +25,11 @@ export const metadata: Metadata = {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
+  colorScheme: "light",
 };
 
 export default function RootLayout({

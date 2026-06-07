@@ -20,6 +20,7 @@ import { ClipboardText as ClipboardList, MagnifyingGlass as Search, SlidersHoriz
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
 import { useActionToast } from '@/lib/use-action-toast';
+import { maskSensitiveNumber } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 
@@ -246,9 +247,9 @@ export default function KartuKeluargaPage() {
                 <tr key={row.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F5F7FF]'}>
                   <td className="px-5 py-4">
                     <p className="font-semibold text-[#1E293B]">{row.headCitizen?.name ?? '-'}</p>
-                    <p className="text-xs text-[#3B82F6]">{row.headCitizen?.nik ?? '-'}</p>
+                    <p className="text-xs text-[#3B82F6]">{maskSensitiveNumber(row.headCitizen?.nik)}</p>
                   </td>
-                  <td className="px-5 py-4 text-[#64748B]">{row.kkNumber}</td>
+                  <td className="px-5 py-4 text-[#64748B]">{maskSensitiveNumber(row.kkNumber)}</td>
                   <td className="px-5 py-4 text-[#64748B]">{row.address}</td>
                   <td className="px-5 py-4 font-bold text-[#1E293B]">
                     RT {row.rt}/RW {row.rw}
@@ -336,7 +337,7 @@ export default function KartuKeluargaPage() {
                 Hapus Kartu Keluarga?
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm leading-6 text-red-50">
-                Data KK <span className="font-semibold text-white">{householdToDelete?.kkNumber}</span> akan dihapus
+                Data KK <span className="font-semibold text-white">{maskSensitiveNumber(householdToDelete?.kkNumber)}</span> akan dihapus
                 bersama data relasi yang terhubung.
               </AlertDialogDescription>
             </AlertDialogHeader>

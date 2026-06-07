@@ -5,6 +5,7 @@ import { ArrowLeft, Briefcase, Info as BadgeInfo, MapPin, UserRound, type Lucide
 
 import { requireAdmin } from "@/lib/auth-server";
 import { getBackendServerUrl } from "@/lib/api/backend";
+import { maskSensitiveNumber } from "@/lib/utils";
 
 type CitizenDetail = {
   id: string;
@@ -63,7 +64,7 @@ export default async function CitizenDetailPage({
             Kembali ke Data Penduduk
           </Link>
           <h1 className="mt-3 text-2xl font-bold text-[#1E293B]">{citizen.name}</h1>
-          <p className="mt-1 text-sm text-[#64748B]">NIK {citizen.nik}</p>
+          <p className="mt-1 text-sm text-[#64748B]">NIK {maskSensitiveNumber(citizen.nik)}</p>
         </div>
         <span className="rounded-full bg-[#EAF2FF] px-4 py-2 text-sm font-semibold text-[#2563EB]">
           {citizen.status}

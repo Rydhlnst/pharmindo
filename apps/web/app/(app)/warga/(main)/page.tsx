@@ -14,6 +14,7 @@ import {
   Settings,
   Moon,
   Sun,
+  Hammer,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -860,12 +861,12 @@ export default function WargaHomePage() {
         ) : (
           <>
             <FeatureCard
-              icon={Gift}
-              judul="Ajukan Bansos"
-              deskripsi="Kirim pengajuan bansos lengkap dengan SKTM, foto rumah, dan bukti gaji."
+              icon={Hammer}
+              judul="Bansos (Maintenance)"
+              deskripsi="Penyaluran bantuan sosial sedang dalam tahap perbaikan sistem."
               badge="Bantuan Sosial"
               variant="large"
-              tone="primary"
+              tone="slate"
               onClick={() => setActiveSheet('bansos')}
               delay={50}
             />
@@ -888,7 +889,7 @@ export default function WargaHomePage() {
                 deskripsi="Kirim masukan atau keluhan Anda."
                 badge="Laporan"
                 variant="compact"
-                tone="violet"
+                tone="primary"
                 onClick={() => setActiveSheet('aspirasi')}
                 delay={150}
               />
@@ -973,149 +974,17 @@ export default function WargaHomePage() {
       <SlideUpSheet
         isOpen={activeSheet === 'bansos'}
         onClose={closeSheet}
-        title="Ajukan Bansos"
-        deskripsi="Lengkapi data dan unggah dokumen warga untuk pengajuan bansos."
+        title="Fitur Bansos Belum Aktif"
+        deskripsi="Penyaluran Bantuan Sosial sedang dalam pembaruan sistem."
       >
-        <div className="flex flex-col gap-5 overflow-y-auto">
-          <div className="space-y-2">
-            <Label htmlFor="bansos-nik">NIK (16 Digit)</Label>
-            <Input
-              id="bansos-nik"
-              type="text"
-              placeholder="Masukkan NIK Anda"
-              maxLength={16}
-              inputMode="numeric"
-              value={bansosNik}
-              onChange={(e) =>
-                setBansosNik(e.target.value.replace(/\D/g, '').slice(0, 16))
-              }
-              className="h-12 rounded-xl bg-background"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Nomor Induk Kependudukan sesuai KTP.
-            </p>
+        <div className="flex flex-col items-center justify-center p-6 text-center">
+          <div className="rounded-full bg-slate-100 p-6 mb-6">
+            <Hammer className="h-12 w-12 text-slate-500" />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bansos-nama">Nama Lengkap</Label>
-            <Input
-              id="bansos-nama"
-              type="text"
-              placeholder="Sesuai KTP"
-              value={bansosNama}
-              onChange={(e) => setBansosNama(e.target.value)}
-              className="h-12 rounded-xl bg-background"
-            />
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <Label>Jenis Program Bansos</Label>
-
-            <RadioGroup
-              value={bansosProgram}
-              onValueChange={setBansosProgram}
-              className="grid gap-2"
-            >
-              {bansosPrograms.map((program) => {
-                const isSelected = bansosProgram === program.id;
-
-                return (
-                  <Label
-                    key={program.id}
-                    htmlFor={program.id}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition-colors',
-                      isSelected
-                        ? 'border-primary/30 bg-primary text-primary-foreground'
-                        : 'border-border bg-card hover:bg-muted/60'
-                    )}
-                  >
-                    <RadioGroupItem
-                      id={program.id}
-                      value={program.id}
-                      className={cn(
-                        isSelected ? 'border-primary-foreground/60 text-primary-foreground' : undefined,
-                      )}
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className={cn(
-                          'text-sm font-semibold',
-                          isSelected ? 'text-primary-foreground' : 'text-foreground'
-                        )}
-                      >
-                        {program.title}
-                      </p>
-                      <p
-                        className={cn(
-                          'mt-0.5 text-xs',
-                          isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                        )}
-                      >
-                        {program.assistanceType} • {formatBansosPeriod(program)}
-                      </p>
-                    </div>
-                  </Label>
-                );
-              })}
-            </RadioGroup>
-            {bansosProgramsLoading ? (
-              <p className="text-xs text-muted-foreground">Memuat program bansos...</p>
-            ) : null}
-            {!bansosProgramsLoading && bansosProgramsError ? (
-              <p className="text-xs text-destructive">{bansosProgramsError}</p>
-            ) : null}
-            {!bansosProgramsLoading && !bansosProgramsError && bansosPrograms.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Belum ada program bansos dari admin.</p>
-            ) : null}
-          </div>
-
-          <FormInput
-            label="Nominal Gaji / Penghasilan"
-            placeholder="Contoh: Rp1.500.000 / bulan"
-            value={bansosIncome}
-            onChange={(e) => setBansosIncome(e.target.value)}
-          />
-
-          <FormTextarea
-            label="Catatan Tambahan"
-            value={bansosNotes}
-            onChange={setBansosNotes}
-            placeholder="Tambahkan kondisi keluarga atau alasan pengajuan."
-            maxLength={255}
-          />
-
-          <FormFileUpload
-            label="Surat Keterangan Tidak Mampu"
-            file={bansosCertificateFile}
-            onChange={setBansosCertificateFile}
-            accept=".jpg,.jpeg,.png,.pdf"
-          />
-
-          <FormFileUpload
-            label="Foto Rumah"
-            file={bansosHousePhotoFile}
-            onChange={setBansosHousePhotoFile}
-            accept=".jpg,.jpeg,.png,.webp"
-          />
-
-          <FormFileUpload
-            label="Bukti Gaji"
-            file={bansosIncomeProofFile}
-            onChange={setBansosIncomeProofFile}
-            accept=".jpg,.jpeg,.png,.pdf"
-          />
-
-          <Button
-            onClick={handleBansosSubmit}
-            disabled={isBansosSubmitDisabled || submitting === 'bansos'}
-            className="h-12 rounded-xl font-semibold"
-          >
-            {submitting === 'bansos' ? 'Mengirim...' : 'Kirim Pengajuan'}
-          </Button>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Sedang Dalam Perbaikan</h3>
+          <p className="max-w-xs text-sm text-slate-500">
+            Modul pengajuan Bantuan Sosial belum diaktifkan oleh admin karena sedang dalam tahap pembaruan sistem. Silakan kembali lagi nanti.
+          </p>
         </div>
       </SlideUpSheet>
 

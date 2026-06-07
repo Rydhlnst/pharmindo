@@ -133,7 +133,7 @@ export default function SettingsPage() {
       localStorage.removeItem('abdimas-logged');
       localStorage.removeItem('abdimas-role');
       localStorage.removeItem('abdimas-nik');
-      router.push('/sign-in');
+      window.location.href = '/sign-in';
     }
   };
 

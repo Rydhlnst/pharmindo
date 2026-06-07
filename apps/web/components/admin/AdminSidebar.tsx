@@ -20,6 +20,7 @@ import {
   Book,
   HandCoins,
   Users,
+  MagnifyingGlass,
 } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 
@@ -30,6 +31,16 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import PortalBrand from '@/components/ui/portal-brand';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type NavItem = {
   href: string;
@@ -68,6 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/verification', label: 'Verifikasi Warga', icon: ShieldCheck, hasNotification: true },
       { href: '/admin/permohonan', label: 'Permohonan', icon: FileInput, hasNotification: true },
       { href: '/admin/laporan', label: 'Laporan', icon: TrendingUp },
+      { href: '/admin/barang-hilang', label: 'Barang Hilang', icon: MagnifyingGlass, hasNotification: true },
       { href: '/admin/rapot-rw', label: 'Rapot RW', icon: Book },
     ],
   },
@@ -83,6 +95,7 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
   const router = useRouter();
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
   const [hasPendingVerifications, setHasPendingVerifications] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const loadNotificationBadges = async () => {
     try {
@@ -198,10 +211,7 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
         {SYSTEM_NAV.map(renderItem)}
         <Button
           variant="ghost"
-          onClick={async () => {
-            await authClient.signOut().catch(() => null);
-            router.push('/sign-in');
-          }}
+          onClick={() => setShowLogoutConfirm(true)}
           className={cn(
             'flex h-auto w-full items-center justify-start rounded-xl px-3 py-2.5 text-sm font-normal text-[color:var(--admin-subtle)] transition-colors hover:bg-rose-50 hover:text-rose-600',
             isCollapsed && !mobile ? 'justify-center' : 'gap-3',
@@ -211,6 +221,36 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
           {(!isCollapsed || mobile) && <span>Keluar</span>}
         </Button>
       </div>
+
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent className="max-w-sm rounded-3xl p-8 text-center">
+          <AlertDialogHeader className="items-center text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <LogOut className="h-8 w-8 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-bold text-[#18212F]">
+              Keluar?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-medium text-[#667085]">
+              Anda akan dikembalikan ke halaman login admin.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex w-full flex-col gap-3 sm:flex-col sm:justify-center sm:space-x-0">
+            <AlertDialogAction
+              onClick={async () => {
+                await authClient.signOut().catch(() => null);
+                window.location.href = '/';
+              }}
+              className="w-full rounded-xl border-2 border-red-600 bg-white py-6 text-base font-bold text-red-600 hover:bg-red-50"
+            >
+              Ya, Keluar
+            </AlertDialogAction>
+            <AlertDialogCancel className="w-full rounded-xl border-gray-200 py-6 text-base font-bold text-[#64748B] hover:bg-gray-100">
+              Batal
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </nav>
   );
 }

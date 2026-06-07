@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,7 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<SignInMode>(nextPath?.startsWith("/admin") ? "admin" : "citizen");
 
   const normalizedIdentifier = identifier.trim().toLowerCase();
@@ -159,7 +160,7 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
           <div className="text-sm font-semibold tracking-[-0.01em] text-slate-500">RW 25 Cimahi</div>
           <Button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push("/")}
             size="icon"
             variant="outline"
             className="rounded-full border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -216,15 +217,25 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
 
             <div>
               <Label className="mb-2 block text-xs font-semibold text-slate-800">Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimal 8 karakter"
-                className="h-auto rounded-[20px] border-slate-200 bg-white px-4 py-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[color:var(--ring)]"
-                autoComplete={remember ? "current-password" : "off"}
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimal 8 karakter"
+                  className="h-auto rounded-[20px] border-slate-200 bg-white px-4 py-4 pr-12 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[color:var(--ring)]"
+                  autoComplete={remember ? "current-password" : "off"}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between gap-4 pt-1">

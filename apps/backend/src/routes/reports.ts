@@ -133,6 +133,65 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
     reportInfographicResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
+  .get("/citizens", async (c) => {
+    const parsed = reportCitizenDrilldownQuerySchema.parse({
+      page: c.req.query("page"),
+      limit: c.req.query("limit"),
+      tahun: c.req.query("tahun"),
+      bulan: c.req.query("bulan"),
+      q: sanitizeSearchTerm(c.req.query("q") || undefined),
+    });
+    const filterRt = c.req.query("rt");
+    
+    const where = parsed.q
+      ? and(
+          buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: filterRt }),
+          sql`(${citizen.name} ilike ${`%${parsed.q}%`} or ${citizen.nik} ilike ${`%${parsed.q}%`})`,
+        )
+      : buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: filterRt });
+      
+    const db = getDb();
+    const [{ total }] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(citizen)
+      .where(where);
+    const rows = await db
+      .select()
+      .from(citizen)
+      .where(where)
+      .orderBy(citizen.name)
+      .limit(parsed.limit)
+      .offset(getOffset(parsed.page, parsed.limit));
+
+    const meta = buildPageMeta({ page: parsed.page, limit: parsed.limit, total: Number(total || 0) });
+
+    const payload = {
+      success: true as const,
+      data: rows.map((row) => ({
+        id: row.id,
+        userId: row.userId ?? null,
+        nik: row.nik,
+        name: row.name,
+        gender: row.gender,
+        birthPlace: row.birthPlace,
+        birthDate: row.birthDate,
+        religion: row.religion,
+        maritalStatus: row.maritalStatus,
+        occupation: row.occupation,
+        education: row.education,
+        bloodType: row.bloodType ?? null,
+        address: row.address,
+        rt: row.rt,
+        rw: row.rw,
+        status: row.status,
+        createdAt: toIso(row.createdAt) ?? new Date().toISOString(),
+        updatedAt: toIso(row.updatedAt) ?? new Date().toISOString(),
+      })),
+      meta,
+    };
+    citizenListResponseSchema.parse(payload);
+    return ok(c, payload.data, meta);
+  })
   .get("/rt/:rtId/citizens", async (c) => {
     const parsed = reportCitizenDrilldownQuerySchema.parse({
       page: c.req.query("page"),

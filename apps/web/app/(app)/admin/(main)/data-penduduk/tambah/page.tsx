@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, CheckCircle as CheckCircle2, CaretLeft as ChevronLeft, MapPin, Plus, FloppyDisk as Save, Trash as Trash2, User, Users } from '@phosphor-icons/react';
 
@@ -147,13 +147,22 @@ function formatDate(value: string) {
 }
 
 function mapStatusLabel(value: FormData['status']) {
-  return value === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 'Ngekost';
+  return value === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 'Penduduk Musiman';
 }
 
 function validatePerson(person: PersonForm, prefix: string, errors: FormErrors) {
   if (!person.nik || person.nik.length !== 16) errors[`${prefix}.nik`] = 'NIK harus 16 digit';
   if (!person.name.trim()) errors[`${prefix}.name`] = 'Nama wajib diisi';
-  if (!person.birthDate) errors[`${prefix}.birthDate`] = 'Tanggal lahir wajib diisi';
+  if (!person.birthDate) {
+    errors[`${prefix}.birthDate`] = 'Tanggal lahir wajib diisi';
+  } else {
+    const selectedDate = new Date(person.birthDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (selectedDate > today) {
+      errors[`${prefix}.birthDate`] = 'Tanggal lahir tidak boleh di masa depan';
+    }
+  }
   if (!person.birthPlace.trim()) errors[`${prefix}.birthPlace`] = 'Tempat lahir wajib diisi';
   if (!person.education) errors[`${prefix}.education`] = 'Pendidikan wajib dipilih';
   if (!person.occupation) errors[`${prefix}.occupation`] = 'Pekerjaan wajib dipilih';
@@ -170,6 +179,19 @@ export default function TambahDataPendudukPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [showExitModal, setShowExitModal] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftData, setDraftData] = useState<{form: FormData, step: number} | null>(null);
+
+  React.useEffect(() => {
+    const savedDraft = localStorage.getItem('draft-data-penduduk');
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        setDraftData(parsed);
+        setShowDraftModal(true);
+      } catch (e) {}
+    }
+  }, []);
 
   const setField = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
     setForm((prev) => {
@@ -352,6 +374,7 @@ export default function TambahDataPendudukPage() {
         },
       );
 
+      localStorage.removeItem('draft-data-penduduk');
       router.push(form.isHeadOfFamily ? '/admin/kartu-keluarga' : '/admin/data-penduduk');
     } catch (error) {
       console.error(error);
@@ -708,7 +731,7 @@ export default function TambahDataPendudukPage() {
                   className={selectClass()}
                 >
                   <option value="PENDUDUK_TETAP">Penduduk Tetap</option>
-                  <option value="NGEKOST">Ngekost</option>
+                  <option value="NGEKOST">Penduduk Musiman</option>
                 </select>
               </div>
             </div>
@@ -1018,6 +1041,18 @@ export default function TambahDataPendudukPage() {
           <div className="mt-4 flex flex-col gap-3">
             <Button
               onClick={() => {
+                localStorage.setItem('draft-data-penduduk', JSON.stringify({ form, step }));
+                setShowExitModal(false);
+                router.back();
+              }}
+              variant="outline"
+              className="w-full rounded-xl border border-blue-200 text-blue-600 transition hover:bg-blue-50 hover:text-blue-700"
+            >
+              Simpan Draft & Keluar
+            </Button>
+            <Button
+              onClick={() => {
+                localStorage.removeItem('draft-data-penduduk');
                 setShowExitModal(false);
                 router.back();
               }}
@@ -1032,6 +1067,43 @@ export default function TambahDataPendudukPage() {
               className="w-full rounded-xl text-[#64748B] transition hover:bg-gray-100"
             >
               Batal
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Draft Loader Modal */}
+      <Dialog open={showDraftModal} onOpenChange={setShowDraftModal}>
+        <DialogContent className="max-w-sm rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-[#1E293B]">Draft Ditemukan</DialogTitle>
+            <DialogDescription className="text-sm text-[#64748B]">
+              Anda memiliki data yang belum selesai diisi. Ingin melanjutkannya?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex flex-col gap-3">
+            <Button
+              onClick={() => {
+                if (draftData) {
+                  setForm(draftData.form);
+                  setStep(draftData.step);
+                }
+                setShowDraftModal(false);
+              }}
+              className="w-full rounded-xl bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+            >
+              Lanjutkan Draft
+            </Button>
+            <Button
+              onClick={() => {
+                localStorage.removeItem('draft-data-penduduk');
+                setDraftData(null);
+                setShowDraftModal(false);
+              }}
+              variant="ghost"
+              className="w-full rounded-xl text-red-600 hover:bg-red-50"
+            >
+              Hapus & Mulai Baru
             </Button>
           </div>
         </DialogContent>

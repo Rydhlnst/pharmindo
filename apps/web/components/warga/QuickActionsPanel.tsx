@@ -11,6 +11,7 @@ import {
   FilePlus2,
   type LucideIcon,
 } from 'lucide-react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -22,14 +23,14 @@ type QuickActionItem =
       label: string;
       desc: string;
       href: string;
-      icon: LucideIcon;
+      icon: any;
       soon?: false;
     }
   | {
       key: string;
       label: string;
       desc: string;
-      icon: LucideIcon;
+      icon: any;
       href?: string;
       action?: string;
       soon: true;
@@ -38,7 +39,7 @@ type QuickActionItem =
       key: string;
       label: string;
       desc: string;
-      icon: LucideIcon;
+      icon: any;
       action: string;
       href?: never;
       soon?: false;
@@ -76,11 +77,11 @@ const QUICK_ACTIONS: QuickActionItem[] = [
     icon: CalendarDays,
   },
   {
-    key: 'riwayat',
-    label: 'Riwayat',
-    desc: 'Hasil pengecekan',
-    href: '/warga/history',
-    icon: ClipboardList,
+    key: 'barang_hilang',
+    label: 'Barang Hilang',
+    desc: 'Laporan kehilangan',
+    href: '/warga/barang-hilang',
+    icon: MagnifyingGlass,
   },
   {
     key: 'aspirasi',
@@ -106,17 +107,17 @@ const QUICK_ACTION_TONE_MAP: Record<
     chip: 'bg-[color:var(--accent-sky)]/10 text-[color:var(--accent-sky)]',
     glow: 'bg-[color:var(--accent-sky)]/10',
   },
-  riwayat: {
+  barang_hilang: {
     iconWrap: 'bg-primary/10',
     icon: 'text-primary',
     chip: 'bg-primary/10 text-primary',
     glow: 'bg-primary/10',
   },
   aspirasi: {
-    iconWrap: 'bg-[color:var(--accent-violet)]/10',
-    icon: 'text-[color:var(--accent-violet)]',
-    chip: 'bg-[color:var(--accent-violet)]/10 text-[color:var(--accent-violet)]',
-    glow: 'bg-[color:var(--accent-violet)]/10',
+    iconWrap: 'bg-primary/10',
+    icon: 'text-primary',
+    chip: 'bg-primary/10 text-primary',
+    glow: 'bg-primary/10',
   },
   layanan: {
     iconWrap: 'bg-[color:var(--accent-mint)]/10',
@@ -187,7 +188,7 @@ export default function QuickActionsPanel({
             const Icon = item.icon;
             const isSoon = 'soon' in item && item.soon;
             const tone =
-              QUICK_ACTION_TONE_MAP[item.key] ?? QUICK_ACTION_TONE_MAP.riwayat;
+              QUICK_ACTION_TONE_MAP[item.key] ?? QUICK_ACTION_TONE_MAP.barang_hilang;
 
             const content = (
               <div className="group flex flex-col items-center justify-start gap-2">

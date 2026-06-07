@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
 import { useActionToast } from '@/lib/use-action-toast';
+import { maskSensitiveNumber } from '@/lib/utils';
 
 type Citizen = {
   id: string;
@@ -63,6 +64,19 @@ type HouseholdAuditLog = {
   adminId: string;
   createdAt: string;
 };
+
+const RELATIONSHIP_MAP: Record<string, string> = {
+  HEAD_OF_FAMILY: 'Kepala Keluarga',
+  SPOUSE: 'Istri / Suami',
+  CHILD: 'Anak',
+  PARENT: 'Orang Tua',
+  SIBLING: 'Saudara',
+  OTHER: 'Lainnya',
+};
+
+function displayRelationship(rel: string) {
+  return RELATIONSHIP_MAP[rel] || rel;
+}
 
 function getRelationshipBadge(rel: string) {
   const normalized = rel.toLowerCase();
@@ -271,9 +285,9 @@ export default function DetailKartuKeluargaPage() {
             <tr className="bg-[#EEF2FF]">
               <td className="px-6 py-5 align-top">
                 <p className="font-bold text-[#1E293B]">{detail?.headCitizen?.name ?? '-'}</p>
-                <p className="mt-0.5 text-xs text-[#3B82F6]">{detail?.headCitizen?.nik ?? '-'}</p>
+                <p className="mt-0.5 text-xs text-[#3B82F6]">{maskSensitiveNumber(detail?.headCitizen?.nik)}</p>
               </td>
-              <td className="px-6 py-5 align-top text-[#64748B] font-medium">{detail?.kkNumber ?? '-'}</td>
+              <td className="px-6 py-5 align-top text-[#64748B] font-medium">{maskSensitiveNumber(detail?.kkNumber)}</td>
               <td className="px-6 py-5 align-top text-[#3B82F6] max-w-[280px] font-medium">{detail?.address ?? '-'}</td>
             </tr>
           </tbody>
@@ -307,11 +321,11 @@ export default function DetailKartuKeluargaPage() {
                   <tr key={row.id} className={`${i % 2 === 0 ? 'bg-white' : 'bg-[#F5F7FF]'} hover:bg-blue-50/50 transition-colors`}>
                     <td className="px-6 py-4">
                       <p className="font-bold text-[#1E293B]">{row.citizen?.name ?? '-'}</p>
-                      <p className="text-xs text-[#3B82F6]">{row.citizen?.nik ?? '-'}</p>
+                      <p className="text-xs text-[#3B82F6]">{maskSensitiveNumber(row.citizen?.nik)}</p>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${getRelationshipBadge(row.relationship)}`}>
-                        {row.relationship}
+                        {displayRelationship(row.relationship)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-[#3B82F6] font-medium">
@@ -448,10 +462,12 @@ export default function DetailKartuKeluargaPage() {
                 onChange={(e) => setEditForm({ ...editForm, relationship: e.target.value })}
                 className="flex h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="Kepala Keluarga">Kepala Keluarga</option>
-                <option value="Suami">Suami</option>
-                <option value="Istri">Istri</option>
-                <option value="Anak">Anak</option>
+                <option value="HEAD_OF_FAMILY">Kepala Keluarga</option>
+                <option value="SPOUSE">Istri / Suami</option>
+                <option value="CHILD">Anak</option>
+                <option value="PARENT">Orang Tua</option>
+                <option value="SIBLING">Saudara</option>
+                <option value="OTHER">Lainnya</option>
               </select>
             </div>
             <div className="flex flex-col gap-2">

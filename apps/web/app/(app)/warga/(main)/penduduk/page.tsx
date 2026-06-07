@@ -29,7 +29,7 @@ type CitizenRow = {
   nik: string;
   noKK: string;
   alamat: string;
-  status: 'Penduduk Tetap' | 'Ngekost' | 'Null';
+  status: 'Penduduk Tetap' | 'Penduduk Musiman' | 'Null';
 };
 
 type CitizenApiItem = {
@@ -59,7 +59,7 @@ export default function WargaDataPendudukPage() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Penduduk Tetap' | 'Ngekost'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Penduduk Tetap' | 'Penduduk Musiman'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -82,7 +82,7 @@ export default function WargaDataPendudukPage() {
       });
       if (search) params.set('q', search);
       if (status === 'Penduduk Tetap') params.set('status', 'PENDUDUK_TETAP');
-      if (status === 'Ngekost') params.set('status', 'NGEKOST');
+      if (status === 'Penduduk Musiman') params.set('status', 'NGEKOST');
       const res = await platformFetch<CitizenApiItem[]>(`/citizens?${params.toString()}`);
 
       const mapped: CitizenRow[] = (res.data || []).map((c) => ({
@@ -91,7 +91,7 @@ export default function WargaDataPendudukPage() {
         nik: toNullableLabel(c?.nik),
         noKK: toNullableLabel(c?.noKK),
         alamat: toNullableLabel(c?.address),
-        status: c?.status === 'NGEKOST' ? 'Ngekost' : c?.status === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 'Null',
+        status: c?.status === 'NGEKOST' ? 'Penduduk Musiman' : c?.status === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 'Null',
       }));
       setRows(mapped);
       setTotalItems(res.meta?.total ?? mapped.length);
@@ -208,7 +208,7 @@ export default function WargaDataPendudukPage() {
             <SelectContent>
               <SelectItem value="ALL">Semua Status</SelectItem>
               <SelectItem value="Penduduk Tetap">Penduduk Tetap</SelectItem>
-              <SelectItem value="Ngekost">Ngekost</SelectItem>
+              <SelectItem value="Penduduk Musiman">Penduduk Musiman</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -252,7 +252,7 @@ export default function WargaDataPendudukPage() {
                     <span
                       className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${row.status === 'Penduduk Tetap'
                           ? 'bg-purple-100 text-purple-700'
-                          : row.status === 'Ngekost'
+                          : row.status === 'Penduduk Musiman'
                             ? 'bg-gray-100 text-gray-600'
                             : 'bg-slate-100 text-slate-500'
                         }`}

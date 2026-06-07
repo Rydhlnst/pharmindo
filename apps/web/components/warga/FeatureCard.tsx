@@ -12,7 +12,7 @@ interface FeatureCardProps {
   deskripsi: string;
   badge?: string;
   variant?: 'large' | 'compact';
-  tone?: 'primary' | 'sky' | 'violet';
+  tone?: 'primary' | 'sky' | 'violet' | 'slate';
   onClick: () => void;
   delay?: number;
   patternId?: 1 | 2 | 3;
@@ -65,7 +65,9 @@ export default function FeatureCard({
       ? 'bg-secondary/10 text-secondary'
       : tone === 'violet'
         ? 'bg-accent text-accent-foreground'
-        : 'bg-primary/10 text-primary';
+        : tone === 'slate'
+          ? 'bg-slate-100 text-slate-500'
+          : 'bg-primary/10 text-primary';
 
   return (
     <Card

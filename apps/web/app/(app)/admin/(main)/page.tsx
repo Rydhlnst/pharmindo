@@ -95,6 +95,32 @@ const ROW_COLORS = [
   'bg-[#F4F8FF]',
 ];
 
+const ACTION_MAP: Record<string, string> = {
+  ADMIN_USER_CREATED: 'Membuat Akun Admin',
+  ADMIN_USER_DEACTIVATED: 'Menonaktifkan Akun Admin',
+  ADMIN_USER_PASSWORD_RESET: 'Meriset Password Admin',
+  CITIZEN_CREATED: 'Menambahkan Data Warga',
+  CITIZEN_UPDATED: 'Memperbarui Data Warga',
+  CITIZEN_ARCHIVED: 'Mengarsipkan Data Warga',
+  CITIZEN_DELETED: 'Menghapus Data Warga',
+  HOUSEHOLD_CREATED: 'Menambahkan Kartu Keluarga',
+  HOUSEHOLD_MEMBER_ADDED: 'Menambahkan Anggota Keluarga',
+  MUTATION_CREATED: 'Membuat Data Mutasi',
+  MUTATION_STATUS_UPDATED: 'Memperbarui Status Mutasi',
+  MUTATION_CREATED_FROM_REQUEST: 'Membuat Mutasi dari Permohonan',
+  REQUEST_APPROVED: 'Menyetujui Permohonan',
+  REQUEST_REJECTED: 'Menolak Permohonan',
+  VERIFICATION_APPROVED: 'Menyetujui Verifikasi Warga',
+  VERIFICATION_REJECTED: 'Menolak Verifikasi Warga',
+  ACTIVITY_CREATED: 'Menambahkan Kegiatan RW',
+  ACTIVITY_UPDATED: 'Memperbarui Kegiatan RW',
+  ACTIVITY_DELETED: 'Menghapus Kegiatan RW',
+};
+
+function displayAction(action: string) {
+  return ACTION_MAP[action] || action;
+}
+
 /* ── Quick Actions ── */
 
 const quickActions = [
@@ -398,7 +424,7 @@ export default function AdminDashboardPage() {
                                   onClick={() => dismissActivity(item.id)}
                                   className="text-xs font-semibold text-[#1F2937] line-clamp-1"
                                 >
-                                  {item.title}
+                                  {displayAction(item.title)}
                                 </Link>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <p className="truncate text-[11px] font-medium text-[#6B7280]">{item.subtitle}</p>

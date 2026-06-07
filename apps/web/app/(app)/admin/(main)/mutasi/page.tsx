@@ -17,6 +17,7 @@ import {
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
 import { useSyncVersions } from '@/lib/use-sync-versions';
+import { maskSensitiveNumber } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 
@@ -314,7 +315,7 @@ export default function MutasiPage() {
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-semibold text-[#1E293B]">{row.citizen?.name ?? row.citizenId}</p>
-                      <p className="text-xs text-[#3B82F6]">{row.citizen?.nik ?? '-'}</p>
+                      <p className="text-xs text-[#3B82F6]">{maskSensitiveNumber(row.citizen?.nik)}</p>
                     </td>
                     <td className="px-5 py-4">
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#3B82F6]">
@@ -407,7 +408,7 @@ export default function MutasiPage() {
                     {viewedMutasi.citizen?.name ?? viewedMutasi.citizenId}
                   </h3>
                   <p className="text-xs font-semibold text-[#64748B]">
-                    NIK: {viewedMutasi.citizen?.nik ?? '-'}
+                    NIK: {maskSensitiveNumber(viewedMutasi.citizen?.nik)}
                   </p>
                 </div>
               </div>

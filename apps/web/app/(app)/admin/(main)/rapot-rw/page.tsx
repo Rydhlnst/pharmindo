@@ -11,6 +11,9 @@ import {
   FileText,
   Funnel,
   MagnifyingGlass as Search,
+  Database,
+  CalendarBlank,
+  WarningCircle,
   Users,
 } from '@phosphor-icons/react';
 
@@ -71,6 +74,8 @@ type CitizenRow = {
   birthDate: string;
   rt: string;
   rw: string;
+  occupation?: string;
+  religion?: string;
 };
 
 type DemographicsData = {
@@ -136,16 +141,22 @@ function buildFilterParams(filter: { tahun: string; bulan: string; rt: string })
 
 function formatCitizenStatusLabel(value: string) {
   if (value === 'PENDUDUK_TETAP') return 'Penduduk Tetap';
-  if (value === 'NGEKOST') return 'Ngekost';
+  if (value === 'NGEKOST') return 'Penduduk Musiman';
   return value.replaceAll('_', ' ');
 }
 
 function formatDistributionLabel(section: string, label: string) {
   if (section === 'residentStatus') return formatCitizenStatusLabel(label);
+  if (section === 'bloodType') return label;
   if (label === 'BELUM_KAWIN') return 'Belum Kawin';
   if (label === 'CERAI_HIDUP') return 'Cerai Hidup';
   if (label === 'CERAI_MATI') return 'Cerai Mati';
-  return label;
+  
+  // Return title case for better presentation
+  return label.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+  );
 }
 
 function DistributionPanel({
@@ -161,6 +172,14 @@ function DistributionPanel({
   tone?: 'blue' | 'green' | 'rose';
   emptyLabel: string;
 }) {
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 6;
+  const totalPages = Math.ceil(items.length / itemsPerPage);
+
+  useEffect(() => {
+    setPage(1);
+  }, [items]);
+
   const palette =
     tone === 'green'
       ? {
@@ -180,14 +199,14 @@ function DistributionPanel({
             pill: 'bg-[#EFF6FF] text-[#1D4ED8]',
           };
 
-  const visibleItems = items.slice(0, 6);
+  const visibleItems = items.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-bold text-[#1E293B]">{title}</h3>
-          <p className="mt-1 text-xs text-[#64748B]">Menampilkan kategori terbesar dari data aktif sesuai filter.</p>
+          <p className="mt-1 text-xs text-[#64748B]">Menampilkan kategori dari data aktif sesuai filter.</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${palette.pill}`}>
           {items.length} kategori
@@ -196,22 +215,50 @@ function DistributionPanel({
 
       {visibleItems.length > 0 ? (
         <div className="space-y-4">
-          {visibleItems.map((item) => (
-            <div key={`${section}-${item.label}`} className="space-y-2">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-[#1E293B]">{formatDistributionLabel(section, item.label)}</span>
-                <span className="text-xs font-semibold text-[#64748B]">
-                  {item.value} warga • {item.share.toFixed(1)}%
-                </span>
+          <div className="space-y-4 min-h-[300px]">
+            {visibleItems.map((item) => (
+              <div key={`${section}-${item.label}`} className="space-y-2">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-medium text-[#1E293B]">{formatDistributionLabel(section, item.label)}</span>
+                  <span className="text-xs font-semibold text-[#64748B]">
+                    {item.value} warga • {item.share.toFixed(1)}%
+                  </span>
+                </div>
+                <div className={`h-2.5 overflow-hidden rounded-full ${palette.track}`}>
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${palette.bar}`}
+                    style={{ width: `${Math.min(item.share, 100)}%` }}
+                  />
+                </div>
               </div>
-              <div className={`h-2.5 overflow-hidden rounded-full ${palette.track}`}>
-                <div
-                  className={`h-full rounded-full bg-gradient-to-r ${palette.bar}`}
-                  style={{ width: `${Math.min(item.share, 100)}%` }}
-                />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-5 flex items-center justify-between border-t border-gray-50 pt-4">
+              <span className="text-xs font-semibold text-[#64748B]">
+                Halaman {page} dari {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 disabled:opacity-50"
+                  title="Sebelumnya"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  disabled={page === totalPages}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 disabled:opacity-50"
+                  title="Selanjutnya"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
-          ))}
+          )}
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-[#F8FAFC] px-4 py-10 text-center text-sm text-[#64748B]">
@@ -240,11 +287,23 @@ function SpotlightCard({
   );
 }
 
+const getAgeGroupColor = (label: string) => {
+  switch (label) {
+    case '0-12': return '#0ea5e9';
+    case '13-17': return '#7c3aed';
+    case '18-35': return '#2563eb';
+    case '36-59': return '#16a34a';
+    case '60+': return '#f59e0b';
+    default: return '#94a3b8';
+  }
+};
+
 export default function RapotPage() {
   const [tahun, setTahun] = useState('2026');
   const [bulan, setBulan] = useState('');
   const [rt, setRt] = useState('');
-  const [activeView, setActiveView] = useState<'overview' | 'livelihood' | 'social'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'livelihood' | 'social' | 'semua'>('overview');
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<string | null>(null);
   const [stats, setStats] = useState<SummaryData['stats']>({
     totalWarga: 0,
     totalKK: 0,
@@ -259,6 +318,9 @@ export default function RapotPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [semuaPage, setSemuaPage] = useState(1);
+  const [semuaCitizens, setSemuaCitizens] = useState<CitizenRow[]>([]);
+  const [semuaTotalPages, setSemuaTotalPages] = useState(1);
   const [detailTotalItems, setDetailTotalItems] = useState(0);
   const [detailTotalPages, setDetailTotalPages] = useState(1);
   const [appliedFilter, setAppliedFilter] = useState({
@@ -317,6 +379,38 @@ export default function RapotPage() {
   }, [appliedFilter]);
 
   useEffect(() => {
+    if (activeView !== 'semua') return;
+    let active = true;
+
+    async function loadAllCitizens() {
+      try {
+        const params = new URLSearchParams({
+          page: String(semuaPage),
+          limit: '10',
+        });
+        if (appliedFilter.tahun) params.set('tahun', appliedFilter.tahun);
+        if (appliedFilter.bulan) params.set('bulan', appliedFilter.bulan);
+        if (appliedFilter.rt) params.set('rt', appliedFilter.rt);
+        
+        const response = await platformFetch<CitizenRow[]>(`/admin/reports/citizens?${params.toString()}`);
+        if (!active) return;
+        setSemuaCitizens(response.data || []);
+        setSemuaTotalPages(response.meta?.totalPages ?? 1);
+      } catch (error) {
+        console.error(error);
+        if (!active) return;
+        setSemuaCitizens([]);
+        setSemuaTotalPages(1);
+      }
+    }
+
+    void loadAllCitizens();
+    return () => {
+      active = false;
+    };
+  }, [activeView, semuaPage, appliedFilter]);
+
+  useEffect(() => {
     if (!viewedRT) return;
     let active = true;
     const rtId = viewedRT.rt;
@@ -367,6 +461,20 @@ export default function RapotPage() {
     : rwValues.length === 1 && rwValues[0]
       ? `Total RW ${rwValues[0]}`
       : 'Total Semua RT';
+
+  const ALL_RTS = ['01', '02', '03'];
+  const displayRtData = ALL_RTS.map(rt => {
+    const existing = rtData.find(row => row.rt === rt);
+    if (existing) return existing;
+    return {
+      rt,
+      rw: rtData[0]?.rw || '01',
+      kk: 0,
+      warga: 0,
+      mutasi: 0,
+      produktif: 0
+    };
+  });
 
   const primaryOccupation = analytics.occupation[0];
   const primaryEducation = analytics.education[0];
@@ -537,6 +645,9 @@ export default function RapotPage() {
           <TabsTrigger value="social" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
             Sosial & Status
           </TabsTrigger>
+          <TabsTrigger value="semua" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+            Semua
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-0 space-y-5">
@@ -546,20 +657,44 @@ export default function RapotPage() {
               <div className="flex items-end justify-between gap-4" style={{ height: 'clamp(150px, 25vh, 200px)' }}>
                 {ageGroups.map((group) => {
                   const isHighest = group.value === maxAgeValue && maxAgeValue > 0;
+                  const isSelected = selectedAgeGroup === group.label;
+                  const isHighlighted = isSelected || (selectedAgeGroup === null && isHighest);
+                  const color = getAgeGroupColor(group.label);
+
                   return (
-                    <div key={group.label} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${isHighest ? 'bg-[#2563EB] text-white shadow-sm' : 'bg-[#EFF6FF] text-[#3B82F6]'}`}>
+                    <div
+                      key={group.label}
+                      className="flex h-full flex-1 flex-col items-center justify-end gap-2 cursor-pointer"
+                      onClick={() => setSelectedAgeGroup(isSelected ? null : group.label)}
+                    >
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors shadow-sm"
+                        style={{
+                          backgroundColor: isHighlighted ? color : `${color}20`,
+                          color: isHighlighted ? '#fff' : color,
+                        }}
+                      >
                         {group.value} Jiwa
                       </span>
                       <div
-                        className={`w-full rounded-t-lg transition-all duration-500 ease-out ${
-                          isHighest
-                            ? 'bg-gradient-to-t from-[#3B82F6] to-[#2563EB] shadow-[0_-4px_10px_rgba(37,99,235,0.2)]'
-                            : 'bg-[#93C5FD] opacity-80'
-                        }`}
-                        style={{ height: `${(group.value / maxAgeValue) * 100}%`, minHeight: '16px' }}
+                        className="w-full rounded-t-lg transition-all duration-500 ease-out"
+                        style={{
+                          height: `${(group.value / maxAgeValue) * 100}%`,
+                          minHeight: '16px',
+                          backgroundColor: color,
+                          opacity: isHighlighted ? 1 : 0.4,
+                          boxShadow: isHighlighted ? `0 -4px 10px ${color}33` : 'none',
+                        }}
                       />
-                      <span className={`text-xs transition-colors ${isHighest ? 'font-bold text-[#2563EB]' : 'font-medium text-[#64748B]'}`}>{group.label}</span>
+                      <span
+                        className="text-xs transition-colors"
+                        style={{
+                          fontWeight: isHighlighted ? 700 : 500,
+                          color: isHighlighted ? color : '#64748B',
+                        }}
+                      >
+                        {group.label}
+                      </span>
                     </div>
                   );
                 })}
@@ -599,7 +734,7 @@ export default function RapotPage() {
 
           <div className="grid gap-5 lg:grid-cols-2">
             <DistributionPanel
-              title="Top Pekerjaan"
+              title="Pekerjaan Warga"
               items={analytics.occupation}
               section="occupation"
               tone="blue"
@@ -686,16 +821,107 @@ export default function RapotPage() {
               emptyLabel="Belum ada distribusi agama untuk filter ini."
             />
             <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6">
-              <h3 className="text-base font-bold text-[#1E293B]">Catatan Sumber Data</h3>
-              <div className="mt-4 space-y-3 text-sm text-[#64748B]">
-                <p>Semua grafik di halaman ini memakai data warga aktif yang sama dengan dashboard admin.</p>
-                <p>Filter bulan dan tahun membaca periode pembuatan data warga untuk kebutuhan rekap dan analitik halaman ini.</p>
-                <p>Jika ingin analitik pendapatan atau base salary, itu harus datang dari domain data terpisah dan tidak boleh dicampur ke master warga tanpa definisi yang jelas.</p>
-                <p className="font-medium text-[#1E293B]">
-                  Agama dominan: {primaryReligion ? formatDistributionLabel('religion', primaryReligion.label) : 'Belum ada data'}
-                </p>
+              <h3 className="text-lg font-bold text-[#1E293B]">Catatan Sumber Data</h3>
+              <div className="mt-6 space-y-6 text-[15px] leading-relaxed text-[#475569]">
+                <div className="flex items-start gap-4">
+                  <Database className="mt-1 h-6 w-6 shrink-0 text-[#2563EB]" weight="duotone" />
+                  <p>Seluruh grafik pada halaman ini bersumber dari data warga aktif yang konsisten dengan dashboard admin.</p>
+                </div>
+                <div className="flex items-start gap-4">
+                  <CalendarBlank className="mt-1 h-6 w-6 shrink-0 text-[#16A34A]" weight="duotone" />
+                  <p>Filter bulan dan tahun mengacu pada periode pencatatan data warga untuk keperluan rekap dan analitik.</p>
+                </div>
+                <div className="flex items-start gap-4">
+                  <WarningCircle className="mt-1 h-6 w-6 shrink-0 text-[#E11D48]" weight="duotone" />
+                  <p>Data pendapatan atau penggajian merupakan domain tersendiri dan tidak dapat digabungkan ke dalam master warga tanpa definisi yang terstandarisasi.</p>
+                </div>
+                <div className="flex items-start gap-4 pt-4 border-t border-gray-100">
+                  <p className="font-semibold text-base text-[#1E293B]">
+                    Agama dominan: <span className="text-[#2563EB]">{primaryReligion && primaryReligion.value > 0 ? formatDistributionLabel('religion', primaryReligion.label) : 'Kosong'}</span>
+                  </p>
+                </div>
               </div>
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="semua" className="mt-0 space-y-5">
+          <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#F8FAFC] text-[#64748B]">
+                <tr>
+                  <th className="px-5 py-4 font-semibold">Nama</th>
+                  <th className="px-5 py-4 font-semibold">Umur</th>
+                  <th className="px-5 py-4 font-semibold">Pekerjaan</th>
+                  <th className="px-5 py-4 font-semibold">Agama</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {semuaCitizens.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-[#64748B]">
+                      Tidak ada data warga untuk filter ini.
+                    </td>
+                  </tr>
+                ) : (
+                  semuaCitizens.map((citizen) => {
+                    const age = new Date().getFullYear() - new Date(citizen.birthDate).getFullYear();
+                    return (
+                      <tr key={citizen.id} className="transition-colors hover:bg-gray-50">
+                        <td className="px-5 py-4 font-medium text-[#1E293B]">{citizen.name}</td>
+                        <td className="px-5 py-4 text-[#64748B]">{age} Tahun</td>
+                        <td className="px-5 py-4 text-[#64748B]">{citizen.occupation ? formatDistributionLabel('occupation', citizen.occupation) : '-'}</td>
+                        <td className="px-5 py-4 text-[#64748B]">{citizen.religion ? formatDistributionLabel('religion', citizen.religion) : '-'}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+            {semuaTotalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
+                <span className="text-sm text-[#64748B]">
+                  Halaman <span className="font-semibold text-[#1E293B]">{semuaPage}</span> dari {semuaTotalPages}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSemuaPage((p) => Math.max(1, p - 1))}
+                    disabled={semuaPage === 1}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSemuaPage((p) => Math.min(semuaTotalPages, p + 1))}
+                    disabled={semuaPage === semuaTotalPages}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DistributionPanel
+              title="Pekerjaan Warga"
+              items={analytics.occupation}
+              section="occupation"
+              tone="blue"
+              emptyLabel="Belum ada distribusi pekerjaan untuk filter ini."
+            />
+            <DistributionPanel
+              title="Agama Warga"
+              items={analytics.religion}
+              section="religion"
+              tone="green"
+              emptyLabel="Belum ada distribusi agama untuk filter ini."
+            />
           </div>
         </TabsContent>
       </Tabs>
@@ -715,7 +941,7 @@ export default function RapotPage() {
               </tr>
             </thead>
             <tbody>
-              {rtData.map((row) => (
+              {displayRtData.map((row) => (
                 <tr key={`${row.rt}-${row.rw}`} className="border-b border-gray-100 bg-white">
                   <td className="px-5 py-4">
                     <p className="font-bold text-[#1E293B]">RT {row.rt}</p>

@@ -81,7 +81,7 @@ const HUBUNGAN_OPTIONS = [
 
 const STATUS_KEPENDUDUKAN_OPTIONS = [
   { label: 'Penduduk Tetap', value: 'PENDUDUK_TETAP' },
-  { label: 'Ngekost', value: 'NGEKOST' },
+  { label: 'Penduduk Musiman', value: 'NGEKOST' },
 ];
 
 /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Types ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
@@ -168,13 +168,22 @@ export default function WargaTambahDataPendudukPage() {
     [],
   );
 
-  /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Validation per step ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
+  /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Validation per step ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
   const validateStep = (s: number): boolean => {
     const errs: Partial<Record<keyof FormData, string>> = {};
     if (s === 1) {
       if (!form.nik || form.nik.length !== 16) errs.nik = 'NIK harus 16 digit';
       if (!form.name.trim()) errs.name = 'Nama wajib diisi';
-      if (!form.birthDate) errs.birthDate = 'Tanggal lahir wajib diisi';
+      if (!form.birthDate) {
+        errs.birthDate = 'Tanggal lahir wajib diisi';
+      } else {
+        const selectedDate = new Date(form.birthDate);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        if (selectedDate > today) {
+          errs.birthDate = 'Tanggal lahir tidak boleh di masa depan';
+        }
+      }
       if (!form.birthPlace.trim()) errs.birthPlace = 'Tempat lahir wajib diisi';
       if (!form.education) errs.education = 'Pendidikan wajib dipilih';
       if (!form.occupation) errs.occupation = 'Pekerjaan wajib dipilih';
@@ -791,7 +800,7 @@ export default function WargaTambahDataPendudukPage() {
                   ['Kelurahan', form.kelurahan || '-'],
                   ['Kecamatan', form.kecamatan || '-'],
                   ['Kota/Kabupaten', form.kota || '-'],
-                  ['Status Kependudukan', form.status === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 'Ngekost'],
+                  ['Status Kependudukan', form.status === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 'Penduduk Musiman'],
                 ].map(([label, value], i) => (
                   <div
                     key={label}

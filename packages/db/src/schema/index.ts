@@ -14,3 +14,4 @@ export * from "./preferences";
 export * from "./bansos-programs";
 export * from "./pemilu-events";
 export * from "./ui-sync-versions";
+export * from "./barang-hilang";

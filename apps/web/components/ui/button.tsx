@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "@/lib/utils";
 
@@ -40,20 +41,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
     className,
   );
 
-  if (asChild && React.isValidElement(children)) {
-    const child = children as React.ReactElement<Record<string, unknown>>;
-    const childProps = child.props as { className?: string };
-    return React.cloneElement(child, {
-      ...props,
-      ...child.props,
-      className: cn(classes, childProps.className),
-    });
-  }
+  const Comp = asChild ? Slot : "button";
 
   return (
-    <button ref={ref} className={classes} {...props}>
+    <Comp className={classes} ref={ref} {...props}>
       {children}
-    </button>
+    </Comp>
   );
 });
 

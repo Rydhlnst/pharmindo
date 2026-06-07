@@ -216,12 +216,21 @@ export async function getFilteredDemographics(filter: ReportFilter = {}): Promis
   };
 }
 
-function buildDistribution(values: Array<string | null | undefined>, fallback: string) {
+function buildDistribution(values: Array<string | null | undefined>, fallback: string, fixedLabels?: string[]) {
   const total = values.length || 1;
   const counts = new Map<string, number>();
 
+  if (fixedLabels) {
+    for (const label of fixedLabels) {
+      counts.set(label.toUpperCase(), 0);
+    }
+  }
+
   for (const rawValue of values) {
-    const label = rawValue?.trim() || fallback;
+    let label = rawValue?.trim() || fallback;
+    if (label !== fallback) {
+      label = label.toUpperCase();
+    }
     counts.set(label, (counts.get(label) || 0) + 1);
   }
 
@@ -267,10 +276,10 @@ export async function getFilteredInfographicData(filter: ReportFilter = {}): Pro
     seniors,
     occupation: buildDistribution(rows.map((row) => row.occupation), "Belum Diisi"),
     education: buildDistribution(rows.map((row) => row.education), "Belum Diisi"),
-    religion: buildDistribution(rows.map((row) => row.religion), "Belum Diisi"),
+    religion: buildDistribution(rows.map((row) => row.religion), "Belum Diisi", ["ISLAM", "KRISTEN", "KATHOLIK", "HINDU", "BUDDHA", "KONGHUCU"]),
     maritalStatus: buildDistribution(rows.map((row) => row.maritalStatus), "Belum Diisi"),
-    bloodType: buildDistribution(rows.map((row) => row.bloodType), "Tidak Diketahui"),
-    residentStatus: buildDistribution(rows.map((row) => row.status), "Belum Diisi"),
+    bloodType: buildDistribution(rows.map((row) => row.bloodType), "Tidak Diketahui", ["A", "B", "AB", "O", "TIDAK DIKETAHUI"]),
+    residentStatus: buildDistribution(rows.map((row) => row.status), "Belum Diisi", ["PENDUDUK_TETAP", "NGEKOST"]),
   };
 }
 

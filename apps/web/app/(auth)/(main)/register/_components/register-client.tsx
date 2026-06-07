@@ -455,7 +455,7 @@ export default function RegisterClient() {
           rightSlot={
             <Button
               type="button"
-              onClick={() => (step === 1 ? router.back() : handleBack())}
+              onClick={() => (step === 1 ? router.push('/') : handleBack())}
               size="icon"
               variant="secondary"
               className="rounded-full border border-[color:color-mix(in_srgb,var(--primary-foreground),transparent_84%)] bg-[color:color-mix(in_srgb,var(--primary-foreground),transparent_88%)] text-[color:var(--primary-foreground)] hover:bg-[color:color-mix(in_srgb,var(--primary-foreground),transparent_80%)]"
@@ -750,7 +750,7 @@ export default function RegisterClient() {
                       className={selectClassName}
                     >
                       <option value="PENDUDUK_TETAP">Tetap</option>
-                      <option value="NGEKOST">Ngekost</option>
+                      <option value="NGEKOST">Penduduk Musiman</option>
                     </select>
                   </Field>
                 </div>
@@ -809,7 +809,7 @@ export default function RegisterClient() {
                     <SummaryRow label="RT / RW" value={values.rt && values.rw ? `${values.rt} / ${values.rw}` : ""} />
                     <SummaryRow
                       label="Status warga"
-                      value={values.status === "NGEKOST" ? "Ngekost" : "Penduduk Tetap"}
+                      value={values.status === "NGEKOST" ? "Penduduk Musiman" : "Penduduk Tetap"}
                     />
                     <SummaryRow label="Nomor KK" value={values.kkNumber ?? "-"} />
                     <SummaryRow label="Hubungan keluarga" value={values.familyRelationship ?? "-"} />

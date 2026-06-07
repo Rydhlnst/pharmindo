@@ -45,6 +45,7 @@ const TITLE_MAP: Record<string, string> = {
   '/admin/pemilu': 'Pemilu',
   '/admin/pemilu/tambah': 'Pemilu > Tambah Pemilu',
   '/admin/rapot-rw': 'Rapot RW',
+  '/admin/barang-hilang': 'Barang Hilang',
 };
 
 type NotifStatus = 'default' | 'granted' | 'denied' | 'unsupported';
@@ -117,7 +118,9 @@ export default function AdminTopbar() {
   }, [debouncedQuery]);
 
   const isDashboard = pathname === '/admin';
-  const isKKDetail = pathname.startsWith('/admin/kartu-keluarga/');
+  const isKKDetail = pathname.startsWith('/admin/kartu-keluarga/') && pathname !== '/admin/kartu-keluarga/tambah';
+  const isDataPendudukDetail = pathname.startsWith('/admin/data-penduduk/') && pathname !== '/admin/data-penduduk/tambah';
+  const isBarangHilangDetail = pathname.startsWith('/admin/barang-hilang/');
 
   const title = TITLE_MAP[pathname] || '';
 
@@ -267,6 +270,10 @@ export default function AdminTopbar() {
                   let parts: string[] = [];
                   if (isKKDetail) {
                     parts = ['Kartu Keluarga', 'Detail'];
+                  } else if (isDataPendudukDetail) {
+                    parts = ['Data Penduduk RW', 'Detail Warga'];
+                  } else if (isBarangHilangDetail) {
+                    parts = ['Barang Hilang', 'Detail Laporan'];
                   } else {
                     parts = title ? title.split(' > ').map(p => p.trim()) : [];
                   }
@@ -283,6 +290,7 @@ export default function AdminTopbar() {
                     'Bansos': '/admin/bansos',
                     'Pemilu': '/admin/pemilu',
                     'Rapot RW': '/admin/rapot-rw',
+                    'Barang Hilang': '/admin/barang-hilang',
                   };
 
                   return parts.map((part, index) => {

@@ -290,7 +290,7 @@ export default function AdminSettingsPage() {
   const handleLogout = async () => {
     await authClient.signOut().catch(() => null);
     toast({ title: t.logoutSuccess, description: t.logoutSuccessDesc, variant: 'default' });
-    router.push('/sign-in');
+    window.location.href = '/sign-in';
   };
 
   return (
@@ -430,7 +430,7 @@ export default function AdminSettingsPage() {
           <AlertDialogFooter className="mt-6 flex w-full flex-col gap-3 sm:flex-col sm:justify-center sm:space-x-0">
             <AlertDialogAction
               onClick={handleLogout}
-              className="w-full rounded-xl bg-red-600 py-6 text-base font-bold text-white hover:bg-red-700"
+              className="w-full rounded-xl border-2 border-red-600 bg-white py-6 text-base font-bold text-red-600 hover:bg-red-50"
             >
               {t.yesLogout}
             </AlertDialogAction>

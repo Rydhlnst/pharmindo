@@ -12,10 +12,12 @@ import AdminTopbar from "@/components/admin/AdminTopbar";
  */
 const FORCE_LIGHT_SCRIPT = `document.documentElement.classList.remove("dark");`;
 
+import Script from "next/script";
+
 export default function AdminMainLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-[color:var(--admin-background)] text-[color:var(--admin-heading)]">
-      <script dangerouslySetInnerHTML={{ __html: FORCE_LIGHT_SCRIPT }} />
+      <Script id="admin-force-light" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: FORCE_LIGHT_SCRIPT }} />
       <AdminSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminTopbar />
