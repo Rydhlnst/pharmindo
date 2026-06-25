@@ -52,6 +52,7 @@ import FormTextarea from '@/components/warga/FormTextarea';
 import FormFileUpload from '@/components/warga/FormFileUpload';
 import CommentCarousel from '@/components/warga/CommentCarousel';
 import QuickActionsPanel from '@/components/warga/QuickActionsPanel';
+import BroadcastContainer from '@/components/warga/broadcast/BroadcastContainer';
 
 import { formatBansosPeriod } from '@/lib/bansos';
 import { RT_OPTIONS } from '@/lib/rt-options';
@@ -818,6 +819,7 @@ export default function WargaHomePage() {
       />
 
       <WargaPageBody className="flex flex-col gap-3">
+        <BroadcastContainer />
         {isRestricted && (
           <Alert className="relative overflow-hidden rounded-3xl border border-[color:var(--accent-amber)]/25 bg-[color:var(--accent-amber)]/10 p-4 shadow-sm">
             <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-[color:var(--accent-amber)]/20 blur-2xl" />
