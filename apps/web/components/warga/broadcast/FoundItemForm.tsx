@@ -160,14 +160,15 @@ export default function FoundItemForm({ isOpen, onClose, broadcast, onSubmit }: 
           placeholder="Ceritakan secara singkat bagaimana kondisi barang tersebut..."
           required
           value={condition}
-          onChange={(e) => setCondition(e.target.value)}
+          onChange={(val) => setCondition(val)}
         />
 
         <FormFileUpload
           label="Foto Barang (Opsional)"
           id="photo"
           description="Upload foto barang yang Anda temukan (Maks. 5MB)"
-          onFileSelect={(file) => setPhoto(file || null)}
+          file={photo}
+          onChange={(file) => setPhoto(file)}
         />
 
         <div className="rounded-xl bg-blue-50 p-4 border border-blue-100">

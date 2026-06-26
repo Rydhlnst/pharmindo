@@ -52,7 +52,6 @@ import FormTextarea from '@/components/warga/FormTextarea';
 import FormFileUpload from '@/components/warga/FormFileUpload';
 import CommentCarousel from '@/components/warga/CommentCarousel';
 import QuickActionsPanel from '@/components/warga/QuickActionsPanel';
-import BroadcastContainer from '@/components/warga/broadcast/BroadcastContainer';
 
 import { formatBansosPeriod } from '@/lib/bansos';
 import { RT_OPTIONS } from '@/lib/rt-options';
@@ -813,14 +812,21 @@ export default function WargaHomePage() {
                   Verifikasi Ditolak
                 </Badge>
               )}
+              {identity.verificationStatus === 'NONE' && (
+                <Badge
+                  variant="secondary"
+                  className="mt-2 w-fit rounded-full border border-white/20 bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-none"
+                >
+                  Profil Belum Diisi
+                </Badge>
+              )}
             </div>
           </div>
         }
       />
 
       <WargaPageBody className="flex flex-col gap-3">
-        <BroadcastContainer />
-        {isRestricted && (
+        {isRestricted && identity.verificationStatus !== 'NONE' && (
           <Alert className="relative overflow-hidden rounded-3xl border border-[color:var(--accent-amber)]/25 bg-[color:var(--accent-amber)]/10 p-4 shadow-sm">
             <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-[color:var(--accent-amber)]/20 blur-2xl" />
 
@@ -859,7 +865,11 @@ export default function WargaHomePage() {
         <QuickActionsPanel isRestricted={isRestricted} onAction={openQuickActionSheet} />
 
         {isRestricted ? (
-          <VerificationRequiredCard rejectionReason={identity.rejectionReason} />
+          <VerificationRequiredCard
+            verificationStatus={identity.verificationStatus}
+            rejectionReason={identity.rejectionReason}
+            onCompleteProfile={() => router.push('/warga/settings/identity')}
+          />
         ) : (
           <>
             <FeatureCard
@@ -1653,7 +1663,41 @@ export default function WargaHomePage() {
   );
 }
 
-function VerificationRequiredCard({ rejectionReason }: { rejectionReason?: string | null }) {
+function VerificationRequiredCard({
+  verificationStatus,
+  rejectionReason,
+  onCompleteProfile,
+}: {
+  verificationStatus: 'NONE' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason?: string | null;
+  onCompleteProfile: () => void;
+}) {
+  if (verificationStatus === 'NONE') {
+    return (
+      <Card className="overflow-hidden rounded-3xl bg-card shadow-sm">
+        <CardContent className="flex flex-col items-center px-6 pt-6 text-center">
+          <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <LockKeyhole className="size-7" />
+          </div>
+
+          <Badge variant="secondary" className="mb-3 rounded-full">
+            Profil Belum Diisi
+          </Badge>
+
+          <h3 className="text-base font-bold text-foreground">Lengkapi data diri</h3>
+
+          <p className="mt-2 max-w-70 text-sm leading-relaxed text-muted-foreground">
+            Isi NIK, alamat, dan data domisili Anda dulu sebelum mengakses bansos, DPT/TPS, dan aspirasi.
+          </p>
+
+          <Button onClick={onCompleteProfile} className="mt-5 w-full rounded-2xl">
+            Lengkapi profil sekarang
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="overflow-hidden rounded-3xl bg-card shadow-sm">
       <CardContent className="flex flex-col items-center px-6 pt-6 text-center">

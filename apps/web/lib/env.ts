@@ -3,7 +3,7 @@ import path from "path";
 
 function readRootEnv(name: string) {
   const envPath = path.resolve(process.cwd(), "../../.env");
-  if (!fs.existsSync(envPath)) return undefined;
+  if (!fs.existsSync(envPath) || !fs.statSync(envPath).isFile()) return undefined;
 
   const text = fs.readFileSync(envPath, "utf8");
   const match = text.match(new RegExp(`(?:^|\\r?\\n)${name}=([^\\r\\n]+)`));
@@ -28,4 +28,12 @@ export const env = {
   ADMIN_EMAILS: () => (process.env.ADMIN_EMAILS || readRootEnv("ADMIN_EMAILS") || "").split(",").map((s) => s.trim()).filter(Boolean),
   NIK_ENCRYPTION_KEY_BASE64: () => required("NIK_ENCRYPTION_KEY_BASE64"),
   NIK_HASH_PEPPER: () => required("NIK_HASH_PEPPER"),
+  GOOGLE_CLIENT_ID: () => process.env.GOOGLE_CLIENT_ID || readRootEnv("GOOGLE_CLIENT_ID") || "",
+  GOOGLE_CLIENT_SECRET: () =>
+    process.env.GOOGLE_CLIENT_SECRET || readRootEnv("GOOGLE_CLIENT_SECRET") || "",
+  SMTP_HOST: () => process.env.SMTP_HOST || readRootEnv("SMTP_HOST") || "",
+  SMTP_PORT: () => Number(process.env.SMTP_PORT || readRootEnv("SMTP_PORT") || 587),
+  SMTP_USER: () => process.env.SMTP_USER || readRootEnv("SMTP_USER") || "",
+  SMTP_PASS: () => process.env.SMTP_PASS || readRootEnv("SMTP_PASS") || "",
+  SMTP_FROM: () => process.env.SMTP_FROM || readRootEnv("SMTP_FROM") || "no-reply@rw25pharmindo.my.id",
 };

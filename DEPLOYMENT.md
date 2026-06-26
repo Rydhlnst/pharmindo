@@ -1,21 +1,17 @@
-# VPS Deployment Guide (Docker + Nginx Reverse Proxy)
+# VPS Deployment Guide (Git + Docker + Nginx)
 
-This document provides step-by-step instructions to deploy the `@abdimas/backend` application to an Ubuntu VPS using Docker and Nginx.
+This document covers deploying `@abdimas/backend` to your own Ubuntu VPS using a git-based workflow (clone once, `git pull` to update) with Docker Compose, plus the matching frontend setup on Vercel.
+
+Repo: `https://github.com/Rydhlnst/pharmindo.git`
 
 ---
 
 ## A. Install Docker on Ubuntu
 
-Run the following commands on your Ubuntu VPS to update packages and install Docker and Docker Compose:
-
 ```bash
 sudo apt update && sudo apt upgrade -y
 curl -fsSL https://get.docker.com | sh
 sudo apt install -y docker-compose-plugin
-```
-
-Verify that Docker is running:
-```bash
 sudo systemctl status docker
 ```
 
@@ -23,51 +19,49 @@ sudo systemctl status docker
 
 ## B. Clone the Repository
 
-Clone the project repository to your desired folder on the VPS (typically `/var/www`):
-
 ```bash
 cd /var/www
-git clone <repo-url> pharmindo
+git clone https://github.com/Rydhlnst/pharmindo.git pharmindo
 cd pharmindo
 ```
+
+For subsequent deploys, you'll just `git pull` inside this same directory — see section J.
 
 ---
 
 ## C. Create Production Environment File
-
-Copy the environment variable example file to `.env` inside the backend directory:
 
 ```bash
 cp apps/backend/.env.example apps/backend/.env
 nano apps/backend/.env
 ```
 
-Fill in all the required environment variables:
-- `DATABASE_URL`: Your PostgreSQL/Neon database URI.
-- `BETTER_AUTH_SECRET`: Generate a secure random string (e.g. using `openssl rand -base64 32`).
-- `BETTER_AUTH_URL`: The URL of your web frontend (e.g. `https://app.yourdomain.com`).
-- `BETTER_AUTH_TRUSTED_ORIGINS`: Comma-separated trusted origins (e.g. `https://app.yourdomain.com`).
-- `NIK_ENCRYPTION_KEY_BASE64`: A 32-byte key encoded in base64 (e.g., `openssl rand -base64 32`).
-- `NIK_HASH_PEPPER`: A secure random string for hashing NIK (e.g., `openssl rand -base64 64`).
-- `BACKEND_URL`: Public address of this API (e.g. `https://api.yourdomain.com`).
-- `CORS_ORIGIN`: Your web frontend URL.
-- Cloudflare R2 Credentials (if using R2/S3 storage).
+Fill in:
+- `DATABASE_URL` — your Postgres connection string. This codebase uses `@neondatabase/serverless`, so a [Neon](https://neon.tech) database is the easiest fit; any Postgres works, but a self-hosted one needs to be reachable from this VPS.
+- `BETTER_AUTH_SECRET` — random string (`openssl rand -base64 32`).
+- `BETTER_AUTH_URL` / `BETTER_AUTH_TRUSTED_ORIGINS` — your frontend URL (e.g. `https://app.yourdomain.com`).
+- `NIK_ENCRYPTION_KEY_BASE64` — 32-byte base64 key (`openssl rand -base64 32`).
+- `NIK_HASH_PEPPER` — random string (`openssl rand -base64 48`).
+- `ADMIN_EMAILS` — comma-separated admin emails.
+- `BACKEND_URL` — public address of this API (e.g. `https://api.yourdomain.com`).
+- `CORS_ORIGIN` — your frontend URL.
+- Cloudflare R2 credentials, if you use file uploads (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`).
+
+The backend does **not** need Google OAuth or SMTP credentials — those only run inside `apps/web` (see section L).
 
 ---
 
-## D. Build and Run containers
-
-Start the backend container in detached mode (it will build the image on the first run):
+## D. Build and Run the Backend Container
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build backend
 ```
+
+This builds the image from `apps/backend/Dockerfile` and starts it as `pharmindo-backend`, bound to `127.0.0.1:4000` only (not public — Nginx fronts it, see section G).
 
 ---
 
 ## E. Check Logs
-
-Monitor container logs to ensure the application starts up correctly and connects to the database:
 
 ```bash
 docker logs -f pharmindo-backend
@@ -75,15 +69,13 @@ docker logs -f pharmindo-backend
 
 ---
 
-## F. Test Backend Locally on VPS
-
-Test that the Hono server runs and successfully queries the database:
+## F. Test Backend Locally on the VPS
 
 ```bash
 curl http://127.0.0.1:4000/health
 ```
 
-The response should look like:
+Expected:
 ```json
 {
   "success": true,
@@ -91,7 +83,7 @@ The response should look like:
     "ok": true,
     "service": "backend",
     "database": { "ok": true },
-    "checkedAt": "2026-06-05T05:08:53.000Z",
+    "checkedAt": "2026-06-26T05:08:53.000Z",
     "responseTimeMs": 15
   }
 }
@@ -99,15 +91,11 @@ The response should look like:
 
 ---
 
-## G. Setup Nginx Reverse Proxy
-
-Create an Nginx configuration file for your backend API subdomain (e.g., `api.yourdomain.com`):
+## G. Set Up Nginx Reverse Proxy
 
 ```bash
 sudo nano /etc/nginx/sites-available/pharmindo-backend
 ```
-
-Paste the following configuration:
 
 ```nginx
 server {
@@ -129,12 +117,6 @@ server {
 }
 ```
 
----
-
-## H. Enable Nginx Config & Restart
-
-Create a symlink to enable the site, verify the configuration syntax, and restart Nginx:
-
 ```bash
 sudo ln -s /etc/nginx/sites-available/pharmindo-backend /etc/nginx/sites-enabled/
 sudo nginx -t
@@ -143,9 +125,7 @@ sudo systemctl restart nginx
 
 ---
 
-## I. Install SSL via Let's Encrypt
-
-Install Certbot and the Certbot Nginx plugin, then run it to request a free SSL certificate:
+## H. Install SSL via Let's Encrypt
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -154,27 +134,126 @@ sudo certbot --nginx -d api.yourdomain.com
 
 ---
 
-## J. Update Deployment (CI/CD / Manual Pull)
+## I. Database Migrations
 
-When pushing changes to the repository, redeploy on your VPS using the following commands:
+Run migrations from the VPS (needs Node + pnpm available on the host, not just inside the container):
 
 ```bash
-cd /var/www/pharmindo
-git pull
-docker compose up -d --build
-docker image prune -f
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo npm install -g pnpm
+
+pnpm install --frozen-lockfile
+pnpm --filter @abdimas/db db:migrate
+```
+
+**Known issue to check before relying on this:** this repo's migration journal has at least one past entry with a timestamp incorrectly set in the future. Drizzle's migrator only applies migrations newer than the latest *recorded* timestamp, so if that bogus future date is still in `drizzle.__drizzle_migrations`, newly generated migrations can silently get skipped (no error — they just don't run). After running `db:migrate`, always verify the expected schema actually changed:
+
+```bash
+psql "$DATABASE_URL" -c "\d \"user\""
+```
+
+If a column/table you expect is missing despite "Migrations applied successfully", that poisoned timestamp is almost certainly why — don't keep re-running migrate expecting it to fix itself; the underlying journal entry needs to be corrected first (compare `packages/db/drizzle/meta/_journal.json` against `drizzle.__drizzle_migrations` in your DB).
+
+Optional first-time seed:
+```bash
+pnpm seed:admin-login
 ```
 
 ---
 
-## K. Database Migrations and Seeding
-
-To run migrations or seed data from the VPS, you can run them directly in the workspace using `pnpm` (ensure pnpm is installed and local `.env` exists in the root folder if needed):
+## J. Update Deployment (git pull workflow)
 
 ```bash
-# Run migrations
+cd /var/www/pharmindo
+git pull
+pnpm install --frozen-lockfile
+docker compose up -d --build backend
+docker image prune -f
 pnpm --filter @abdimas/db db:migrate
-
-# Optional seed (for first-time setup only)
-pnpm seed:admin-login
 ```
+
+Run the migration step every time you pull changes that touch `packages/db/src/schema/`, even if you don't see new `.sql` files locally — `db:generate` must have been run and committed upstream first.
+
+---
+
+## K. Firewall
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow "Nginx Full"
+sudo ufw enable
+```
+
+Do not expose port `4000` publicly — only Nginx should be public-facing.
+
+---
+
+## L. Frontend on Vercel
+
+The frontend (`apps/web`) is **not** deployed from this VPS — it deploys from Vercel, connected to the same GitHub repo.
+
+Vercel project settings:
+- Root Directory: `apps/web`
+- Framework Preset: Next.js
+- Install Command: `cd ../.. && pnpm install --frozen-lockfile`
+- Build Command: `cd ../.. && pnpm build:web`
+
+Required Vercel environment variables (use `deploy/vercel.env.example` as the template):
+
+```bash
+APP_URL=https://app.yourdomain.com
+NEXT_PUBLIC_APP_URL=https://app.yourdomain.com
+BETTER_AUTH_URL=https://app.yourdomain.com
+BETTER_AUTH_TRUSTED_ORIGINS=https://app.yourdomain.com
+BACKEND_URL=https://api.yourdomain.com
+
+# Must match the VPS backend .env exactly
+DATABASE_URL=...
+BETTER_AUTH_SECRET=...
+NIK_ENCRYPTION_KEY_BASE64=...
+NIK_HASH_PEPPER=...
+ADMIN_EMAILS=...
+
+# Google OAuth — Google Cloud Console > APIs & Services > Credentials
+# Authorized redirect URI: https://app.yourdomain.com/api/auth/callback/google
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+
+# SMTP relay for email OTP verification (Brevo free tier: smtp-relay.brevo.com)
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_FROM=no-reply@yourdomain.com
+```
+
+`GOOGLE_CLIENT_ID/SECRET` and `SMTP_*` only need to exist on Vercel — the VPS backend never touches them.
+
+`NEXT_PUBLIC_BACKEND_URL` should stay empty unless you intentionally want the browser to call the VPS API directly instead of going through Vercel's `/api/platform/*` rewrite.
+
+---
+
+## M. After-Deploy Smoke Checks
+
+```bash
+curl https://api.yourdomain.com/health
+curl -I https://app.yourdomain.com
+```
+
+Then in the browser:
+1. Sign up with username/phone/email/password — confirm the OTP email arrives.
+2. Sign in with Google — confirm it lands on `/warga` (first-time Google sign-up auto-generates a username; if it errors with `unable_to_create_user`, the Vercel deploy is running stale code from before this was fixed in `apps/web/lib/auth.ts`).
+3. Open `/warga/settings/identity`, submit a test profile, confirm it saves.
+4. Confirm a citizen feature gated behind `verifiedWargaMiddleware` still blocks access until an admin verifies the identity.
+
+---
+
+## Code Review Notes
+
+- **Blocker:** use the same `BETTER_AUTH_SECRET`, `DATABASE_URL`, `NIK_ENCRYPTION_KEY_BASE64`, `NIK_HASH_PEPPER` on both Vercel and the VPS — session validation and NIK decryption depend on them matching exactly.
+- **Blocker:** keep port `4000` private; only Nginx should be public.
+- **Blocker:** set `BACKEND_URL` on Vercel to the real API domain, not `localhost`.
+- **Blocker:** the Google OAuth redirect URI registered in Google Cloud Console must exactly match `{BETTER_AUTH_URL}/api/auth/callback/google` for both your Vercel production URL and any preview/staging domains you use.
+- **Recommended:** verify your Brevo sender address (Senders, Domains & Dedicated IPs → Senders in the Brevo dashboard) before relying on OTP emails in production — unverified senders silently fail to send.
+- **Recommended:** use a managed Postgres (Neon) instead of self-hosting the database on this VPS.

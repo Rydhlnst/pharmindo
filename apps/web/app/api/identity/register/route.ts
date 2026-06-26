@@ -1,19 +1,45 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
+import { createCitizenSchema } from "@abdimas/contracts";
 
 import { getDb } from "@/lib/db";
-import { user } from "@/lib/db/schema";
-import { userIdentity } from "@/lib/db/schema";
+import { user, userIdentity } from "@/lib/db/schema";
 import auth from "@/lib/auth";
 import { env } from "@/lib/env";
 import { encryptNik, hashNik, nikParts, normalizeNik } from "@/lib/security/nik";
-import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
 
-const bodySchema = z.object({
-  nik: z.string().min(16).max(16),
-  fullName: z.string().min(2).max(120).optional(),
+const identityFieldsSchema = createCitizenSchema.pick({
+  nik: true,
+  name: true,
+  gender: true,
+  birthPlace: true,
+  birthDate: true,
+  religion: true,
+  maritalStatus: true,
+  occupation: true,
+  education: true,
+  bloodType: true,
+  address: true,
+  rt: true,
+  rw: true,
+  status: true,
 });
+
+const bodySchema = identityFieldsSchema
+  .extend({
+    kkNumber: z.string().trim().regex(/^\d{16}$/, "Nomor KK harus 16 digit angka").optional(),
+    familyRelationship: z.string().trim().min(2).max(60).optional(),
+  })
+  .refine((data) => !(data.kkNumber && !data.familyRelationship), {
+    path: ["familyRelationship"],
+    message: "Hubungan keluarga wajib diisi jika nomor KK diisi",
+  })
+  .refine((data) => !(!data.kkNumber && data.familyRelationship), {
+    path: ["kkNumber"],
+    message: "Nomor KK wajib diisi jika hubungan keluarga dipilih",
+  });
 
 function isSuspiciousNikPattern(nik: string) {
   const repeatedDigits = /^(\d)\1{15}$/.test(nik);
@@ -52,8 +78,29 @@ export async function POST(req: Request) {
   const json = await req.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Input tidak valid", fields: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
   }
+
+  const {
+    name,
+    gender,
+    birthPlace,
+    birthDate,
+    religion,
+    maritalStatus,
+    occupation,
+    education,
+    bloodType,
+    address,
+    rt,
+    rw,
+    status,
+    kkNumber,
+    familyRelationship,
+  } = parsed.data;
 
   let nik: string;
   try {
@@ -100,7 +147,21 @@ export async function POST(req: Request) {
         nikHash,
         nikFirst4: first4,
         nikLast4: last4,
-        fullName: parsed.data.fullName ?? null,
+        fullName: name.trim(),
+        gender,
+        birthPlace,
+        birthDate,
+        religion,
+        maritalStatus,
+        occupation,
+        education,
+        bloodType: bloodType ?? null,
+        address,
+        rt,
+        rw,
+        citizenStatus: status,
+        kkNumber: kkNumber?.trim() || null,
+        familyRelationship: familyRelationship?.trim() || null,
         verificationStatus: "PENDING",
       })
       .returning();
@@ -131,9 +192,7 @@ export async function POST(req: Request) {
     const message = typeof (e as { message?: string })?.message === "string" ? (e as { message?: string }).message! : "";
     if (message.includes("NIK_ENCRYPTION_KEY_BASE64")) {
       return NextResponse.json(
-        {
-          error: "Server misconfigured: NIK encryption key invalid",
-        },
+        { error: "Server misconfigured: NIK encryption key invalid" },
         { status: 500 }
       );
     }

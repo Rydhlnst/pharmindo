@@ -12,6 +12,7 @@ export const user = pgTable(
     image: text("image"),
     username: text("username").notNull(),
     displayUsername: text("display_username").notNull(),
+    phoneNumber: text("phone_number"),
     role: text("role").notNull().default("USER"),
     status: text("status").notNull().default("ACTIVE"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

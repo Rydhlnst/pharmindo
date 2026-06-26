@@ -8,8 +8,10 @@ import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GoogleIcon } from "@/components/ui/google-icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -71,11 +73,26 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [mode, setMode] = useState<SignInMode>(nextPath?.startsWith("/admin") ? "admin" : "citizen");
 
   const normalizedIdentifier = identifier.trim().toLowerCase();
   const isEmail = useMemo(() => normalizedIdentifier.includes("@"), [normalizedIdentifier]);
   const activeMode = SIGN_IN_MODES[mode];
+
+  async function handleGoogle() {
+    setGoogleLoading(true);
+    try {
+      await authClient.signIn.social({ provider: "google", callbackURL: nextPath || "/warga" });
+    } catch (e: unknown) {
+      toast({
+        title: "Gagal masuk dengan Google",
+        description: getErrorMessage(e) || "Coba lagi nanti.",
+        variant: "destructive",
+      });
+      setGoogleLoading(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -265,11 +282,32 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="h-auto w-full rounded-[22px] bg-[color:var(--primary)] py-4 text-sm font-semibold tracking-[-0.01em] text-white shadow-[0_16px_32px_rgba(37,99,235,0.22)] hover:bg-[color:var(--brand-700)] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {loading ? "Memproses..." : activeMode.submitLabel}
             </Button>
+
+            {mode === "citizen" ? (
+              <>
+                <div className="flex items-center gap-3 py-1">
+                  <Separator className="flex-1" />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">atau</span>
+                  <Separator className="flex-1" />
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleGoogle}
+                  disabled={loading || googleLoading}
+                  variant="outline"
+                  className="h-auto w-full rounded-[22px] border-slate-200 bg-white py-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <GoogleIcon className="mr-2 h-5 w-5" />
+                  {googleLoading ? "Menghubungkan..." : "Lanjutkan dengan Google"}
+                </Button>
+              </>
+            ) : null}
 
             <div className="flex items-center justify-between gap-3 pt-2 text-[11px] leading-relaxed text-slate-400">
               <p className="max-w-[15rem]">Dengan masuk, Anda menyetujui ketentuan layanan dan kebijakan privasi internal.</p>

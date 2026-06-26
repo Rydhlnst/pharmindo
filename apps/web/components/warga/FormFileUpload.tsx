@@ -9,6 +9,8 @@ import { useToast } from '@/components/ui/use-toast';
 
 interface FormFileUploadProps {
   label: string;
+  id?: string;
+  description?: string;
   file: File | null;
   onChange: (file: File | null) => void;
   accept?: string;
@@ -18,6 +20,8 @@ interface FormFileUploadProps {
 
 export default function FormFileUpload({
   label,
+  id,
+  description,
   file,
   onChange,
   accept = '.jpg,.jpeg,.png,.pdf',
@@ -61,7 +65,8 @@ export default function FormFileUpload({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-sm font-semibold text-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-sm font-semibold text-foreground">{label}</Label>
+      {description && <p className="text-xs text-muted-foreground/70">{description}</p>}
 
       {!file ? (
         <Card
@@ -129,6 +134,7 @@ export default function FormFileUpload({
 
       <input
         ref={inputRef}
+        id={id}
         type="file"
         accept={accept}
         onChange={(e) => {

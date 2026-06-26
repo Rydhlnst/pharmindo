@@ -10,7 +10,7 @@ const envFiles = [
 ];
 
 for (const envPath of envFiles) {
-  if (!fs.existsSync(envPath)) continue;
+  if (!fs.existsSync(envPath) || !fs.statSync(envPath).isFile()) continue;
 
   const text = fs.readFileSync(envPath, "utf8");
   for (const rawLine of text.split(/\r?\n/)) {

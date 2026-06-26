@@ -479,6 +479,10 @@ body {
   animation: shimmer 2s infinite;
 }
 
+.animate-pulse-glow {
+  animation: pulseGlow 2.4s ease-in-out infinite;
+}
+
 /* Stagger children */
 .stagger-children > * {
   opacity: 0;

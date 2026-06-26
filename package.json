@@ -4,9 +4,10 @@
   "packageManager": "pnpm@10.11.1",
   "scripts": {
     "dev": "pnpm --filter @abdimas/web dev",
-    "dev:all": "concurrently -n backend,web -c blue,green \"pnpm dev:backend\" \"pnpm dev:web\"",
+    "dev:all": "concurrently -n backend,web -c blue,green \"pnpm dev:backend:docker\" \"pnpm dev:web\"",
     "dev:web": "pnpm --filter @abdimas/web dev",
     "dev:backend": "pnpm --filter @abdimas/backend dev",
+    "dev:backend:docker": "docker compose up --build backend",
     "seed:admin-login": "pnpm --filter @abdimas/db seed:admin-login",
     "seed:user-page": "pnpm --filter @abdimas/db seed:user-page",
     "build": "pnpm -r build",
@@ -19,5 +20,8 @@
   "devDependencies": {
     "concurrently": "^10.0.3",
     "ts-node": "^10.9.2"
+  },
+  "dependencies": {
+    "turbo": "^2.10.0"
   }
 }
