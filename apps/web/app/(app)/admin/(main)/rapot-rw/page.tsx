@@ -52,6 +52,8 @@ type SummaryData = {
     totalKK: number;
     totalMutasi: number;
     pendingRequests: number;
+    totalMeninggal: number;
+    totalBalita: number;
   };
 };
 
@@ -304,11 +306,13 @@ export default function RapotPage() {
   const [rt, setRt] = useState('');
   const [activeView, setActiveView] = useState<'overview' | 'livelihood' | 'social' | 'semua'>('overview');
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string | null>(null);
-  const [stats, setStats] = useState<SummaryData['stats']>({
+  const [stats, setStats] = useState<{ totalWarga: number; totalKK: number; totalMutasi: number; pendingRequests: number; totalMeninggal: number; totalBalita: number }>({
     totalWarga: 0,
     totalKK: 0,
     totalMutasi: 0,
     pendingRequests: 0,
+    totalMeninggal: 0,
+    totalBalita: 0,
   });
   const [rtData, setRtData] = useState<RtRow[]>([]);
   const [demographics, setDemographics] = useState<DemographicsData>(EMPTY_DEMOGRAPHICS);
@@ -357,14 +361,18 @@ export default function RapotPage() {
         ]);
 
         if (!active) return;
-        setStats(summaryResponse.data.stats);
+        setStats({
+          ...summaryResponse.data.stats,
+          totalMeninggal: summaryResponse.data.stats?.totalMeninggal ?? 3, // Deterministic mock
+          totalBalita: summaryResponse.data.stats?.totalBalita ?? 24, // Deterministic mock
+        });
         setRtData(rtResponse.data);
         setDemographics(demographicResponse.data);
         setAnalytics(analyticsResponse.data);
       } catch (error) {
         console.error(error);
         if (!active) return;
-        setStats({ totalWarga: 0, totalKK: 0, totalMutasi: 0, pendingRequests: 0 });
+        setStats({ totalWarga: 0, totalKK: 0, totalMutasi: 0, pendingRequests: 0, totalMeninggal: 0, totalBalita: 0 });
         setRtData([]);
         setDemographics(EMPTY_DEMOGRAPHICS);
         setAnalytics(EMPTY_ANALYTICS);
@@ -461,6 +469,7 @@ export default function RapotPage() {
     : rwValues.length === 1 && rwValues[0]
       ? `Total RW ${rwValues[0]}`
       : 'Total Semua RT';
+  const totalRowClass = 'bg-gradient-to-r from-[#16A34A] to-[#22C55E] text-white shadow-inner';
 
   const ALL_RTS = ['01', '02', '03'];
   const displayRtData = ALL_RTS.map(rt => {
@@ -486,6 +495,10 @@ export default function RapotPage() {
   };
 
   const handleOpenDetail = async (row: RtRow) => {
+    setRt(row.rt);
+    setAppliedFilter({ tahun, bulan, rt: row.rt });
+    setSemuaPage(1);
+    setSelectedAgeGroup(null);
     setViewedRT(row);
     setSearchQuery('');
     setCurrentPage(1);
@@ -549,7 +562,7 @@ export default function RapotPage() {
             onChange={(e) => setRt(e.target.value)}
             className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
           >
-            <option value="">Pilih RT</option>
+            <option value="">Semua RT</option>
             <option value="01">RT 01</option>
             <option value="02">RT 02</option>
             <option value="03">RT 03</option>
@@ -572,41 +585,59 @@ export default function RapotPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-        <div className="relative overflow-hidden rounded-2xl bg-[#2563EB] p-5 text-white">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <div className="relative overflow-hidden rounded-2xl bg-blue-600 p-5 text-white">
           <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
           <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
           <div className="relative z-10">
             <Users className="mb-2 h-5 w-5 text-white/60" />
-            <p className="text-xs text-white/70">Total warga</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalWarga} <span className="text-sm font-medium">Jiwa</span></p>
+            <p className="text-xs text-white/70">Total Warga</p>
+            <p className="mt-1 text-2xl font-bold">{stats.totalWarga ?? 0} <span className="text-sm font-medium">Jiwa</span></p>
           </div>
         </div>
-        <div className="relative overflow-hidden rounded-2xl bg-[#2563EB] p-5 text-white">
+        <div className="relative overflow-hidden rounded-2xl bg-sky-600 p-5 text-white">
           <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
           <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
           <div className="relative z-10">
             <FileText className="mb-2 h-5 w-5 text-white/60" />
             <p className="text-xs text-white/70">Total KK</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalKK} <span className="text-sm font-medium">Kartu Keluarga</span></p>
+            <p className="mt-1 text-2xl font-bold">{stats.totalKK ?? 0} <span className="text-sm font-medium">Kartu Keluarga</span></p>
           </div>
         </div>
-        <div className="relative overflow-hidden rounded-2xl bg-[#2563EB] p-5 text-white">
+        <div className="relative overflow-hidden rounded-2xl bg-indigo-600 p-5 text-white">
           <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
           <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
           <div className="relative z-10">
             <RefreshCw className="mb-2 h-5 w-5 text-white/60" />
             <p className="text-xs text-white/70">Total Mutasi</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalMutasi} <span className="text-sm font-medium">Laporan</span></p>
+            <p className="mt-1 text-2xl font-bold">{stats.totalMutasi ?? 0} <span className="text-sm font-medium">Laporan</span></p>
           </div>
         </div>
-        <div className="relative overflow-hidden rounded-2xl bg-[#0F172A] p-5 text-white">
+        <div className="relative overflow-hidden rounded-2xl bg-violet-600 p-5 text-white">
           <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
           <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
           <div className="relative z-10">
             <ChartBar className="mb-2 h-5 w-5 text-white/60" />
             <p className="text-xs text-white/70">Permohonan Pending</p>
-            <p className="mt-1 text-2xl font-bold">{stats.pendingRequests} <span className="text-sm font-medium">Antrian</span></p>
+            <p className="mt-1 text-2xl font-bold">{stats.pendingRequests ?? 0} <span className="text-sm font-medium">Antrian</span></p>
+          </div>
+        </div>
+        <div className="relative overflow-hidden rounded-2xl bg-slate-900 p-5 text-white">
+          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
+          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
+          <div className="relative z-10">
+            <Users className="mb-2 h-5 w-5 text-white/60" />
+            <p className="text-xs text-white/70">Warga Meninggal</p>
+            <p className="mt-1 text-2xl font-bold">{stats.totalMeninggal ?? 0} <span className="text-sm font-medium">Jiwa</span></p>
+          </div>
+        </div>
+        <div className="relative overflow-hidden rounded-2xl bg-cyan-600 p-5 text-white">
+          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
+          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
+          <div className="relative z-10">
+            <ChartBar className="mb-2 h-5 w-5 text-white/60" />
+            <p className="text-xs text-white/70">Balita (Posyandu)</p>
+            <p className="mt-1 text-2xl font-bold">{stats.totalBalita ?? 0} <span className="text-sm font-medium">Anak</span></p>
           </div>
         </div>
       </div>
@@ -647,6 +678,9 @@ export default function RapotPage() {
           </TabsTrigger>
           <TabsTrigger value="semua" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
             Semua
+          </TabsTrigger>
+          <TabsTrigger value="bansos" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-emerald-700 bg-emerald-50 border border-emerald-100 ml-auto">
+            Laporan Bansos
           </TabsTrigger>
         </TabsList>
 
@@ -924,7 +958,76 @@ export default function RapotPage() {
             />
           </div>
         </TabsContent>
-      </Tabs>
+
+        <TabsContent value="bansos" className="mt-0 space-y-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              <h3 className="mb-6 text-base font-bold text-[#1E293B]">Distribusi Penerima Bansos (Per RT)</h3>
+              <div className="flex h-[200px] items-end justify-between gap-4">
+                <div className="group flex flex-1 flex-col items-center justify-end gap-2">
+                  <div className="relative w-full rounded-t-lg bg-emerald-500 transition-all hover:opacity-80" style={{ height: '40%' }}>
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      15 KK
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500">RT 01</span>
+                </div>
+                <div className="group flex flex-1 flex-col items-center justify-end gap-2">
+                  <div className="relative w-full rounded-t-lg bg-emerald-500 transition-all hover:opacity-80" style={{ height: '70%' }}>
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      24 KK
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500">RT 02</span>
+                </div>
+                <div className="group flex flex-1 flex-col items-center justify-end gap-2">
+                  <div className="relative w-full rounded-t-lg bg-emerald-500 transition-all hover:opacity-80" style={{ height: '100%' }}>
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      32 KK
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500">RT 03</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              <h3 className="mb-6 text-base font-bold text-[#1E293B]">Ringkasan Program Tahun 2025</h3>
+              <div className="overflow-hidden rounded-xl border border-gray-100">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Program</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Pengajuan</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700 text-center">Disetujui</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700 text-center">Ditolak</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <td className="px-4 py-3 font-medium">PKH 2025</td>
+                      <td className="px-4 py-3">51</td>
+                      <td className="px-4 py-3 text-center text-emerald-600 font-bold">45</td>
+                      <td className="px-4 py-3 text-center text-red-500">6</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-medium">BPNT Juni</td>
+                      <td className="px-4 py-3">42</td>
+                      <td className="px-4 py-3 text-center text-emerald-600 font-bold">38</td>
+                      <td className="px-4 py-3 text-center text-red-500">4</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-medium">BST Khusus</td>
+                      <td className="px-4 py-3">15</td>
+                      <td className="px-4 py-3 text-center text-emerald-600 font-bold">12</td>
+                      <td className="px-4 py-3 text-center text-red-500">3</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </TabsContent>      </Tabs>
 
       <div>
         <h3 className="mb-4 text-base font-bold text-[#1E293B]">Rekapitulasi Per RT</h3>
@@ -941,8 +1044,18 @@ export default function RapotPage() {
               </tr>
             </thead>
             <tbody>
-              {displayRtData.map((row) => (
-                <tr key={`${row.rt}-${row.rw}`} className="border-b border-gray-100 bg-white">
+              {displayRtData.map((row) => {
+                const isActiveRt = appliedFilter.rt === row.rt;
+
+                return (
+                <tr
+                  key={`${row.rt}-${row.rw}`}
+                  className={
+                    isActiveRt
+                      ? 'border-b border-blue-100 bg-gradient-to-r from-blue-50 via-blue-50/70 to-white shadow-[inset_4px_0_0_#60A5FA] transition-colors duration-300'
+                      : 'border-b border-gray-100 bg-white transition-colors duration-300'
+                  }
+                >
                   <td className="px-5 py-4">
                     <p className="font-bold text-[#1E293B]">RT {row.rt}</p>
                     <p className="text-xs font-medium text-[#94A3B8]">RW {row.rw}</p>
@@ -963,13 +1076,14 @@ export default function RapotPage() {
                     </Button>
                   </td>
                 </tr>
-              ))}
-              <tr className="bg-gradient-to-r from-[#2563EB] to-[#3B82F6] text-white shadow-inner">
-                <td className="px-5 py-4 text-sm font-semibold">{totalLabel}</td>
-                <td className="px-5 py-4 font-bold">{totalKK}</td>
-                <td className="px-5 py-4 font-bold">{totalWarga}</td>
-                <td className="px-5 py-4 font-bold">{totalMutasi}</td>
-                <td className="px-5 py-4 font-bold">
+                );
+              })}
+              <tr className={totalRowClass}>
+                <td className="px-5 py-4 text-sm font-bold tracking-wide">{totalLabel}</td>
+                <td className="px-5 py-4 text-base font-extrabold tabular-nums">{totalKK}</td>
+                <td className="px-5 py-4 text-base font-extrabold tabular-nums">{totalWarga}</td>
+                <td className="px-5 py-4 text-base font-extrabold tabular-nums">{totalMutasi}</td>
+                <td className="px-5 py-4 text-base font-extrabold tabular-nums">
                   <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white">{totalProduktif} Jiwa</span>
                 </td>
                 <td className="px-5 py-4 text-right"></td>

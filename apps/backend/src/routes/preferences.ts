@@ -45,7 +45,6 @@ export const preferencesRoutes = new Hono<{ Variables: { sessionUser: { id: stri
   .get("/", async (c) => {
     const row = await getOrCreatePreference(c.get("sessionUser").id);
     const payload = { success: true as const, data: mapPreference(row) };
-    userPreferenceResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .patch("/", async (c) => {
@@ -59,6 +58,5 @@ export const preferencesRoutes = new Hono<{ Variables: { sessionUser: { id: stri
       .returning();
 
     const payload = { success: true as const, data: mapPreference(updated) };
-    userPreferenceResponseSchema.parse(payload);
     return ok(c, payload.data);
   });

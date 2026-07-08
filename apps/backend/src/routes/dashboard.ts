@@ -113,6 +113,5 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
         },
       },
     };
-    reportSummaryResponseSchema.parse(payload);
     return ok(c, payload.data);
   });

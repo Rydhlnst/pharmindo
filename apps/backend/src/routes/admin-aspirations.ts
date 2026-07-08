@@ -123,7 +123,6 @@ export const adminAspirationsRoutes = new Hono<{ Variables: { sessionUser: { id:
       })),
       meta,
     };
-    adminAspirationListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .get("/:id", async (c) => {
@@ -182,7 +181,6 @@ export const adminAspirationsRoutes = new Hono<{ Variables: { sessionUser: { id:
         citizenRw: row.citizenRw ?? null,
       },
     };
-    adminAspirationDetailResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/:id/reply", async (c) => {

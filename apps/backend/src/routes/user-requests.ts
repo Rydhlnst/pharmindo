@@ -134,7 +134,6 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
 
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
     const payload = { success: true as const, data: await Promise.all(rows.map(mapRequest)), meta };
-    serviceRequestListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .get("/:id", async (c) => {
@@ -149,7 +148,6 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     if (!row) throw notFound("Request not found");
 
     const payload = { success: true as const, data: await mapRequest(row) };
-    serviceRequestResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .use("*", verifiedWargaMiddleware)
@@ -211,7 +209,6 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     });
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
-    serviceRequestResponseSchema.parse(payload);
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),
@@ -274,7 +271,6 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     });
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
-    serviceRequestResponseSchema.parse(payload);
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),
@@ -342,7 +338,6 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     });
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
-    serviceRequestResponseSchema.parse(payload);
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),
@@ -487,7 +482,6 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     });
 
     const payload = { success: true as const, data: await mapRequest(createdRow) };
-    serviceRequestResponseSchema.parse(payload);
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),

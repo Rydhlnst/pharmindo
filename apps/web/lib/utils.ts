@@ -30,5 +30,5 @@ export function maskSensitiveNumber(value: string | null | undefined): string {
   if (!value) return '-';
   const str = String(value).trim();
   if (str.length < 7) return str;
-  return `${str.slice(0, 4)}*********${str.slice(-3)}`;
+  return `${str.slice(0, 4)} \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022`;
 }

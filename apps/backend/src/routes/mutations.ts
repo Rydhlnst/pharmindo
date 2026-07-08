@@ -256,7 +256,6 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
       })),
       meta,
     };
-    mutationListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .post("/", createRateLimitMiddleware({ key: "mutation-upload", limit: 20, windowMs: 60_000 }), async (c) => {
@@ -304,7 +303,6 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
         attachments: await Promise.all(created.attachments.map(mapMutationAttachment)),
       },
     };
-    mutationResponseSchema.parse(payload);
     return ok(c, payload.data, undefined, 201);
   })
   .get("/:id", async (c) => {
@@ -329,7 +327,6 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
         attachments: await Promise.all(attachmentRows.map(mapMutationAttachment)),
       },
     };
-    mutationResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .patch("/:id/status", async (c) => {
@@ -357,7 +354,6 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
         attachments: await Promise.all(attachmentRows.map(mapMutationAttachment)),
       },
     };
-    mutationResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   ;

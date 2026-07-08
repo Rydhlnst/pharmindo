@@ -94,6 +94,5 @@ export const historyRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       })),
       meta,
     };
-    historyListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   });

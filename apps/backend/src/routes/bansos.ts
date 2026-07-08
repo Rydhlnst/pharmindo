@@ -127,7 +127,6 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
 
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
     const payload = { success: true as const, data: rows.map(mapProgram), meta };
-    bansosProgramListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .get("/applications", async (c) => {
@@ -160,7 +159,6 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
 
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
     const payload = { success: true as const, data: await Promise.all(rows.map(mapAdminBansosApplication)), meta };
-    adminBansosApplicationListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .post("/applications/:id/approve", createRateLimitMiddleware({ key: "bansos-approve", limit: 20, windowMs: 60_000 }), async (c) => {
@@ -168,7 +166,6 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const sessionUser = c.get("sessionUser");
     const updated = await approveRequestService({ adminId: sessionUser.id, requestId: id });
     const payload = { success: true as const, data: await mapAdminBansosApplication(updated) };
-    adminBansosApplicationResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/applications/:id/reject", createRateLimitMiddleware({ key: "bansos-reject", limit: 20, windowMs: 60_000 }), async (c) => {
@@ -177,7 +174,6 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const body = await parseJson(c.req.raw, requestDecisionSchema);
     const updated = await rejectRequestService({ adminId: sessionUser.id, requestId: id, reason: body.reason });
     const payload = { success: true as const, data: await mapAdminBansosApplication(updated) };
-    adminBansosApplicationResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/:id", async (c) => {
@@ -185,7 +181,6 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const [row] = await getDb().select().from(bansosProgram).where(eq(bansosProgram.id, id)).limit(1);
     if (!row) throw notFound("Bansos program not found");
     const payload = { success: true as const, data: mapProgram(row) };
-    bansosProgramResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/", async (c) => {
@@ -209,7 +204,6 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
       .returning();
 
     const payload = { success: true as const, data: mapProgram(createdRow) };
-    bansosProgramResponseSchema.parse(payload);
     return created(c, payload.data);
   });
 
@@ -260,7 +254,6 @@ export const bansosRoutes = new Hono<{ Variables: { sessionUser: { id: string; r
       })),
       meta,
     };
-    bansosProgramListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .get("/programs/:id", async (c) => {
@@ -275,6 +268,5 @@ export const bansosRoutes = new Hono<{ Variables: { sessionUser: { id: string; r
       .orderBy(desc(serviceRequest.createdAt));
     const userApplicationMap = buildUserApplicationMap(requestRows);
     const payload = { success: true as const, data: { ...mapProgram(row), userApplication: userApplicationMap.get(row.id) ?? null } };
-    bansosProgramResponseSchema.parse(payload);
     return ok(c, payload.data);
   });

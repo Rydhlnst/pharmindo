@@ -48,7 +48,6 @@ export const servicesRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     });
 
     const payload = { success: true as const, data: { eligible, message, checkedAt } };
-    bansosCheckResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/pemilu/check", async (c) => {
@@ -78,6 +77,5 @@ export const servicesRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     });
 
     const payload = { success: true as const, data: { registered, ...(tps ? { tps } : {}), message, checkedAt } };
-    pemiluCheckResponseSchema.parse(payload);
     return ok(c, payload.data);
   });

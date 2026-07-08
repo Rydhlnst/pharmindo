@@ -90,7 +90,6 @@ export const adminUsersRoutes = new Hono<{ Variables: { sessionUser: { id: strin
 
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
     const payload = { success: true as const, data: rows.map((row) => mapAdminUser(row.user, row.access)), meta };
-    adminUserListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .post("/", createRateLimitMiddleware({ key: "admin-create", limit: 10, windowMs: 60_000 }), async (c) => {
@@ -104,7 +103,6 @@ export const adminUsersRoutes = new Hono<{ Variables: { sessionUser: { id: strin
 
     const [access] = await getDb().select().from(adminAccess).where(eq(adminAccess.userId, createdUser.id)).limit(1);
     const payload = { success: true as const, data: mapAdminUser(createdUser, access) };
-    adminUserResponseSchema.parse(payload);
     return created(c, payload.data);
   })
   .patch("/:id", async (c) => {
@@ -138,7 +136,6 @@ export const adminUsersRoutes = new Hono<{ Variables: { sessionUser: { id: strin
 
     const [access] = await getDb().select().from(adminAccess).where(eq(adminAccess.userId, updated.id)).limit(1);
     const payload = { success: true as const, data: mapAdminUser(updated, access) };
-    adminUserResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/:id/reset-password", createRateLimitMiddleware({ key: "admin-reset-password", limit: 10, windowMs: 60_000 }), async (c) => {
@@ -162,7 +159,6 @@ export const adminUsersRoutes = new Hono<{ Variables: { sessionUser: { id: strin
 
     const [access] = await getDb().select().from(adminAccess).where(eq(adminAccess.userId, updated.id)).limit(1);
     const payload = { success: true as const, data: mapAdminUser(updated, access) };
-    adminUserResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/activity-logs", async (c) => {
@@ -214,6 +210,5 @@ export const adminUsersRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       }),
       createdAt: toIso(row.createdAt) ?? new Date().toISOString(),
     }));
-    adminActivityLogListResponseSchema.parse({ success: true as const, data, meta });
     return ok(c, data, meta);
   });

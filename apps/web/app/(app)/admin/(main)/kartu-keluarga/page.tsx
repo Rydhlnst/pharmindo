@@ -235,6 +235,7 @@ export default function KartuKeluargaPage() {
             <tr className="bg-[#3B82F6] text-white">
               <th className="px-5 py-3.5 text-left font-semibold">Kepala Keluarga</th>
               <th className="px-5 py-3.5 text-left font-semibold">No.KK</th>
+              <th className="px-5 py-3.5 text-left font-semibold">No.KK Unik</th>
               <th className="px-5 py-3.5 text-left font-semibold">Alamat</th>
               <th className="px-5 py-3.5 text-left font-semibold">RT/RW</th>
               <th className="px-5 py-3.5 text-left font-semibold">Anggota Keluarga</th>
@@ -250,6 +251,11 @@ export default function KartuKeluargaPage() {
                     <p className="text-xs text-[#3B82F6]">{maskSensitiveNumber(row.headCitizen?.nik)}</p>
                   </td>
                   <td className="px-5 py-4 text-[#64748B]">{maskSensitiveNumber(row.kkNumber)}</td>
+                  <td className="px-5 py-4">
+                    <span className="font-mono text-xs font-semibold px-2 py-1 bg-amber-50 text-amber-700 rounded-md border border-amber-200">
+                      {`RT${row.rt}-KK-${row.id.substring(0, 3).toUpperCase()}`}
+                    </span>
+                  </td>
                   <td className="px-5 py-4 text-[#64748B]">{row.address}</td>
                   <td className="px-5 py-4 font-bold text-[#1E293B]">
                     RT {row.rt}/RW {row.rw}

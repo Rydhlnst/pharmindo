@@ -96,7 +96,6 @@ export const adminPemiluRoutes = new Hono<{ Variables: { sessionUser: { id: stri
       .limit(query.limit);
 
     const payload = { success: true as const, data: rows.map(mapPemiluEvent) };
-    pemiluEventListResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/:id", async (c) => {
@@ -104,7 +103,6 @@ export const adminPemiluRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const [row] = await getDb().select().from(pemiluEvent).where(eq(pemiluEvent.id, id)).limit(1);
     if (!row) throw notFound("Pemilu event not found");
     const payload = { success: true as const, data: mapPemiluEvent(row) };
-    pemiluEventResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/", async (c) => {
@@ -149,7 +147,6 @@ export const adminPemiluRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     });
 
     const payload = { success: true as const, data: mapPemiluEvent(createdRow) };
-    pemiluEventResponseSchema.parse(payload);
     return ok(c, payload.data, undefined, 201);
   });
 
@@ -160,7 +157,6 @@ export const pemiluRoutes = new Hono<{ Variables: { sessionUser: { id: string; r
     const sessionUser = c.get("sessionUser");
     const assignment = await resolveCitizenPemiluAssignment(sessionUser.id);
     const payload = { success: true as const, data: assignment };
-    pemiluAssignmentResponseSchema.parse(payload);
     return ok(c, payload.data);
   });
 

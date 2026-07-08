@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Trash2, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { z } from "zod";
 import { createCitizenSchema } from "@abdimas/contracts";
 
@@ -10,6 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useIdentity } from "@/app/(app)/warga/_components/identity-context";
 import { RT_OPTIONS } from "@/lib/rt-options";
 
@@ -182,6 +192,8 @@ export default function IdentityFormClient() {
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function setValue<K extends FormField>(field: K, value: FormValues[K]) {
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -247,6 +259,167 @@ export default function IdentityFormClient() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleDeleteNik() {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/identity/nik", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Gagal menghapus NIK");
+      }
+
+      await identity.refreshIdentity();
+      toast({
+        title: "Profil direset",
+        description: "Data NIK berhasil dihapus. Silakan isi ulang jika diperlukan.",
+        variant: "success",
+      });
+      setShowDeleteConfirm(false);
+      // Let the UI switch back to form mode since verificationStatus will be NONE
+    } catch (error: unknown) {
+      toast({
+        title: "Gagal menghapus profil",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (identity.verificationStatus !== "NONE") {
+    return (
+      <div className="safe-top flex w-full flex-col gap-6 p-4 pb-24 md:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1 border-none bg-transparent text-sm font-semibold text-[color:var(--primary)] outline-none transition hover:opacity-80 md:text-base"
+          >
+            <ChevronLeft className="h-5 w-5" />
+            Kembali
+          </button>
+        </div>
+
+        <div className="relative overflow-hidden rounded-[12px] bg-[color:var(--admin-primary-soft)] p-4 md:p-6">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-[color:var(--primary)]/5" />
+          <div className="pointer-events-none absolute right-12 top-2 h-24 w-24 rounded-full bg-[color:var(--primary)]/8" />
+          <div className="relative z-10 flex items-start gap-3">
+            <ShieldCheck className="h-5 w-5 shrink-0 text-[color:var(--primary)]" aria-hidden="true" />
+            <div>
+              <h1 className="text-xl font-bold text-[color:var(--primary)] md:text-2xl">Profil Warga</h1>
+              <p className="mt-1 text-xs text-[color:var(--primary)]/80 md:text-sm">
+                Data NIK Anda sudah tersimpan di sistem.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-[color:var(--border)] bg-card p-4 shadow-sm">
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-[0.08em] text-muted-foreground">Status Identitas</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs font-semibold text-foreground">Nama Terdaftar</Label>
+              <p className="mt-1 font-medium">{identity.userName}</p>
+            </div>
+            
+            <div>
+              <Label className="text-xs font-semibold text-foreground">NIK</Label>
+              <p className="mt-1 font-mono">{identity.maskedNik}</p>
+            </div>
+            
+            <div>
+              <Label className="text-xs font-semibold text-foreground">Status Verifikasi</Label>
+              <div className="mt-2 flex items-center gap-2">
+                {identity.verificationStatus === 'VERIFIED' && (
+                  <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-green-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-semibold">Terverifikasi</span>
+                  </div>
+                )}
+                {identity.verificationStatus === 'PENDING' && (
+                  <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-700">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm font-semibold">Menunggu Verifikasi Admin</span>
+                  </div>
+                )}
+                {identity.verificationStatus === 'REJECTED' && (
+                  <div className="flex flex-col gap-1 rounded-lg bg-red-50 px-3 py-2 text-red-700">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm font-semibold">Verifikasi Ditolak</span>
+                    </div>
+                    {identity.rejectionReason && (
+                      <p className="text-xs">{identity.rejectionReason}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {identity.verificationStatus === 'VERIFIED' && (
+              <div>
+                <Label className="text-xs font-semibold text-foreground">No. KK Unik</Label>
+                <div className="mt-1">
+                  <span className="font-mono text-sm font-bold tracking-wider px-3 py-1.5 bg-amber-50 text-amber-700 rounded-md border border-amber-200 inline-block">
+                    RT00-KK-123
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Digunakan untuk urusan administratif dengan RT/RW</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-red-100 bg-red-50/50 p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-bold text-red-800">Perbarui Profil</h2>
+          <p className="text-xs text-red-600 mb-4 leading-relaxed">
+            Jika ada kesalahan data atau verifikasi ditolak, Anda dapat menghapus data NIK dan mengisi ulang. <br/>
+            <strong>Perhatian:</strong> Menghapus NIK akan mengunci kembali fitur Bansos, Pemilu, Mutasi, dan KK.
+          </p>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-full rounded-xl flex items-center justify-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Hapus NIK & Reset Profil
+          </Button>
+        </div>
+
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent className="rounded-[24px]">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Hapus Data NIK?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tindakan ini akan menghapus NIK Anda dari sistem dan mengembalikan status Anda menjadi <strong>Belum Diverifikasi</strong>. Anda akan kehilangan akses ke fitur premium sampai Anda mengisi NIK baru dan diverifikasi ulang.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting} className="rounded-xl">Batal</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleting}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDeleteNik();
+                }}
+                className="rounded-xl bg-red-600 text-white hover:bg-red-700"
+              >
+                {deleting ? 'Menghapus...' : 'Ya, Hapus NIK'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
   }
 
   return (

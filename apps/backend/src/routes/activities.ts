@@ -82,7 +82,6 @@ export const scheduleRoutes = new Hono<{ Variables: { sessionUser: { id: string;
       .orderBy(activity.date, activity.startTime);
 
     const payload = { success: true as const, data: rows.map(mapActivity) };
-    activityListResponseSchema.parse(payload);
     return ok(c, payload.data);
   });
 
@@ -108,7 +107,6 @@ export const adminActivitiesRoutes = new Hono<{ Variables: { sessionUser: { id: 
       .orderBy(desc(activity.date), desc(activity.createdAt));
 
     const payload = { success: true as const, data: rows.map(mapActivity) };
-    activityListResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/", createRateLimitMiddleware({ key: "activity-write", limit: 30, windowMs: 60_000 }), async (c) => {
@@ -127,7 +125,6 @@ export const adminActivitiesRoutes = new Hono<{ Variables: { sessionUser: { id: 
     });
 
     const payload = { success: true as const, data: mapActivity(createdRow) };
-    activityResponseSchema.parse(payload);
     return ok(c, payload.data, undefined, 201);
   })
   .patch("/:id", createRateLimitMiddleware({ key: "activity-write", limit: 30, windowMs: 60_000 }), async (c) => {
@@ -149,7 +146,6 @@ export const adminActivitiesRoutes = new Hono<{ Variables: { sessionUser: { id: 
     });
 
     const payload = { success: true as const, data: mapActivity(updated) };
-    activityResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .delete("/:id", createRateLimitMiddleware({ key: "activity-write", limit: 30, windowMs: 60_000 }), async (c) => {

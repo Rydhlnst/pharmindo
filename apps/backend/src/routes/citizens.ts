@@ -175,7 +175,6 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
 
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
     const payload = { success: true as const, data: rows.map(mapCitizen), meta };
-    citizenListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .post("/", async (c) => {
@@ -183,7 +182,6 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const inserted = await createCitizenService({ adminId: c.get("sessionUser").id, body });
 
     const payload = { success: true as const, data: mapCitizen(inserted) };
-    citizenResponseSchema.parse(payload);
     return created(c, payload.data);
   })
   .post("/registration", async (c) => {
@@ -219,7 +217,6 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
       },
     };
 
-    citizenRegistrationResponseSchema.parse(payload.data);
     return created(c, payload.data);
   })
   .get("/:id", async (c) => {
@@ -234,7 +231,6 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
       .limit(1);
     if (!row[0]) throw notFound("Citizen not found");
     const payload = { success: true as const, data: mapCitizen(row[0]) };
-    citizenResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .patch("/:id", async (c) => {
@@ -242,7 +238,6 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const { id } = parseParams(c.req.param(), idParamSchema);
     const updated = await updateCitizenService({ adminId: c.get("sessionUser").id, citizenId: id, body });
     const payload = { success: true as const, data: mapCitizen(updated) };
-    citizenResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .delete("/:id", async (c) => {

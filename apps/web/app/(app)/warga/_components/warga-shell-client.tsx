@@ -77,7 +77,7 @@ export default function WargaShellClient({
       <IdentityContext.Provider value={{ ...identityState, refreshIdentity }}>
         <div className="flex min-h-[100svh] justify-center bg-background px-0 transition-colors duration-300 md:bg-slate-100 md:px-6 md:py-6">
           <div className="relative flex h-[100dvh] min-h-[100svh] w-full max-w-md flex-col overflow-hidden bg-background text-foreground transition-colors duration-300 md:min-h-[780px] md:rounded-[28px] md:border md:border-slate-200 md:shadow-xl">
-            <main className="flex-1 overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+            <main className="scrollbar-none flex-1 overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
               {children}
             </main>
             <InfoKehilanganFab />

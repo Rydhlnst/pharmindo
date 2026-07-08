@@ -24,9 +24,9 @@ export function normalizeNik(input: string) {
   return nik;
 }
 
-export function maskNikFromParts(first4?: string | null, last4?: string | null) {
-  if (!first4 || !last4) return "****";
-  return `${first4}********${last4}`;
+export function maskNikFromParts(first4?: string | null, _last4?: string | null) {
+  if (!first4) return "---- \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022";
+  return `${first4} \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022`;
 }
 
 export function nikParts(nik: string) {

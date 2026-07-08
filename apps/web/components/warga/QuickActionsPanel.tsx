@@ -9,6 +9,8 @@ import {
   Users,
   ArrowRightLeft,
   FilePlus2,
+  LockKeyhole,
+  Hourglass,
   type LucideIcon,
 } from 'lucide-react';
 import { MagnifyingGlass } from '@phosphor-icons/react';
@@ -146,20 +148,30 @@ const QUICK_ACTION_TONE_MAP: Record<
 };
 
 interface QuickActionsPanelProps {
-  isRestricted: boolean;
+  verificationStatus: string;
   onAction?: (action: string) => void;
 }
 
 export default function QuickActionsPanel({
-  isRestricted,
+  verificationStatus,
   onAction,
 }: QuickActionsPanelProps) {
+  const isTier1 = verificationStatus === 'NONE' || verificationStatus === 'REJECTED';
+  const isTier2 = verificationStatus === 'PENDING';
+  const isTier3 = verificationStatus === 'VERIFIED';
+
   return (
     <Card className="overflow-hidden rounded-4xl border-0 bg-card shadow-none px-0">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-3 pt-4">
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-2xl bg-muted/70">
-            <Sparkles className="size-4 text-primary" />
+            {isTier1 ? (
+              <LockKeyhole className="size-4 text-amber-500" />
+            ) : isTier2 ? (
+              <Hourglass className="size-4 text-amber-500" />
+            ) : (
+              <Sparkles className="size-4 text-primary" />
+            )}
           </div>
 
           <div>
@@ -172,12 +184,20 @@ export default function QuickActionsPanel({
           </div>
         </div>
 
-        {isRestricted && (
+        {isTier1 && (
           <Badge
             variant="secondary"
-            className="border-0 bg-(--accent-amber)/10 text-(--accent-amber) shadow-none"
+            className="border-0 bg-amber-500/10 text-amber-600 shadow-none"
           >
-            Terbatas
+            {verificationStatus === 'REJECTED' ? 'Perbaiki NIK' : 'Isi NIK'}
+          </Badge>
+        )}
+        {isTier2 && (
+          <Badge
+            variant="secondary"
+            className="border-0 bg-amber-500/10 text-amber-600 shadow-none"
+          >
+            Menunggu verifikasi
           </Badge>
         )}
       </CardHeader>

@@ -83,7 +83,6 @@ export const aspirationsRoutes = new Hono<{ Variables: { sessionUser: { id: stri
       })),
       meta,
     };
-    aspirationListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .use("*", verifiedWargaMiddleware)
@@ -129,7 +128,6 @@ export const aspirationsRoutes = new Hono<{ Variables: { sessionUser: { id: stri
         updatedAt: toIso(createdRow.updatedAt) ?? new Date().toISOString(),
       },
     };
-    aspirationResponseSchema.parse(payload);
     await bumpSyncKeys([
       adminSyncKey("aspirations"),
       adminSyncKey("dashboard"),

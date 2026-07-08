@@ -3,8 +3,8 @@ import { formatTimeLabel } from "@/lib/activity-time";
 type BansosPeriodLike = {
   startDate: string;
   endDate: string;
-  startTime: string;
-  endTime: string;
+  startTime?: string;
+  endTime?: string;
 };
 
 function formatDateLabel(value: string) {
@@ -21,5 +21,7 @@ export function formatBansosPeriod(period: BansosPeriodLike) {
       ? formatDateLabel(period.startDate)
       : `${formatDateLabel(period.startDate)} - ${formatDateLabel(period.endDate)}`;
 
-  return `${dateLabel} • ${formatTimeLabel(period.startTime)} - ${formatTimeLabel(period.endTime)} WIB`;
+  if (!period.startTime || !period.endTime) return dateLabel;
+
+  return `${dateLabel} - ${formatTimeLabel(period.startTime)} - ${formatTimeLabel(period.endTime)} WIB`;
 }

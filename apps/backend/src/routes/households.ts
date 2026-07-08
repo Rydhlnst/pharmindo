@@ -133,7 +133,6 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       ),
       meta,
     };
-    householdListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .post("/", async (c) => {
@@ -174,7 +173,6 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         ],
       },
     };
-    householdResponseSchema.parse(payload);
     return created(c, payload.data);
   })
   .get("/:id", async (c) => {
@@ -235,7 +233,6 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         })),
       },
     };
-    householdResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .patch("/:id", async (c) => {
@@ -284,7 +281,6 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         ...mapHouseholdBase({ ...updated, headCitizen: headCitizenRow }),
       },
     };
-    householdResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .delete("/:id", async (c) => {
@@ -456,6 +452,5 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         createdAt: toIso(row.createdAt) ?? new Date().toISOString(),
       })),
     };
-    householdAuditLogResponseSchema.parse(payload);
     return ok(c, payload.data);
   });

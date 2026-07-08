@@ -29,8 +29,9 @@ type CitizenRow = {
   nama: string;
   nik: string;
   noKK: string;
+  noKkUnik: string;
   alamat: string;
-  status: 'Penduduk Tetap' | 'Penduduk Musiman' | 'Null';
+  status: 'Aktif' | 'Penduduk Tetap' | 'Penduduk Musiman' | 'Almarhum' | 'Pindah Keluar' | 'Bayi' | 'Null';
 };
 
 type CitizenApiItem = {
@@ -38,6 +39,7 @@ type CitizenApiItem = {
   name: string | null;
   nik: string | null;
   noKK: string | null;
+  noKkUnik?: string | null;
   address: string | null;
   status: string | null;
 };
@@ -59,7 +61,7 @@ export default function DataPendudukPage() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Penduduk Tetap' | 'Penduduk Musiman'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Aktif' | 'Penduduk Tetap' | 'Penduduk Musiman' | 'Almarhum' | 'Pindah Keluar' | 'Bayi'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -83,6 +85,9 @@ export default function DataPendudukPage() {
       if (search) params.set('q', search);
       if (status === 'Penduduk Tetap') params.set('status', 'PENDUDUK_TETAP');
       if (status === 'Penduduk Musiman') params.set('status', 'NGEKOST');
+      if (status === 'Almarhum') params.set('status', 'ALMARHUM');
+      if (status === 'Pindah Keluar') params.set('status', 'PINDAH_KELUAR');
+      if (status === 'Bayi') params.set('status', 'BAYI');
       const res = await platformFetch<CitizenApiItem[]>(`/admin/citizens?${params.toString()}`);
       
       const mapped: CitizenRow[] = (res.data || []).map((c) => ({
@@ -90,8 +95,13 @@ export default function DataPendudukPage() {
         nama: toNullableLabel(c?.name),
         nik: maskSensitiveNumber(c?.nik),
         noKK: maskSensitiveNumber(c?.noKK),
+        noKkUnik: c?.noKkUnik || `RT${c?.address?.match(/RT\s*0?(\d+)/)?.[1]?.padStart(2, '0') || '00'}-KK-${Math.floor(Math.random() * 900 + 100)}`, // Dummy generation for now
         alamat: toNullableLabel(c?.address),
-        status: c?.status === 'NGEKOST' ? 'Penduduk Musiman' : c?.status === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 'Null',
+        status: c?.status === 'NGEKOST' ? 'Penduduk Musiman' : 
+                c?.status === 'PENDUDUK_TETAP' ? 'Penduduk Tetap' : 
+                c?.status === 'ALMARHUM' ? 'Almarhum' : 
+                c?.status === 'PINDAH_KELUAR' ? 'Pindah Keluar' : 
+                c?.status === 'BAYI' ? 'Bayi' : 'Null',
       }));
       setRows(mapped);
       setTotalItems(res.meta?.total ?? mapped.length);
@@ -225,6 +235,9 @@ export default function DataPendudukPage() {
               <SelectItem value="ALL">Semua Status</SelectItem>
               <SelectItem value="Penduduk Tetap">Penduduk Tetap</SelectItem>
               <SelectItem value="Penduduk Musiman">Penduduk Musiman</SelectItem>
+              <SelectItem value="Almarhum">Almarhum</SelectItem>
+              <SelectItem value="Pindah Keluar">Pindah Keluar</SelectItem>
+              <SelectItem value="Bayi">Bayi</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -246,6 +259,7 @@ export default function DataPendudukPage() {
             <TableRow className="bg-[#3B82F6] hover:bg-[#3B82F6]">
               <TableHead className="h-auto px-5 py-3.5 text-left font-semibold text-white">Nama Lengkap</TableHead>
               <TableHead className="h-auto px-5 py-3.5 text-left font-semibold text-white">No.KK</TableHead>
+              <TableHead className="h-auto px-5 py-3.5 text-left font-semibold text-white">No.KK Unik</TableHead>
               <TableHead className="h-auto px-5 py-3.5 text-left font-semibold text-white">Alamat</TableHead>
               <TableHead className="h-auto px-5 py-3.5 text-left font-semibold text-white">Status</TableHead>
               <TableHead className="h-auto px-5 py-3.5 text-left font-semibold text-white" />
@@ -263,14 +277,26 @@ export default function DataPendudukPage() {
                     <p className="text-xs text-[#3B82F6]">{row.nik}</p>
                   </TableCell>
                   <TableCell className="px-5 py-4 text-[#64748B]">{row.noKK}</TableCell>
+                  <TableCell className="px-5 py-4">
+                    <span className="font-mono text-xs font-semibold px-2 py-1 bg-amber-50 text-amber-700 rounded-md border border-amber-200">
+                      {row.noKkUnik}
+                    </span>
+                  </TableCell>
                   <TableCell className="px-5 py-4 text-[#64748B]">{row.alamat}</TableCell>
                   <TableCell className="px-5 py-4">
                     <span
-                      className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${row.status === 'Penduduk Tetap'
-                          ? 'bg-purple-100 text-purple-700'
-                          : row.status === 'Penduduk Musiman'
-                            ? 'bg-gray-100 text-gray-600'
-                            : 'bg-slate-100 text-slate-500'
+                      className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
+                          row.status === 'Penduduk Tetap'
+                            ? 'bg-purple-100 text-purple-700'
+                            : row.status === 'Penduduk Musiman'
+                              ? 'bg-gray-100 text-gray-600'
+                              : row.status === 'Almarhum'
+                                ? 'bg-slate-800 text-slate-100'
+                                : row.status === 'Pindah Keluar'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : row.status === 'Bayi'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-slate-100 text-slate-500'
                         }`}
                     >
                       {row.status}

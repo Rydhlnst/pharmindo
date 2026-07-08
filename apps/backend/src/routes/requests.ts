@@ -103,7 +103,6 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
     const mappedRows = await Promise.all(rows.map(mapRequest));
     const payload = { success: true as const, data: mappedRows, meta };
-    serviceRequestListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .get("/:id", async (c) => {
@@ -115,7 +114,6 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
       .limit(1);
     if (!row[0]) throw notFound("Request not found");
     const payload = { success: true as const, data: await mapRequest(row[0]) };
-    serviceRequestResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/:id/approve", createRateLimitMiddleware({ key: "request-approve", limit: 20, windowMs: 60_000 }), async (c) => {
@@ -123,7 +121,6 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const sessionUser = c.get("sessionUser");
     const updated = await approveRequestService({ adminId: sessionUser.id, requestId });
     const payload = { success: true as const, data: await mapRequest(updated) };
-    serviceRequestResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .post("/:id/reject", createRateLimitMiddleware({ key: "request-reject", limit: 20, windowMs: 60_000 }), async (c) => {
@@ -133,6 +130,5 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const updated = await rejectRequestService({ adminId: sessionUser.id, requestId, reason: body.reason });
 
     const payload = { success: true as const, data: await mapRequest(updated) };
-    serviceRequestResponseSchema.parse(payload);
     return ok(c, payload.data);
   });

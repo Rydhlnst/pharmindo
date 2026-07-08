@@ -103,7 +103,6 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
         },
       },
     };
-    reportSummaryResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/rt-breakdown", async (c) => {
@@ -112,7 +111,6 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       success: true as const,
       data: await getFilteredRtBreakdown(filter),
     };
-    rtBreakdownResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/demographics", async (c) => {
@@ -121,7 +119,6 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       success: true as const,
       data: await getFilteredDemographics(filter),
     };
-    reportDemographicsResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/analytics", async (c) => {
@@ -130,7 +127,6 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       success: true as const,
       data: await getFilteredInfographicData(filter),
     };
-    reportInfographicResponseSchema.parse(payload);
     return ok(c, payload.data);
   })
   .get("/citizens", async (c) => {
@@ -189,7 +185,6 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       })),
       meta,
     };
-    citizenListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .get("/rt/:rtId/citizens", async (c) => {
@@ -246,7 +241,6 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       })),
       meta,
     };
-    citizenListResponseSchema.parse(payload);
     return ok(c, payload.data, meta);
   })
   .get("/export/csv", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {

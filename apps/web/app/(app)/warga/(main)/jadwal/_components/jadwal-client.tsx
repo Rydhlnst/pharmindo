@@ -20,6 +20,9 @@ const CATEGORY_LABEL: Record<string, string> = {
   sosial: 'Sosial',
   kesehatan: 'Kesehatan',
   keamanan: 'Keamanan',
+  posyandu: 'Posyandu',
+  sampah: 'Angkut Sampah',
+  siskamling: 'Siskamling',
   lainnya: 'Lainnya',
 };
 
@@ -29,7 +32,7 @@ type ActivityEvent = {
   judul: string;
   waktu: string;
   lokasi: string;
-  kategori: 'rapat' | 'sosial' | 'kesehatan' | 'keamanan' | 'lainnya';
+  kategori: 'rapat' | 'sosial' | 'kesehatan' | 'keamanan' | 'posyandu' | 'sampah' | 'siskamling' | 'lainnya';
   deskripsi: string;
   diperbaruiPada: string;
 };

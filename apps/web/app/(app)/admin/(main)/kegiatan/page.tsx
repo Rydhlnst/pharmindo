@@ -16,11 +16,12 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Textarea } from '@/components/ui/textarea';
 import { formatActivityTimeRange, isValidTimeRange } from '@/lib/activity-time';
 import { useActionToast } from '@/lib/use-action-toast';
 
-type EventCategory = 'rapat' | 'kesehatan' | 'sosial' | 'keamanan' | 'lainnya';
+type EventCategory = 'rapat' | 'kesehatan' | 'sosial' | 'keamanan' | 'posyandu' | 'sampah' | 'siskamling' | 'lainnya';
 
 type ActivityItem = {
   id: string;
@@ -31,6 +32,7 @@ type ActivityItem = {
   date: string;
   startTime: string | null;
   endTime: string | null;
+  recurring?: 'NONE' | 'WEEKLY' | 'MONTHLY';
 };
 
 const KATEGORI_COLORS: Record<EventCategory, { bg: string; text: string; dot: string }> = {
@@ -38,6 +40,9 @@ const KATEGORI_COLORS: Record<EventCategory, { bg: string; text: string; dot: st
   kesehatan: { bg: 'bg-[#F0FDF4]', text: 'text-[#22C55E]', dot: 'bg-[#22C55E]' },
   sosial: { bg: 'bg-[#FFF7ED]', text: 'text-[#F97316]', dot: 'bg-[#F97316]' },
   keamanan: { bg: 'bg-[#FEF2F2]', text: 'text-[#EF4444]', dot: 'bg-[#EF4444]' },
+  posyandu: { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500' },
+  sampah: { bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-500' },
+  siskamling: { bg: 'bg-indigo-50', text: 'text-indigo-600', dot: 'bg-indigo-500' },
   lainnya: { bg: 'bg-[#F3F4F6]', text: 'text-[#6B7280]', dot: 'bg-[#6B7280]' },
 };
 
@@ -70,6 +75,7 @@ export default function KegiatanPage() {
   const [newEndTime, setNewEndTime] = useState('');
   const [newLokasi, setNewLokasi] = useState('');
   const [newDeskripsi, setNewDeskripsi] = useState('');
+  const [newRecurring, setNewRecurring] = useState<'NONE' | 'WEEKLY' | 'MONTHLY'>('NONE');
   const [timeError, setTimeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,6 +133,7 @@ export default function KegiatanPage() {
               date: newTanggal,
               startTime: newStartTime,
               endTime: newEndTime,
+              recurring: newRecurring,
             }),
           }),
         {
@@ -145,13 +152,14 @@ export default function KegiatanPage() {
       setNewEndTime('');
       setNewLokasi('');
       setNewDeskripsi('');
+      setNewRecurring('NONE');
       setTimeError(null);
     } catch (error) {
       console.error(error);
     }
   };
 
-  const categories = ['semua', 'rapat', 'kesehatan', 'sosial', 'keamanan', 'lainnya'] as const;
+  const categories = ['semua', 'rapat', 'kesehatan', 'sosial', 'keamanan', 'posyandu', 'sampah', 'siskamling', 'lainnya'] as const;
 
   return (
     <div className="flex flex-col gap-6">
@@ -315,16 +323,30 @@ export default function KegiatanPage() {
                 error={timeError}
               />
               <div>
-                <Label className="mb-1 block text-sm font-semibold text-[color:var(--admin-heading)]">Tempat / Lokasi</Label>
-                <Input
-                  type="text"
-                  required
-                  value={newLokasi}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewLokasi(e.target.value)}
-                  placeholder="Balai RW 25"
-                  className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
-                />
+                <Label className="mb-1 block text-sm font-semibold text-[color:var(--admin-heading)]">Perulangan</Label>
+                <Select value={newRecurring} onValueChange={(value) => setNewRecurring(value as 'NONE' | 'WEEKLY' | 'MONTHLY')}>
+                  <SelectTrigger className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm">
+                    <SelectValue placeholder="Pilih perulangan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">Tidak Berulang</SelectItem>
+                    <SelectItem value="WEEKLY">Setiap Minggu</SelectItem>
+                    <SelectItem value="MONTHLY">Setiap Bulan</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+
+            <div>
+              <Label className="mb-1 block text-sm font-semibold text-[color:var(--admin-heading)]">Tempat / Lokasi</Label>
+              <Input
+                type="text"
+                required
+                value={newLokasi}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewLokasi(e.target.value)}
+                placeholder="Balai RW 25"
+                className="w-full rounded-xl border-[color:var(--admin-border)] bg-[color:var(--admin-surface-muted)] px-4 py-2.5 text-sm"
+              />
             </div>
 
             <div>

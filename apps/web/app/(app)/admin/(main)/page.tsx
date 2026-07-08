@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Icon } from '@phosphor-icons/react';
-import { CalendarBlank as Calendar, CaretDown as ChevronDown, ClipboardText as ClipboardList, ChartBar as FileBarChart, FileText as FileCheck, FileArrowDown as FileInput, FileText, ArrowClockwise as RefreshCw, ShieldCheck, Gear as Settings, UserPlus, Users, UserGear as UserCog, Trash as Trash2 } from '@phosphor-icons/react';
+import { CalendarBlank as Calendar, CaretDown as ChevronDown, ClipboardText as ClipboardList, ChartBar as FileBarChart, FileText as FileCheck, FileArrowDown as FileInput, FileText, ArrowClockwise as RefreshCw, ShieldCheck, Gear as Settings, UserPlus, Users, UserGear as UserCog, Trash as Trash2, Baby, PersonSimpleWalk, Cross } from '@phosphor-icons/react';
 
 import AdminCalendar from '@/components/admin/AdminCalendar';
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
@@ -362,6 +362,29 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Widget Statistik Vital (Kelahiran & Kematian) */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-[#1F2937]">Statistik Vital & Mobilitas (Bulan Ini)</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              { label: 'Kelahiran Baru', value: 3, icon: Baby, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+              { label: 'Kematian', value: 1, icon: Cross, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' },
+              { label: 'Pindah Masuk', value: 5, icon: RefreshCw, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+              { label: 'Pindah Keluar', value: 2, icon: PersonSimpleWalk, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+            ].map((stat, idx) => (
+              <div key={idx} className={`flex flex-col items-center justify-center p-4 rounded-2xl border ${stat.border} ${stat.bg} shadow-sm text-center`}>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm mb-2 ${stat.color}`}>
+                  <stat.icon className="h-5 w-5" weight="duotone" />
+                </div>
+                <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
+                <p className="text-[11px] font-medium text-gray-600">{stat.label}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Aktivitas Terbaru — Category Accordion */}

@@ -16,6 +16,8 @@ interface FeatureCardProps {
   onClick: () => void;
   delay?: number;
   patternId?: 1 | 2 | 3;
+  align?: 'left' | 'center';
+  showArrow?: boolean;
 }
 
 export default function FeatureCard({
@@ -28,8 +30,11 @@ export default function FeatureCard({
   onClick,
   delay = 0,
   patternId = 1,
+  align = 'left',
+  showArrow = true,
 }: FeatureCardProps) {
   const isLarge = variant === 'large';
+  const isCentered = align === 'center';
 
   const renderPattern = (id: 1 | 2 | 3) => {
     switch (id) {
@@ -93,7 +98,8 @@ export default function FeatureCard({
       <CardContent
         className={cn(
           'relative z-10 flex h-full flex-col p-5',
-          isLarge ? 'gap-4' : 'gap-3'
+          isLarge ? 'gap-4' : 'gap-3',
+          isCentered && 'items-center text-center'
         )}
       >
         <div
@@ -135,9 +141,16 @@ export default function FeatureCard({
         </div>
       </CardContent>
 
-      <div className="absolute bottom-5 right-5 flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <ArrowRight size={isLarge ? 18 : 14} />
-      </div>
+      {showArrow && (
+        <div
+          className={cn(
+            'absolute bottom-5 flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground',
+            isCentered ? 'left-1/2 -translate-x-1/2' : 'right-5'
+          )}
+        >
+          <ArrowRight size={isLarge ? 18 : 14} />
+        </div>
+      )}
     </Card>
   );
 }

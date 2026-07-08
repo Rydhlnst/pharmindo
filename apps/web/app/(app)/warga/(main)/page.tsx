@@ -15,6 +15,8 @@ import {
   Moon,
   Sun,
   Hammer,
+  Clock,
+  MapPin,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -52,6 +54,7 @@ import FormTextarea from '@/components/warga/FormTextarea';
 import FormFileUpload from '@/components/warga/FormFileUpload';
 import CommentCarousel from '@/components/warga/CommentCarousel';
 import QuickActionsPanel from '@/components/warga/QuickActionsPanel';
+import BansosFlow from '@/components/warga/bansos/BansosFlow';
 
 import { formatBansosPeriod } from '@/lib/bansos';
 import { RT_OPTIONS } from '@/lib/rt-options';
@@ -61,7 +64,44 @@ import type {
   PemiluResult,
 } from '@/types/warga';
 
-type ActiveSheet = 'bansos' | 'pemilu' | 'aspirasi' | 'penduduk' | 'mutasi' | 'tambahKk' | null;
+type ActiveSheet = 'bansos' | 'pemilu' | 'aspirasi' | 'penduduk' | 'mutasi' | 'tambahKk' | 'nik-inline-form' | 'pending-verification' | 'agenda' | null;
+
+type AgendaItem = {
+  id: number;
+  judul: string;
+  kategori: string;
+  waktu: string;
+  tanggal: string;
+  lokasi: string;
+  deskripsi?: string;
+  color: string;
+  bg: string;
+};
+
+const DUMMY_AGENDA: AgendaItem[] = [
+  {
+    id: 1,
+    judul: 'Kerja Bakti Bersih Desa',
+    kategori: 'Sampah',
+    waktu: '08:00 - Selesai',
+    tanggal: 'Minggu, 12 Nov',
+    lokasi: 'Sepanjang Jl. Utama',
+    deskripsi: 'Kegiatan gotong royong membersihkan selokan dan jalan utama desa untuk mencegah genangan air dan menjaga kebersihan lingkungan.',
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+  },
+  {
+    id: 2,
+    judul: 'Posyandu Balita & Lansia',
+    kategori: 'Posyandu',
+    waktu: '09:00 - 12:00',
+    tanggal: 'Rabu, 15 Nov',
+    lokasi: 'Balai RW 25',
+    deskripsi: 'Pemeriksaan kesehatan rutin untuk balita dan lansia, termasuk penimbangan, pengukuran tinggi badan, dan pemberian asupan gizi tambahan.',
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+  }
+];
 
 type PopupState = {
   variant: 'success' | 'warning' | 'error';
@@ -176,11 +216,15 @@ export default function WargaHomePage() {
   const identity = useIdentity();
   const { toast } = useToast();
 
-  const isRestricted = identity.verificationStatus !== 'VERIFIED';
+  const isTier1 = identity.verificationStatus === 'NONE' || identity.verificationStatus === 'REJECTED';
+  const isTier2 = identity.verificationStatus === 'PENDING';
+  const isTier3 = identity.verificationStatus === 'VERIFIED';
 
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
+  const [selectedAgenda, setSelectedAgenda] = useState<AgendaItem | null>(null);
   const [popup, setPopup] = useState<PopupState>(null);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+  const [newNik, setNewNik] = useState('');
 
   const [bansosNik, setBansosNik] = useState('');
   const [bansosNama, setBansosNama] = useState('');
@@ -239,12 +283,12 @@ export default function WargaHomePage() {
       }
     }
 
-    if (!isRestricted) void loadPrograms();
+    if (isTier3) void loadPrograms();
 
     return () => {
       active = false;
     };
-  }, [isRestricted]);
+  }, [isTier3]);
 
   const selectedBansosProgram = useMemo(
     () => bansosPrograms.find((program) => program.id === bansosProgram) ?? null,
@@ -516,22 +560,81 @@ export default function WargaHomePage() {
   };
 
   const openQuickActionSheet = (sheet: string) => {
-    if (isRestricted && (sheet === 'aspirasi' || sheet === 'penduduk' || sheet === 'mutasi' || sheet === 'tambahKk')) {
-      setBlockedMessage('Akun Anda perlu diverifikasi admin RW/RT sebelum mengirim pengajuan.');
-      toast({
-        title: 'Akses terbatas',
-        description: 'Tunggu verifikasi admin sebelum menggunakan fitur pengajuan.',
-        variant: 'destructive',
-      });
+    const requiresTier3 = sheet === 'penduduk' || sheet === 'mutasi' || sheet === 'tambahKk';
+    const requiresTier2 = sheet === 'aspirasi'; // Aspirasi dengan identitas
+
+    if (requiresTier3 && !isTier3) {
+      if (isTier1) {
+        setActiveSheet('nik-inline-form');
+      } else {
+        setActiveSheet('pending-verification');
+      }
       return;
     }
+
+    if (requiresTier2 && isTier1) {
+      setActiveSheet('nik-inline-form');
+      return;
+    }
+
     if (sheet === 'tambahKk') {
       router.push('/warga/kk');
       return;
     }
-    if (sheet === 'aspirasi' || sheet === 'penduduk' || sheet === 'mutasi') {
-      setBlockedMessage(null);
-      setActiveSheet(sheet);
+    
+    setBlockedMessage(null);
+    setActiveSheet(sheet as ActiveSheet);
+  };
+
+  const handleInlineNikSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting('penduduk');
+    try {
+      await platformFetch('/identity/nik', {
+        method: 'POST',
+        body: JSON.stringify({ nik: pendudukForm.nik }),
+      });
+      toast({
+        title: 'NIK Berhasil Disimpan',
+        description: 'Menunggu verifikasi admin agar fitur terbuka sepenuhnya.',
+        variant: 'success',
+      });
+      // Force refresh data identity
+      window.location.reload();
+    } catch (e) {
+      toast({
+        title: 'Gagal',
+        description: 'Terjadi kesalahan saat menyimpan NIK',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const handleSubmitNik = async () => {
+    if (!/^\d{16}$/.test(newNik)) return;
+
+    setSubmitting('penduduk');
+    try {
+      await platformFetch('/identity/nik', {
+        method: 'POST',
+        body: JSON.stringify({ nik: newNik }),
+      });
+      toast({
+        title: 'NIK Berhasil Disimpan',
+        description: 'Menunggu verifikasi admin agar fitur terbuka sepenuhnya.',
+        variant: 'success',
+      });
+      window.location.reload();
+    } catch (e) {
+      toast({
+        title: 'Gagal',
+        description: 'Terjadi kesalahan saat menyimpan NIK',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(null);
     }
   };
 
@@ -826,30 +929,48 @@ export default function WargaHomePage() {
       />
 
       <WargaPageBody className="flex flex-col gap-3">
-        {isRestricted && identity.verificationStatus !== 'NONE' && (
-          <Alert className="relative overflow-hidden rounded-3xl border border-[color:var(--accent-amber)]/25 bg-[color:var(--accent-amber)]/10 p-4 shadow-sm">
-            <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-[color:var(--accent-amber)]/20 blur-2xl" />
-
+        {identity.verificationStatus === 'REJECTED' && (
+          <Alert className="relative overflow-hidden rounded-3xl border border-red-500/25 bg-red-500/10 p-4 shadow-sm">
+            <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-red-500/20 blur-2xl" />
             <div className="relative flex gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-(--accent-amber)/25 bg-(--accent-amber)/15">
-                <AlertCircle className="size-5 text-(--accent-amber)" />
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-red-500/25 bg-red-500/15">
+                <AlertCircle className="size-5 text-red-600" />
               </div>
-
               <div className="min-w-0 flex-1">
                 <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <AlertTitle className="text-sm font-bold tracking-tight text-foreground">
-                    Akses terbatas
+                  <AlertTitle className="text-sm font-bold tracking-tight text-red-900">
+                    Verifikasi NIK Ditolak
                   </AlertTitle>
-
-                  <span className="shrink-0 rounded-full bg-(--accent-amber)/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-(--accent-amber)">
-                    {identity.verificationStatus}
+                  <span className="shrink-0 rounded-full bg-red-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700">
+                    REJECTED
                   </span>
                 </div>
+                <AlertDescription className="text-xs leading-relaxed text-red-800">
+                  {identity.rejectionReason ? `Alasan: ${identity.rejectionReason}` : 'Hubungi admin RW/RT.'}
+                  <br />
+                  <button onClick={() => setActiveSheet('nik-inline-form')} className="mt-2 font-semibold underline hover:text-red-600 transition-colors">
+                    Silakan perbarui & ajukan ulang
+                  </button>
+                </AlertDescription>
+              </div>
+            </div>
+          </Alert>
+        )}
 
-                <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-                  {identity.verificationStatus === 'REJECTED'
-                    ? `Verifikasi ditolak. ${identity.rejectionReason ? `Alasan: ${identity.rejectionReason}` : 'Hubungi admin RW/RT.'}`
-                    : 'Akun Anda belum diverifikasi RW/RT. Sebagian fitur masih dikunci sampai proses verifikasi selesai.'}
+        {identity.verificationStatus === 'PENDING' && (
+          <Alert className="relative overflow-hidden rounded-3xl border border-amber-500/25 bg-amber-500/10 p-4 shadow-sm">
+            <div className="relative flex gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-amber-500/25 bg-amber-500/15">
+                <Clock className="size-5 text-amber-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <AlertTitle className="text-sm font-bold tracking-tight text-amber-900">
+                    Menunggu Verifikasi
+                  </AlertTitle>
+                </div>
+                <AlertDescription className="text-xs leading-relaxed text-amber-800">
+                  Data NIK Anda sedang ditinjau oleh Admin. Fitur premium seperti Mutasi dan Pengajuan KK akan terbuka otomatis setelah disetujui.
                 </AlertDescription>
               </div>
             </div>
@@ -862,24 +983,19 @@ export default function WargaHomePage() {
           </Alert>
         )}
 
-        <QuickActionsPanel isRestricted={isRestricted} onAction={openQuickActionSheet} />
+        <QuickActionsPanel verificationStatus={identity.verificationStatus} onAction={openQuickActionSheet} />
 
-        {isRestricted ? (
-          <VerificationRequiredCard
-            verificationStatus={identity.verificationStatus}
-            rejectionReason={identity.rejectionReason}
-            onCompleteProfile={() => router.push('/warga/settings/identity')}
-          />
-        ) : (
-          <>
+
             <FeatureCard
-              icon={Hammer}
-              judul="Bansos (Maintenance)"
-              deskripsi="Penyaluran bantuan sosial sedang dalam tahap perbaikan sistem."
+              icon={Gift}
+              judul="Bantuan Sosial"
+              deskripsi="Cek dan ajukan bantuan sosial untuk diri sendiri atau warga lain."
               badge="Bantuan Sosial"
               variant="large"
-              tone="slate"
-              onClick={() => setActiveSheet('bansos')}
+              tone="primary"
+              align="center"
+              showArrow={false}
+              onClick={() => openQuickActionSheet('bansos')}
               delay={50}
             />
 
@@ -891,7 +1007,9 @@ export default function WargaHomePage() {
                 badge="Pemilu"
                 variant="compact"
                 tone="primary"
-                onClick={() => setActiveSheet('pemilu')}
+                align="center"
+                showArrow={false}
+                onClick={() => openQuickActionSheet('pemilu')}
                 delay={100}
               />
 
@@ -902,7 +1020,9 @@ export default function WargaHomePage() {
                 badge="Laporan"
                 variant="compact"
                 tone="primary"
-                onClick={() => setActiveSheet('aspirasi')}
+                align="center"
+                showArrow={false}
+                onClick={() => openQuickActionSheet('aspirasi')}
                 delay={150}
               />
             </div>
@@ -977,8 +1097,50 @@ export default function WargaHomePage() {
                 </div>
               </section>
             ) : null}
-          </>
-        )}
+
+            {/* Agenda Kegiatan Minggu Ini */}
+            <section className="mt-2 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Agenda Minggu Ini</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Kegiatan RW yang akan datang</p>
+                </div>
+                <Button variant="ghost" size="sm" asChild className="text-xs font-semibold text-primary">
+                  <Link href="/warga/jadwal">Lihat Semua</Link>
+                </Button>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                {DUMMY_AGENDA.map((agenda) => (
+                  <div 
+                    key={agenda.id} 
+                    className="flex items-start gap-4 rounded-3xl border border-input bg-card p-4 shadow-sm transition hover:shadow-md cursor-pointer"
+                    onClick={() => {
+                      setSelectedAgenda(agenda);
+                      setActiveSheet('agenda');
+                    }}
+                  >
+                    <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <span className="text-[10px] font-bold uppercase leading-none">{agenda.tanggal.split(',')[0]}</span>
+                      <span className="mt-1 text-lg font-black leading-none">{agenda.tanggal.split(' ')[2]}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="secondary" className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-none ${agenda.bg} ${agenda.color}`}>
+                          {agenda.kategori}
+                        </Badge>
+                        <span className="text-[10px] font-bold text-primary">{agenda.waktu}</span>
+                      </div>
+                      <h3 className="mt-2 truncate text-sm font-bold text-foreground">{agenda.judul}</h3>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate">{agenda.lokasi}</span>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
 
         <CommentCarousel refreshKey={aspirationRefreshKey} />
       </WargaPageBody>
@@ -986,18 +1148,110 @@ export default function WargaHomePage() {
       <SlideUpSheet
         isOpen={activeSheet === 'bansos'}
         onClose={closeSheet}
-        title="Fitur Bansos Belum Aktif"
-        deskripsi="Penyaluran Bantuan Sosial sedang dalam pembaruan sistem."
+        title={
+          identity.verificationStatus === 'NONE' ? 'Fitur Terkunci' :
+          identity.verificationStatus === 'REJECTED' ? 'Verifikasi Ditolak' :
+          identity.verificationStatus === 'PENDING' ? 'Menunggu Verifikasi' :
+          'Bantuan Sosial'
+        }
+        deskripsi={
+          identity.verificationStatus === 'VERIFIED' 
+            ? 'Program Bantuan Sosial khusus warga RW 025.'
+            : undefined
+        }
       >
-        <div className="flex flex-col items-center justify-center p-6 text-center">
-          <div className="rounded-full bg-slate-100 p-6 mb-6">
-            <Hammer className="h-12 w-12 text-slate-500" />
+        {identity.verificationStatus === 'NONE' && (
+          <div className="flex flex-col gap-4 p-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mb-2">
+              <div className="flex items-start gap-3">
+                <LockKeyhole className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">Akses Terkunci (Tier 1)</p>
+                  <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                    Anda perlu melengkapi Nomor Induk Kependudukan (NIK) untuk mengakses fitur bansos. Data Anda dijamin aman.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <FormInput
+              label="Nomor Induk Kependudukan (NIK)"
+              placeholder="Masukkan 16 digit NIK Anda"
+              value={newNik}
+              onChange={(e) => setNewNik(e.target.value.replace(/\D/g, '').slice(0, 16))}
+              maxLength={16}
+              inputMode="numeric"
+            />
+            
+            <div className="flex justify-end gap-3 mt-2">
+              <Button variant="outline" onClick={closeSheet} className="rounded-xl h-12 px-6">Batal</Button>
+              <Button onClick={handleSubmitNik} disabled={newNik.length !== 16} className="rounded-xl h-12 px-6 bg-primary">
+                Simpan & Lanjutkan
+              </Button>
+            </div>
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Sedang Dalam Perbaikan</h3>
-          <p className="max-w-xs text-sm text-slate-500">
-            Modul pengajuan Bantuan Sosial belum diaktifkan oleh admin karena sedang dalam tahap pembaruan sistem. Silakan kembali lagi nanti.
-          </p>
-        </div>
+        )}
+
+        {identity.verificationStatus === 'REJECTED' && (
+          <div className="flex flex-col gap-4 p-4">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 mb-2">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-red-800">Verifikasi NIK Ditolak</p>
+                  <p className="mt-1 text-xs text-red-700 leading-relaxed">
+                    Pengajuan NIK Anda sebelumnya ditolak oleh admin dengan alasan: <b>"Data KK tidak sesuai"</b>. Silakan periksa kembali dan ajukan ulang.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <FormInput
+              label="Nomor Induk Kependudukan (NIK) Baru"
+              placeholder="Masukkan 16 digit NIK Anda"
+              value={newNik}
+              onChange={(e) => setNewNik(e.target.value.replace(/\D/g, '').slice(0, 16))}
+              maxLength={16}
+              inputMode="numeric"
+            />
+            
+            <div className="flex justify-end gap-3 mt-2">
+              <Button variant="outline" onClick={closeSheet} className="rounded-xl h-12 px-6">Batal</Button>
+              <Button onClick={handleSubmitNik} disabled={newNik.length !== 16} className="rounded-xl h-12 px-6 bg-primary">
+                Ajukan Ulang Verifikasi
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {identity.verificationStatus === 'PENDING' && (
+          <div className="flex flex-col items-center justify-center p-6 text-center">
+            <div className="rounded-full bg-amber-100 p-6 mb-6">
+              <Clock className="h-12 w-12 text-amber-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Menunggu Verifikasi (Tier 2)</h3>
+            <p className="max-w-xs text-sm text-slate-500">
+              Pengajuan NIK Anda sedang ditinjau oleh Admin. Fitur Bantuan Sosial akan terbuka secara otomatis setelah disetujui.
+            </p>
+            <Button variant="outline" onClick={closeSheet} className="w-full mt-8 rounded-xl h-12">
+              Tutup
+            </Button>
+          </div>
+        )}
+
+        {identity.verificationStatus === 'VERIFIED' && (
+          <div className="p-4">
+            <BansosFlow 
+              onClose={closeSheet} 
+              identity={{
+                name: identity.userName,
+                nik: identity.maskedNik,
+                hasKk: false,
+                familyMembers: [],
+              }}
+            />
+          </div>
+        )}
       </SlideUpSheet>
 
       <SlideUpSheet
@@ -1050,6 +1304,50 @@ export default function WargaHomePage() {
             {submitting === 'pemilu' ? 'Memproses...' : 'Konfirmasi'}
           </Button>
         </div>
+      </SlideUpSheet>
+
+      <SlideUpSheet
+        isOpen={activeSheet === 'agenda'}
+        onClose={closeSheet}
+        title="Detail Kegiatan"
+      >
+        {selectedAgenda && (
+          <div className="flex flex-col gap-4 p-4 pb-8">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="secondary" className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider shadow-none ${selectedAgenda.bg} ${selectedAgenda.color}`}>
+                {selectedAgenda.kategori}
+              </Badge>
+            </div>
+            <h3 className="text-xl font-bold text-foreground">{selectedAgenda.judul}</h3>
+            
+            <div className="grid grid-cols-1 gap-3 mt-2 rounded-2xl bg-slate-50 p-4 border border-slate-100">
+              <div className="flex items-start gap-3">
+                <Clock className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">{selectedAgenda.tanggal}</span>
+                  <span className="text-xs text-muted-foreground">{selectedAgenda.waktu}</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">{selectedAgenda.lokasi}</span>
+                </div>
+              </div>
+            </div>
+
+            {selectedAgenda.deskripsi && (
+              <div className="mt-2">
+                <h4 className="text-sm font-bold text-foreground mb-1">Deskripsi Kegiatan</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">{selectedAgenda.deskripsi}</p>
+              </div>
+            )}
+            
+            <Button className="w-full mt-4 rounded-full" onClick={closeSheet}>
+              Tutup
+            </Button>
+          </div>
+        )}
       </SlideUpSheet>
 
       <SlideUpSheet
@@ -1617,6 +1915,61 @@ export default function WargaHomePage() {
           </div>
         </StatusPopup>
       )}
+
+      {/* INLINE NIK FORM */}
+      <SlideUpSheet
+        isOpen={activeSheet === 'nik-inline-form'}
+        onClose={closeSheet}
+        title={identity.verificationStatus === 'REJECTED' ? 'Perbarui NIK Anda' : 'Isi NIK untuk Melanjutkan'}
+        deskripsi="Fitur ini membutuhkan verifikasi identitas (NIK) oleh admin RW."
+      >
+        <div className="p-4 flex flex-col gap-4">
+          <form onSubmit={handleInlineNikSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-semibold text-slate-800">Nomor Induk Kependudukan (NIK)</Label>
+              <Input
+                value={pendudukForm.nik}
+                onChange={(e) => updatePendudukForm('nik', e.target.value)}
+                placeholder="16 Digit NIK sesuai KTP"
+                maxLength={16}
+                required
+              />
+            </div>
+            
+            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
+              <p className="text-sm text-blue-700 leading-relaxed">
+                Setelah mengirim NIK, akun Anda akan berstatus <strong>Menunggu Verifikasi</strong>. Fitur akan terbuka otomatis setelah disetujui admin.
+              </p>
+            </div>
+
+            <Button type="submit" disabled={submitting === 'penduduk'} className="w-full rounded-xl h-12 mt-2">
+              {submitting === 'penduduk' ? 'Menyimpan...' : 'Kirim & Ajukan Verifikasi'}
+            </Button>
+          </form>
+        </div>
+      </SlideUpSheet>
+
+      {/* PENDING VERIFICATION SHEET */}
+      <SlideUpSheet
+        isOpen={activeSheet === 'pending-verification'}
+        onClose={closeSheet}
+        title="Menunggu Verifikasi"
+        deskripsi="Data Anda sedang ditinjau."
+      >
+        <div className="flex flex-col items-center justify-center p-6 text-center">
+          <div className="rounded-full bg-amber-100 p-6 mb-6">
+            <Clock className="h-12 w-12 text-amber-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Verifikasi Sedang Diproses</h3>
+          <p className="max-w-xs text-sm text-slate-500">
+            Admin RW/RT sedang memvalidasi data NIK Anda. Fitur ini akan otomatis terbuka setelah akun disetujui.
+          </p>
+          <Button onClick={closeSheet} variant="outline" className="mt-6 w-full rounded-xl h-12">
+            Kembali
+          </Button>
+        </div>
+      </SlideUpSheet>
+
 
       {popup && !bansosResult && !pemiluResult && (
         <StatusPopup

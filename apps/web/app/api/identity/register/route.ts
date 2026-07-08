@@ -8,7 +8,7 @@ import { getDb } from "@/lib/db";
 import { user, userIdentity } from "@/lib/db/schema";
 import auth from "@/lib/auth";
 import { env } from "@/lib/env";
-import { encryptNik, hashNik, nikParts, normalizeNik } from "@/lib/security/nik";
+import { encryptNik, hashNik, nikParts, normalizeNik, maskNikFromParts } from "@/lib/security/nik";
 
 const identityFieldsSchema = createCitizenSchema.pick({
   nik: true,
@@ -174,7 +174,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       data: {
         verificationStatus: created.verificationStatus,
-        maskedNik: `${first4}********${last4}`,
+        maskedNik: maskNikFromParts(first4, last4),
       },
     });
   } catch (e: unknown) {
