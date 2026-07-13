@@ -17,6 +17,7 @@ import {
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
 import { useSyncVersions } from '@/lib/use-sync-versions';
+import { useActionToast } from '@/lib/use-action-toast';
 import { maskSensitiveNumber } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
@@ -50,6 +51,9 @@ function getStatusLabel(status: MutationRow['status']) {
 }
 
 export default function MutasiPage() {
+  const { runWithToast, toast } = useActionToast();
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectMode, setRejectMode] = useState(false);
   const [rows, setRows] = useState<MutationRow[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -129,6 +133,36 @@ export default function MutasiPage() {
       }
     },
   });
+
+  const handleDecision = async (mutation: MutationRow, decision: 'APPROVED' | 'REJECTED') => {
+    if (decision === 'REJECTED' && !rejectReason.trim()) {
+      toast({ title: 'Alasan wajib diisi', description: 'Silakan tulis alasan penolakan.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const res = await runWithToast(
+        () =>
+          platformFetch<MutationRow>(`/admin/mutations/${mutation.id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              status: decision,
+              ...(decision === 'REJECTED' ? { reason: rejectReason.trim() } : {}),
+            }),
+          }),
+        {
+          loading: decision === 'APPROVED' ? 'Menyetujui mutasi...' : 'Menolak mutasi...',
+          success: decision === 'APPROVED' ? 'Mutasi disetujui' : 'Mutasi ditolak',
+          error: 'Gagal memperbarui status mutasi',
+        },
+      );
+      setRows((prev) => prev.map((r) => (r.id === mutation.id ? { ...r, status: res.data.status } : r)));
+      setViewedMutasi(null);
+      setRejectMode(false);
+      setRejectReason('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const filteredRows = rows;
 
@@ -454,6 +488,31 @@ export default function MutasiPage() {
                 </div>
                 <p className="mt-2 text-sm font-medium text-[#1E293B]">{detail.keteranganStatus}</p>
               </div>
+
+              {viewedMutasi.status === 'PENDING' && (
+                <div className="flex flex-col gap-3 rounded-xl border border-gray-100 p-4">
+                  {rejectMode ? (
+                    <>
+                      <p className="text-sm font-semibold text-[#1E293B]">Alasan penolakan</p>
+                      <Input
+                        value={rejectReason}
+                        onChange={(e: any) => setRejectReason(e.target.value)}
+                        placeholder="Tulis alasan..."
+                        className="rounded-xl"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => { setRejectMode(false); setRejectReason(''); }} className="rounded-xl">Batal</Button>
+                        <Button onClick={() => handleDecision(viewedMutasi, 'REJECTED')} className="rounded-xl bg-red-600 text-white hover:bg-red-700">Kirim Penolakan</Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setRejectMode(true)} className="rounded-xl border-red-200 text-red-600 hover:bg-red-50">Tolak</Button>
+                      <Button onClick={() => handleDecision(viewedMutasi, 'APPROVED')} className="rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">Setujui</Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="text-right text-xs font-semibold text-gray-400">
                 Diajukan pada:{' '}

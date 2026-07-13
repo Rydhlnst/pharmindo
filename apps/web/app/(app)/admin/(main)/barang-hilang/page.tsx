@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { 
   Archive, 
   CheckCircle, 
@@ -22,8 +22,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 
-import { DUMMY_BARANG_HILANG, DUMMY_STATS } from '@/lib/dummy-barang-hilang';
-import type { LaporanBarangHilang, ReportPriority, ReportStatus } from '@/types/barang-hilang';
+import { platformFetch } from '@/lib/api/platform';
+import { mapBackendBarangHilang, type BackendBarangHilang } from '@/lib/barang-hilang-mapper';
+import type { LaporanBarangHilang, ReportPriority, ReportStatus, StatsResponse } from '@/types/barang-hilang';
 
 const STATUS_CONFIG: Record<ReportStatus, { label: string; color: string; badge: string }> = {
   pending_verification: { label: 'Menunggu Verifikasi', color: '#888780', badge: 'bg-gray-100 text-gray-600 border-gray-200' },
@@ -44,10 +45,40 @@ export default function LaporanBarangHilangPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReportStatus | 'ALL'>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<ReportPriority | 'ALL'>('ALL');
-  
-  // Local filtering
+  const [items, setItems] = useState<LaporanBarangHilang[]>([]);
+  const [stats, setStats] = useState<StatsResponse['byStatus'] & { total: number }>({
+    total: 0,
+    pending_verification: 0,
+    in_verification: 0,
+    processing: 0,
+    resolved: 0,
+    rejected: 0,
+    archived: 0,
+  });
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const [listRes, statsRes] = await Promise.all([
+          platformFetch<BackendBarangHilang[]>('/admin/barang-hilang?limit=100'),
+          platformFetch<{ total: number; byStatus: Record<ReportStatus, number> }>('/admin/barang-hilang/stats'),
+        ]);
+        if (!active) return;
+        setItems((listRes.data ?? []).map(mapBackendBarangHilang));
+        setStats({ total: statsRes.data.total, ...statsRes.data.byStatus });
+      } catch (err) {
+        console.error(err);
+        if (!active) return;
+        setItems([]);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, []);
+
   const filteredData = useMemo(() => {
-    return DUMMY_BARANG_HILANG.filter((item) => {
+    return items.filter((item) => {
       const matchSearch = item.reporter.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           item.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase());
@@ -56,7 +87,7 @@ export default function LaporanBarangHilangPage() {
       
       return matchSearch && matchStatus && matchPriority;
     });
-  }, [searchQuery, statusFilter, priorityFilter]);
+  }, [items, searchQuery, statusFilter, priorityFilter]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,33 +102,33 @@ export default function LaporanBarangHilangPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           label="Total Laporan"
-          value={DUMMY_STATS.total}
+          value={stats.total}
           icon={Files}
-          delta={DUMMY_STATS.total}
+          delta={stats.total}
           deltaSuffix="Laporan"
           bg="bg-gradient-to-br from-[#2563EB] to-[#3B82F6]"
         />
         <SummaryCard
           label="Menunggu Verifikasi"
-          value={DUMMY_STATS.byStatus.pending_verification}
+          value={stats.pending_verification}
           icon={ClockClockwise}
-          delta={DUMMY_STATS.byStatus.pending_verification}
+          delta={stats.pending_verification}
           deltaSuffix="Baru"
           bg="bg-gradient-to-br from-[#4F86F0] to-[#6AA1F7]"
         />
         <SummaryCard
           label="Sedang Diproses"
-          value={DUMMY_STATS.byStatus.processing}
+          value={stats.processing}
           icon={WarningCircle}
-          delta={DUMMY_STATS.byStatus.processing}
+          delta={stats.processing}
           deltaSuffix="Diproses"
           bg="bg-gradient-to-br from-[#7CA8F8] to-[#93BCF9]"
         />
         <SummaryCard
           label="Selesai Total"
-          value={DUMMY_STATS.byStatus.resolved}
+          value={stats.resolved}
           icon={CheckCircle}
-          delta={DUMMY_STATS.byStatus.resolved}
+          delta={stats.resolved}
           deltaSuffix="Selesai"
           bg="bg-gradient-to-br from-[#2563EB] to-[#6AA1F7]"
         />

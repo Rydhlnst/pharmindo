@@ -19,6 +19,7 @@ import { adminActivitiesRoutes, scheduleRoutes } from "./routes/activities.js";
 import { aspirationsRoutes } from "./routes/aspirations.js";
 import { adminAspirationsRoutes } from "./routes/admin-aspirations.js";
 import { adminBansosRoutes, bansosRoutes } from "./routes/bansos.js";
+import { adminBarangHilangRoutes, barangHilangRoutes } from "./routes/barang-hilang.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { historyRoutes } from "./routes/history.js";
 import { householdsRoutes } from "./routes/households.js";
@@ -303,6 +304,7 @@ export function createApp() {
   app.route("/admin/mutations", mutationsRoutes);
   app.route("/admin/activities", adminActivitiesRoutes);
   app.route("/admin/bansos", adminBansosRoutes);
+  app.route("/admin/barang-hilang", adminBarangHilangRoutes);
   app.route("/admin/pemilu", adminPemiluRoutes);
   app.route("/admin/dashboard", dashboardRoutes);
   app.route("/admin/admin-users", adminUsersRoutes);
@@ -310,6 +312,7 @@ export function createApp() {
   app.route("/admin/reports", reportsRoutes);
   app.route("/services", servicesRoutes);
   app.route("/bansos", bansosRoutes);
+  app.route("/barang-hilang", barangHilangRoutes);
   app.route("/pemilu", pemiluRoutes);
   app.route("/history", historyRoutes);
   app.route("/schedule", scheduleRoutes);

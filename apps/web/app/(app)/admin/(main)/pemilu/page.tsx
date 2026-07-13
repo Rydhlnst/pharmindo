@@ -104,7 +104,8 @@ export default function AdminPemiluPage() {
       ) : (
         <div className="grid gap-4">
           {items.map((item) => (
-            <Card key={item.id} className="rounded-3xl border border-[color:var(--admin-border)] bg-[color:var(--admin-surface)] p-6 shadow-sm">
+            <Link key={item.id} href={`/admin/pemilu/${item.id}`} className="block">
+            <Card className="rounded-3xl border border-[color:var(--admin-border)] bg-[color:var(--admin-surface)] p-6 shadow-sm transition hover:border-[color:var(--admin-primary)]">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--admin-primary-soft)] text-[color:var(--admin-primary)]">
@@ -152,6 +153,7 @@ export default function AdminPemiluPage() {
                 ))}
               </div>
             </Card>
+            </Link>
           ))}
         </div>
       )}

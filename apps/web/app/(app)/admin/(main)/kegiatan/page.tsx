@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 import { type ChangeEvent, useEffect, useState } from 'react';
-import { CalendarBlank as CalendarDays, MapPin, Clock, MagnifyingGlass as Search, Plus } from '@phosphor-icons/react';
+import { CalendarBlank as CalendarDays, MapPin, Clock, MagnifyingGlass as Search, Plus, PencilSimple as Pencil, Trash as Trash2 } from '@phosphor-icons/react';
 
 import { ActivityTimeRangeField } from '@/components/admin/ActivityTimeRangeField';
 import { cn } from '@/lib/utils';
@@ -77,6 +77,7 @@ export default function KegiatanPage() {
   const [newDeskripsi, setNewDeskripsi] = useState('');
   const [newRecurring, setNewRecurring] = useState<'NONE' | 'WEEKLY' | 'MONTHLY'>('NONE');
   const [timeError, setTimeError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -110,6 +111,45 @@ export default function KegiatanPage() {
     })
     .sort(compareActivityDate);
 
+  const openEdit = (ev: ActivityItem) => {
+    setEditingId(ev.id);
+    setNewJudul(ev.title);
+    setNewKategori(ev.category);
+    setNewTanggal(ev.date);
+    setNewStartTime(ev.startTime ?? '');
+    setNewEndTime(ev.endTime ?? '');
+    setNewLokasi(ev.location);
+    setNewDeskripsi(ev.description);
+    setNewRecurring(ev.recurring ?? 'NONE');
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (ev: ActivityItem) => {
+    if (!confirm(`Hapus kegiatan "${ev.title}"?`)) return;
+    try {
+      await runWithToast(
+        () => platformFetch(`/admin/activities/${ev.id}`, { method: 'DELETE' }),
+        { loading: 'Menghapus kegiatan...', success: 'Kegiatan dihapus', error: 'Gagal menghapus kegiatan' },
+      );
+      setJadwal((prev) => prev.filter((item) => item.id !== ev.id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setNewJudul('');
+    setNewKategori('rapat');
+    setNewTanggal('');
+    setNewStartTime('');
+    setNewEndTime('');
+    setNewLokasi('');
+    setNewDeskripsi('');
+    setNewRecurring('NONE');
+    setTimeError(null);
+  };
+
   const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newJudul || !newTanggal || !newStartTime || !newEndTime || !newLokasi || !newDeskripsi) return;
@@ -121,39 +161,34 @@ export default function KegiatanPage() {
     setTimeError(null);
 
     try {
+      const body = JSON.stringify({
+        title: newJudul,
+        description: newDeskripsi,
+        location: newLokasi,
+        category: newKategori,
+        date: newTanggal,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        recurring: newRecurring,
+      });
       const response = await runWithToast(
         () =>
-          platformFetch<ActivityItem>('/admin/activities', {
-            method: 'POST',
-            body: JSON.stringify({
-              title: newJudul,
-              description: newDeskripsi,
-              location: newLokasi,
-              category: newKategori,
-              date: newTanggal,
-              startTime: newStartTime,
-              endTime: newEndTime,
-              recurring: newRecurring,
-            }),
-          }),
+          editingId
+            ? platformFetch<ActivityItem>(`/admin/activities/${editingId}`, { method: 'PATCH', body })
+            : platformFetch<ActivityItem>('/admin/activities', { method: 'POST', body }),
         {
-          loading: 'Menyimpan kegiatan...',
-          success: 'Kegiatan berhasil dibuat',
-          error: 'Gagal menyimpan kegiatan',
+          loading: editingId ? 'Menyimpan perubahan...' : 'Menyimpan kegiatan...',
+          success: editingId ? 'Kegiatan diperbarui' : 'Kegiatan berhasil dibuat',
+          error: editingId ? 'Gagal memperbarui kegiatan' : 'Gagal menyimpan kegiatan',
         },
       );
 
-      setJadwal((prev) => [response.data, ...prev]);
+      setJadwal((prev) => {
+        if (editingId) return prev.map((item) => (item.id === editingId ? response.data : item));
+        return [response.data, ...prev];
+      });
       setIsModalOpen(false);
-      setNewJudul('');
-      setNewKategori('rapat');
-      setNewTanggal('');
-      setNewStartTime('');
-      setNewEndTime('');
-      setNewLokasi('');
-      setNewDeskripsi('');
-      setNewRecurring('NONE');
-      setTimeError(null);
+      resetForm();
     } catch (error) {
       console.error(error);
     }
@@ -229,9 +264,27 @@ export default function KegiatanPage() {
                       <span className="mt-0.5 text-[10px] font-bold uppercase leading-none text-[color:var(--admin-subtle)]">{monthStr}</span>
                     </div>
 
-                    <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider', colors.bg, colors.text)}>
-                      {ev.category}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider', colors.bg, colors.text)}>
+                        {ev.category}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(ev)}
+                        className="rounded-full p-1.5 text-[color:var(--admin-subtle)] hover:bg-[color:var(--admin-surface-muted)] hover:text-primary"
+                        aria-label="Edit kegiatan"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(ev)}
+                        className="rounded-full p-1.5 text-red-500 hover:bg-red-50"
+                        aria-label="Hapus kegiatan"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <h3 className="mt-4 text-base font-bold text-[color:var(--admin-heading)] transition-colors group-hover:text-primary">{ev.title}</h3>
@@ -262,10 +315,10 @@ export default function KegiatanPage() {
         </div>
       )}
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[color:var(--admin-heading)]">Tambah Kegiatan RW</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-[color:var(--admin-heading)]">{editingId ? 'Edit Kegiatan' : 'Tambah Kegiatan RW'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddEvent} className="mt-4 flex flex-col gap-4">
             <div>
@@ -365,7 +418,7 @@ export default function KegiatanPage() {
               type="submit"
               className="mt-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition hover:bg-[color:var(--admin-primary-strong)]"
             >
-              Simpan Kegiatan
+              {editingId ? 'Simpan Perubahan' : 'Simpan Kegiatan'}
             </Button>
           </form>
         </DialogContent>

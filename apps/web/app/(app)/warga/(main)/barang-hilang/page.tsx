@@ -1,11 +1,36 @@
-import { DUMMY_LAPORAN_SAYA } from '@/lib/dummy-barang-hilang';
-import EmptyState from '@/components/warga/barang-hilang/EmptyState';
-import LaporanList from '@/components/warga/barang-hilang/LaporanList';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+import EmptyState from '@/components/warga/barang-hilang/EmptyState';
+import LaporanList from '@/components/warga/barang-hilang/LaporanList';
+import { platformFetch } from '@/lib/api/platform';
+import { mapBackendBarangHilang, type BackendBarangHilang } from '@/lib/barang-hilang-mapper';
+import type { LaporanBarangHilang } from '@/types/barang-hilang';
+
 export default function BarangHilangWargaPage() {
-  const data = DUMMY_LAPORAN_SAYA;
+  const [data, setData] = useState<LaporanBarangHilang[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await platformFetch<BackendBarangHilang[]>('/barang-hilang?limit=50');
+        if (!active) return;
+        setData((res.data ?? []).map(mapBackendBarangHilang));
+      } catch (err) {
+        console.error(err);
+        if (active) setData([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, []);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-24 pt-6 px-4">
@@ -20,7 +45,9 @@ export default function BarangHilangWargaPage() {
           </div>
         </div>
 
-        {data.length === 0 ? (
+        {loading ? (
+          <div className="text-center text-sm text-slate-500 py-8">Memuat laporan...</div>
+        ) : data.length === 0 ? (
           <EmptyState />
         ) : (
           <LaporanList data={data} />

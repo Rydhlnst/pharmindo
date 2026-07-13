@@ -105,6 +105,8 @@ export default function DetailKartuKeluargaPage() {
   const [memberToDelete, setMemberToDelete] = useState<HouseholdMember | null>(null);
   const [memberToEdit, setMemberToEdit] = useState<HouseholdMember | null>(null);
   const [editForm, setEditForm] = useState({ relationship: '', birthDate: '', occupation: '' });
+  const [isEditingKk, setIsEditingKk] = useState(false);
+  const [kkForm, setKkForm] = useState({ kkNumber: '', address: '', rt: '', rw: '' });
 
   useEffect(() => {
     let active = true;
@@ -224,6 +226,38 @@ export default function DetailKartuKeluargaPage() {
     }
   };
 
+  const openEditKk = () => {
+    if (!detail) return;
+    setKkForm({
+      kkNumber: detail.kkNumber ?? '',
+      address: detail.address ?? '',
+      rt: detail.rt ?? '',
+      rw: detail.rw ?? '',
+    });
+    setIsEditingKk(true);
+  };
+
+  const handleSaveKk = async () => {
+    try {
+      const res = await runWithToast(
+        () =>
+          platformFetch<HouseholdDetail>(`/admin/households/${householdId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(kkForm),
+          }),
+        {
+          loading: 'Menyimpan perubahan KK...',
+          success: 'Data kartu keluarga diperbarui',
+          error: 'Gagal memperbarui data kartu keluarga',
+        },
+      );
+      setDetail((prev) => (prev ? { ...prev, ...res.data } : res.data));
+      setIsEditingKk(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const members = detail?.members ?? [];
 
   if (loading && !detail && !loadError) {
@@ -255,6 +289,14 @@ export default function DetailKartuKeluargaPage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={openEditKk}
+            className="flex h-11 items-center gap-2 rounded-xl border-gray-200 px-4 text-sm font-semibold text-[#3B82F6] transition hover:bg-gray-50"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit KK
+          </Button>
           <Button
             variant="outline"
             className="flex items-center justify-center rounded-xl h-11 w-12 border-gray-200 text-[#3B82F6] transition hover:bg-gray-50"
@@ -429,6 +471,50 @@ export default function DetailKartuKeluargaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isEditingKk} onOpenChange={setIsEditingKk}>
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-[#1E293B]">Edit Kartu Keluarga</DialogTitle>
+            <DialogDescription className="text-sm text-[#64748B]">
+              Perbarui nomor KK, alamat, dan RT/RW.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-2">
+              <Label className="font-bold text-[#1E293B]">Nomor KK</Label>
+              <Input
+                value={kkForm.kkNumber}
+                onChange={(e) => setKkForm({ ...kkForm, kkNumber: e.target.value.replace(/\D/g, '') })}
+                maxLength={16}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="font-bold text-[#1E293B]">Alamat</Label>
+              <Input value={kkForm.address} onChange={(e) => setKkForm({ ...kkForm, address: e.target.value })} className="rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label className="font-bold text-[#1E293B]">RT</Label>
+                <Input value={kkForm.rt} onChange={(e) => setKkForm({ ...kkForm, rt: e.target.value })} className="rounded-xl" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="font-bold text-[#1E293B]">RW</Label>
+                <Input value={kkForm.rw} onChange={(e) => setKkForm({ ...kkForm, rw: e.target.value })} className="rounded-xl" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4 gap-2">
+            <Button variant="outline" onClick={() => setIsEditingKk(false)} className="flex-1 rounded-xl">
+              Batal
+            </Button>
+            <Button onClick={handleSaveKk} className="flex-1 rounded-xl bg-[#3B82F6] text-white hover:bg-blue-700">
+              Simpan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!memberToEdit} onOpenChange={(open) => !open && setMemberToEdit(null)}>
         <DialogContent className="max-w-md rounded-3xl p-6 max-h-[90vh] overflow-y-auto">

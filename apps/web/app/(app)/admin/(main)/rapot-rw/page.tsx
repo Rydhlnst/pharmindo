@@ -525,6 +525,13 @@ export default function RapotPage() {
               Unduh PDF
             </Button>
             <Button
+              onClick={() => window.open(`/api/platform/admin/reports/export/xlsx${exportQuery}`, '_blank')}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#DCFCE7] px-4 py-2.5 text-sm font-semibold text-[#16A34A] transition hover:bg-[#BBF7D0]"
+            >
+              <Download className="h-4 w-4" />
+              Unduh XLSX
+            </Button>
+            <Button
               onClick={() => window.open(`/api/platform/admin/reports/export/csv${exportQuery}`, '_blank')}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#EFF6FF] px-4 py-2.5 text-sm font-semibold text-[#2563EB] transition hover:bg-[#DBEAFE]"
             >

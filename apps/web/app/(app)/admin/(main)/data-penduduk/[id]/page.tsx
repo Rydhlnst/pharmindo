@@ -66,9 +66,17 @@ export default async function CitizenDetailPage({
           <h1 className="mt-3 text-2xl font-bold text-[#1E293B]">{citizen.name}</h1>
           <p className="mt-1 text-sm text-[#64748B]">NIK {maskSensitiveNumber(citizen.nik)}</p>
         </div>
-        <span className="rounded-full bg-[#EAF2FF] px-4 py-2 text-sm font-semibold text-[#2563EB]">
-          {citizen.status}
-        </span>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/data-penduduk/${citizen.id}/edit`}
+            className="rounded-full bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1D4ED8]"
+          >
+            Edit Data
+          </Link>
+          <span className="rounded-full bg-[#EAF2FF] px-4 py-2 text-sm font-semibold text-[#2563EB]">
+            {citizen.status}
+          </span>
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">

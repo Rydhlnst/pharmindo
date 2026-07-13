@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -23,7 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useActionToast } from '@/lib/use-action-toast';
 
-import { DUMMY_BARANG_HILANG } from '@/lib/dummy-barang-hilang';
+import { platformFetch } from '@/lib/api/platform';
+import { mapBackendBarangHilang, type BackendBarangHilang } from '@/lib/barang-hilang-mapper';
 import type { LaporanBarangHilang, ReportStatus, ReportPriority } from '@/types/barang-hilang';
 
 const STATUS_CONFIG: Record<ReportStatus, { label: string; color: string; badge: string }> = {
@@ -49,24 +50,50 @@ export default function LaporanDetail({ params }: { params: Promise<{ id: string
   const resolvedParams = use(params);
   const id = resolvedParams.id;
   
-  const initialData = DUMMY_BARANG_HILANG.find((x) => x.id === id);
-  const [data, setData] = useState<LaporanBarangHilang | null>(initialData || null);
-  
-  const [localStatus, setLocalStatus] = useState<ReportStatus>(data?.status || 'pending_verification');
-  const [localPriority, setLocalPriority] = useState<ReportPriority>(data?.priority || 'medium');
-  const [localAdminNotes, setLocalAdminNotes] = useState(data?.adminNotes || '');
-  const [localAdminReply, setLocalAdminReply] = useState(data?.adminReply || '');
-  const [checklist, setChecklist] = useState(data?.verificationChecklist || {
+  const [data, setData] = useState<LaporanBarangHilang | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [localStatus, setLocalStatus] = useState<ReportStatus>('pending_verification');
+  const [localPriority, setLocalPriority] = useState<ReportPriority>('medium');
+  const [localAdminNotes, setLocalAdminNotes] = useState('');
+  const [localAdminReply, setLocalAdminReply] = useState('');
+  const [checklist, setChecklist] = useState({
     identityComplete: false,
     descriptionAdequate: false,
     photoAttached: false,
     chronicleClear: false,
-    whatsappVerified: false
+    whatsappVerified: false,
   });
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await platformFetch<BackendBarangHilang>(`/admin/barang-hilang/${id}`);
+        if (!active) return;
+        const mapped = mapBackendBarangHilang(res.data);
+        setData(mapped);
+        setLocalStatus(mapped.status);
+        setLocalPriority(mapped.priority);
+        setLocalAdminNotes(mapped.adminNotes ?? '');
+        setLocalAdminReply(mapped.adminReply ?? '');
+        setChecklist(mapped.verificationChecklist);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [id]);
   
   const [targetRTs, setTargetRTs] = useState<string[]>([]);
   const [channels, setChannels] = useState<string[]>(['inapp']);
 
+  if (loading) {
+    return <div className="flex min-h-[50vh] items-center justify-center text-slate-500">Memuat laporan...</div>;
+  }
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh]">
@@ -115,19 +142,18 @@ export default function LaporanDetail({ params }: { params: Promise<{ id: string
 
     await runWithToast(
       async () => {
-        // Mock save delay
-        await new Promise(res => setTimeout(res, 800));
-        
-        // Mock actual save locally
-        setData(prev => prev ? ({
-          ...prev,
-          status: isBroadcast ? 'processing' : localStatus,
-          priority: localPriority,
-          adminNotes: localAdminNotes,
-          adminReply: localAdminReply,
-          verificationChecklist: checklist
-        }) : null);
-        
+        const nextStatus: ReportStatus = isBroadcast ? 'processing' : localStatus;
+        const res = await platformFetch<BackendBarangHilang>(`/admin/barang-hilang/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: nextStatus,
+            priority: localPriority,
+            adminNotes: localAdminNotes || null,
+            adminReply: localAdminReply || null,
+            verificationChecklist: checklist,
+          }),
+        });
+        setData(mapBackendBarangHilang(res.data));
         if (isBroadcast) setLocalStatus('processing');
       },
       {
