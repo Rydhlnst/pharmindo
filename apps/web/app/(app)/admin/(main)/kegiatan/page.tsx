@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 import { Textarea } from '@/components/ui/textarea';
 import { formatActivityTimeRange, isValidTimeRange } from '@/lib/activity-time';
-import { useSyncVersions } from '@/hooks/use-sync-versions';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { useActionToast } from '@/lib/use-action-toast';
 
 type EventCategory = 'rapat' | 'kesehatan' | 'sosial' | 'keamanan' | 'posyandu' | 'sampah' | 'siskamling' | 'lainnya';

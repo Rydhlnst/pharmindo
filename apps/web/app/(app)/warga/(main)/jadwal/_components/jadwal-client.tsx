@@ -6,7 +6,7 @@ import { CalendarDays, ChevronDown, Clock, MapPin, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { platformFetch } from '@/lib/api/platform';
 import { formatActivityTimeRange } from '@/lib/activity-time';
-import { useSyncVersions } from '@/hooks/use-sync-versions';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import PageHeader from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
