@@ -380,12 +380,12 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
       .select()
       .from(serviceRequest)
       .where(and(eq(serviceRequest.requestedBy, sessionUser.id), eq(serviceRequest.type, "BANSOS_APPLICATION")));
-    const duplicatePending = existingRequests.find((row) => {
+    const duplicateActive = existingRequests.find((row) => {
       const payload = row.payload as Record<string, unknown>;
-      return row.status === "PENDING" && payload.programId === programRow.id;
+      return (row.status === "PENDING" || row.status === "APPROVED") && payload.programId === programRow.id;
     });
-    if (duplicatePending) {
-      throw conflict("You already have a pending application for this bansos program");
+    if (duplicateActive) {
+      throw conflict("You already have a pending or approved application for this bansos program");
     }
 
     const selectedFiles = [
