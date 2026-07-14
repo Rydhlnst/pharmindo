@@ -134,20 +134,13 @@ export default function RegisterClient() {
       const signUpErr = readBetterAuthError(signUpRes);
       if (signUpErr) throw new Error(signUpErr);
 
-      const otpRes = await authClient.emailOtp.sendVerificationOtp({
-        email: parsed.data.email,
-        type: "email-verification",
-      });
-      const otpErr = readBetterAuthError(otpRes);
-      if (otpErr) throw new Error(otpErr);
-
       toast({
         title: "Akun dibuat",
-        description: "Cek email kamu untuk kode verifikasi.",
+        description: "Selamat datang! Lengkapi data diri di Pengaturan.",
         variant: "success",
       });
 
-      router.push(`/verify-email?email=${encodeURIComponent(parsed.data.email)}`);
+      router.push("/warga");
     } catch (error: unknown) {
       toast({
         title: "Gagal daftar",
