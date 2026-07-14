@@ -9,6 +9,12 @@ import { RT_OPTIONS } from '@/lib/rt-options';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useActionToast } from '@/lib/use-action-toast';
 const ACCESS_SCOPE_OPTIONS = [
   {
@@ -28,6 +34,8 @@ type AccessScope = (typeof ACCESS_SCOPE_OPTIONS)[number]['value'];
 type CreateAdminResponse = {
   id: string;
   displayName: string;
+  email: string;
+  temporaryPassword: string;
 };
 
 function StepItem({
@@ -63,6 +71,8 @@ export default function TambahPenggunaPage() {
   const [accessScope, setAccessScope] = useState<AccessScope>('RT');
   const [managedRtCodes, setManagedRtCodes] = useState<string[]>(['01']);
   const [submitting, setSubmitting] = useState(false);
+  const [createdInfo, setCreatedInfo] = useState<{ email: string; password: string; displayName: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const visibleRtCodes = useMemo(() => (accessScope === 'RT' ? managedRtCodes : []), [accessScope, managedRtCodes]);
   const canSubmit = name.trim().length >= 2 && email.trim().length > 0 && (accessScope === 'RW' || visibleRtCodes.length > 0);
@@ -92,7 +102,7 @@ export default function TambahPenggunaPage() {
 
     setSubmitting(true);
     try {
-      await runWithToast(
+      const res = await runWithToast(
         () =>
           platformFetch<CreateAdminResponse>('/admin/admin-users', {
             method: 'POST',
@@ -109,9 +119,25 @@ export default function TambahPenggunaPage() {
           error: 'Gagal membuat hak akses',
         },
       );
-      router.push('/admin/hak-akses');
+      setCreatedInfo({
+        email: res.data.email,
+        password: res.data.temporaryPassword,
+        displayName: res.data.displayName,
+      });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleCopyCredentials() {
+    if (!createdInfo) return;
+    const text = `Email: ${createdInfo.email}\nPassword: ${createdInfo.password}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore clipboard errors
     }
   }
 
@@ -268,6 +294,57 @@ export default function TambahPenggunaPage() {
           <ChevronRight className="ml-2 h-5 w-5" />
         </Button>
       </div>
+
+      <Dialog
+        open={createdInfo !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreatedInfo(null);
+            router.push('/admin/hak-akses');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-[#1E293B]">Kredensial Admin Baru</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 space-y-4">
+            <p className="text-sm text-[#475569]">
+              Akun <strong>{createdInfo?.displayName}</strong> berhasil dibuat. <strong>Salin password sekarang</strong> — password sementara ini tidak akan ditampilkan lagi.
+            </p>
+            <div className="space-y-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 font-mono text-sm">
+              <div>
+                <span className="text-[#94A3B8]">Email:</span>{' '}
+                <span className="text-[#1E293B]">{createdInfo?.email}</span>
+              </div>
+              <div>
+                <span className="text-[#94A3B8]">Password:</span>{' '}
+                <span className="text-[#1E293B]">{createdInfo?.password}</span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCopyCredentials}
+                className="rounded-xl px-4 py-2 text-sm font-semibold"
+              >
+                {copied ? 'Tersalin!' : 'Salin Kredensial'}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setCreatedInfo(null);
+                  router.push('/admin/hak-akses');
+                }}
+                className="rounded-xl bg-[#4F6EF7] px-4 py-2 text-sm font-bold text-white hover:bg-[#3E5BE0]"
+              >
+                Selesai
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

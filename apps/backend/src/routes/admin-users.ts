@@ -95,15 +95,15 @@ export const adminUsersRoutes = new Hono<{ Variables: { sessionUser: { id: strin
   .post("/", createRateLimitMiddleware({ key: "admin-create", limit: 10, windowMs: 60_000 }), async (c) => {
     const sessionUser = c.get("sessionUser");
     const body = await parseJson(c.req.raw, createAdminUserSchema);
-    const { createdUser } = await createAdminUserService({
+    const { createdUser, temporaryPassword } = await createAdminUserService({
       actorId: sessionUser.id,
       actorRole: sessionUser.role,
       body,
     });
 
     const [access] = await getDb().select().from(adminAccess).where(eq(adminAccess.userId, createdUser.id)).limit(1);
-    const payload = { success: true as const, data: mapAdminUser(createdUser, access) };
-    return created(c, payload.data);
+    const data = { ...mapAdminUser(createdUser, access), temporaryPassword };
+    return created(c, data);
   })
   .patch("/:id", async (c) => {
     const sessionUser = c.get("sessionUser");
