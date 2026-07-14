@@ -120,7 +120,7 @@ export async function POST(req: Request) {
 
     const [existingIdentityByUserId, existingIdentityByNik] = await Promise.all([
       db
-        .select({ id: userIdentity.id })
+        .select({ id: userIdentity.id, verificationStatus: userIdentity.verificationStatus })
         .from(userIdentity)
         .where(eq(userIdentity.userId, session.user.id))
         .limit(1),
@@ -131,8 +131,49 @@ export async function POST(req: Request) {
         .limit(1),
     ]);
 
-    if (existingIdentityByUserId.length > 0) {
-      return NextResponse.json({ error: "Identitas akun ini sudah terdaftar" }, { status: 409 });
+    const existingOwn = existingIdentityByUserId[0];
+
+    if (existingOwn) {
+      if (existingOwn.verificationStatus !== "REJECTED") {
+        return NextResponse.json({ error: "Identitas akun ini sudah terdaftar" }, { status: 409 });
+      }
+      // REJECTED — allow full resubmission by updating existing record
+      if (existingIdentityByNik.length > 0 && existingIdentityByNik[0].id !== existingOwn.id) {
+        return NextResponse.json({ error: "NIK sudah terdaftar" }, { status: 409 });
+      }
+      const [updated] = await db
+        .update(userIdentity)
+        .set({
+          nikEncrypted,
+          nikHash,
+          nikFirst4: first4,
+          nikLast4: last4,
+          fullName: name.trim(),
+          gender,
+          birthPlace,
+          birthDate,
+          religion,
+          maritalStatus,
+          occupation,
+          education,
+          bloodType: bloodType ?? null,
+          address,
+          rt,
+          rw,
+          citizenStatus: status,
+          kkNumber: kkNumber?.trim() || null,
+          familyRelationship: familyRelationship?.trim() || null,
+          verificationStatus: "PENDING",
+          rejectionReason: null,
+        })
+        .where(eq(userIdentity.userId, session.user.id))
+        .returning();
+      return NextResponse.json({
+        data: {
+          verificationStatus: updated.verificationStatus,
+          maskedNik: maskNikFromParts(first4, last4),
+        },
+      });
     }
 
     if (existingIdentityByNik.length > 0) {

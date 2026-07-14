@@ -1211,7 +1211,7 @@ export default function WargaHomePage() {
                 <div>
                   <p className="text-sm font-bold text-red-800">Verifikasi NIK Ditolak</p>
                   <p className="mt-1 text-xs text-red-700 leading-relaxed">
-                    Pengajuan NIK Anda sebelumnya ditolak oleh admin dengan alasan: <b>"Data KK tidak sesuai"</b>. Silakan periksa kembali dan ajukan ulang.
+                    Pengajuan NIK Anda sebelumnya ditolak oleh admin. {identity.rejectionReason ? <>Alasan: <b>"{identity.rejectionReason}"</b>.</> : 'Hubungi admin RW/RT.'} Silakan periksa kembali dan ajukan ulang.
                   </p>
                 </div>
               </div>
