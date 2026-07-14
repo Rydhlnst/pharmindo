@@ -46,15 +46,16 @@ export async function POST(req: Request) {
       if (existing.verificationStatus !== "REJECTED") {
         return NextResponse.json({ error: "Identitas akun ini sudah terdaftar" }, { status: 409 });
       }
-      // Status REJECTED — allow resubmission by updating existing record
-      const [updated] = await db
-        .update(userIdentity)
-        .set({ nikEncrypted, nikHash, nikFirst4: first4, nikLast4: last4, verificationStatus: "PENDING" })
-        .where(eq(userIdentity.userId, session.user.id))
+      // Status REJECTED — allow resubmission. Delete then re-insert to avoid
+      // unique constraint issues from stale duplicate rows in production.
+      await db.delete(userIdentity).where(eq(userIdentity.userId, session.user.id));
+      const [created] = await db
+        .insert(userIdentity)
+        .values({ userId: session.user.id, nikEncrypted, nikHash, nikFirst4: first4, nikLast4: last4, verificationStatus: "PENDING" })
         .returning();
       return NextResponse.json({
         data: {
-          verificationStatus: updated.verificationStatus,
+          verificationStatus: created.verificationStatus,
           maskedNik: maskNikFromParts(first4, last4),
         },
       });
