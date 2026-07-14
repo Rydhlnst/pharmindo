@@ -37,13 +37,27 @@ export async function POST(req: Request) {
     const { first4, last4 } = nikParts(nik);
 
     const [existing] = await db
-      .select({ id: userIdentity.id })
+      .select({ id: userIdentity.id, verificationStatus: userIdentity.verificationStatus })
       .from(userIdentity)
       .where(eq(userIdentity.userId, session.user.id))
       .limit(1);
 
     if (existing) {
-      return NextResponse.json({ error: "Identitas akun ini sudah terdaftar" }, { status: 409 });
+      if (existing.verificationStatus !== "REJECTED") {
+        return NextResponse.json({ error: "Identitas akun ini sudah terdaftar" }, { status: 409 });
+      }
+      // Status REJECTED — allow resubmission by updating existing record
+      const [updated] = await db
+        .update(userIdentity)
+        .set({ nikEncrypted, nikHash, nikFirst4: first4, nikLast4: last4, verificationStatus: "PENDING" })
+        .where(eq(userIdentity.userId, session.user.id))
+        .returning();
+      return NextResponse.json({
+        data: {
+          verificationStatus: updated.verificationStatus,
+          maskedNik: maskNikFromParts(first4, last4),
+        },
+      });
     }
 
     const [byNik] = await db
