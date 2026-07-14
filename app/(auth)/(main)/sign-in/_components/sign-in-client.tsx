@@ -161,7 +161,7 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <Label className="mb-2 block text-xs font-semibold text-[color:var(--panel-on-brand-foreground)]">
-                Username / Email
+                Email
               </Label>
 
               <Input
