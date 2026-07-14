@@ -106,7 +106,7 @@ export default function KegiatanPage() {
     return load();
   }, [load]);
 
-  useSyncVersions(['admin:schedule'], { onVersionsChanged: load });
+  useSyncVersions(['admin:schedule'], { onVersionsChanged: () => { load(); } });
 
   const filteredJadwal = jadwal
     .filter((event) => {
