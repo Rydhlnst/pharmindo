@@ -225,7 +225,7 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
             </div>
 
             <div>
-              <Label className="mb-2 block text-xs font-semibold text-slate-800">Username</Label>
+              <Label className="mb-2 block text-xs font-semibold text-slate-800">Email</Label>
               <Input
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value.trimStart())}
