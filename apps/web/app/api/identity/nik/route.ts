@@ -47,11 +47,15 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Identitas akun ini sudah terdaftar" }, { status: 409 });
       }
 
-      // Check if a DIFFERENT user already owns this NIK
+      // Check if a DIFFERENT user has this NIK with PENDING or VERIFIED status
       const [takenByOther] = await db
         .select({ id: userIdentity.id })
         .from(userIdentity)
-        .where(and(eq(userIdentity.nikHash, nikHash), ne(userIdentity.userId, session.user.id)))
+        .where(and(
+          eq(userIdentity.nikHash, nikHash),
+          ne(userIdentity.userId, session.user.id),
+          ne(userIdentity.verificationStatus, "REJECTED"),
+        ))
         .limit(1);
 
       if (takenByOther) {
@@ -73,11 +77,11 @@ export async function POST(req: Request) {
       });
     }
 
-    // New submission — check NIK not taken by anyone
+    // New submission — check NIK not taken by PENDING or VERIFIED user
     const [byNik] = await db
       .select({ id: userIdentity.id })
       .from(userIdentity)
-      .where(eq(userIdentity.nikHash, nikHash))
+      .where(and(eq(userIdentity.nikHash, nikHash), ne(userIdentity.verificationStatus, "REJECTED")))
       .limit(1);
 
     if (byNik) {
