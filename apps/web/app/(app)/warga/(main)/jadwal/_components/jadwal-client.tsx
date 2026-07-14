@@ -201,7 +201,7 @@ export default function JadwalClient() {
     return loadEvents();
   }, [loadEvents]);
 
-  useSyncVersions(['admin:schedule'], { onVersionsChanged: loadEvents });
+  useSyncVersions(['admin:schedule'], { onVersionsChanged: () => { loadEvents(); } });
 
   const monthCells = useMemo(() => buildMonthGrid(activeMonth), [activeMonth]);
 
