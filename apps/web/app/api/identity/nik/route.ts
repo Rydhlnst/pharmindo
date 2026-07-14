@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { headers } from "next/headers";
 
 import { getDb } from "@/lib/db";
@@ -46,13 +46,25 @@ export async function POST(req: Request) {
       if (existing.verificationStatus !== "REJECTED") {
         return NextResponse.json({ error: "Identitas akun ini sudah terdaftar" }, { status: 409 });
       }
-      // Status REJECTED — allow resubmission. Delete then re-insert to avoid
-      // unique constraint issues from stale duplicate rows in production.
+
+      // Check if a DIFFERENT user already owns this NIK
+      const [takenByOther] = await db
+        .select({ id: userIdentity.id })
+        .from(userIdentity)
+        .where(and(eq(userIdentity.nikHash, nikHash), ne(userIdentity.userId, session.user.id)))
+        .limit(1);
+
+      if (takenByOther) {
+        return NextResponse.json({ error: "NIK sudah terdaftar oleh akun lain" }, { status: 409 });
+      }
+
+      // Delete then re-insert to avoid unique constraint issues on stale rows
       await db.delete(userIdentity).where(eq(userIdentity.userId, session.user.id));
       const [created] = await db
         .insert(userIdentity)
         .values({ userId: session.user.id, nikEncrypted, nikHash, nikFirst4: first4, nikLast4: last4, verificationStatus: "PENDING" })
         .returning();
+
       return NextResponse.json({
         data: {
           verificationStatus: created.verificationStatus,
@@ -61,6 +73,7 @@ export async function POST(req: Request) {
       });
     }
 
+    // New submission — check NIK not taken by anyone
     const [byNik] = await db
       .select({ id: userIdentity.id })
       .from(userIdentity)
@@ -73,14 +86,7 @@ export async function POST(req: Request) {
 
     const [created] = await db
       .insert(userIdentity)
-      .values({
-        userId: session.user.id,
-        nikEncrypted,
-        nikHash,
-        nikFirst4: first4,
-        nikLast4: last4,
-        verificationStatus: "PENDING",
-      })
+      .values({ userId: session.user.id, nikEncrypted, nikHash, nikFirst4: first4, nikLast4: last4, verificationStatus: "PENDING" })
       .returning();
 
     return NextResponse.json({
@@ -90,12 +96,12 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: unknown) {
-    if ((e as { code?: string })?.code === "23505") {
+    const cause = String((e as Record<string, unknown>)?.cause ?? "");
+    if ((e as { code?: string })?.code === "23505" || cause.includes("unique constraint")) {
       return NextResponse.json({ error: "NIK sudah terdaftar" }, { status: 409 });
     }
-    const err = e as Record<string, unknown>;
     console.error("[POST /api/identity/nik]", e);
-    return NextResponse.json({ error: "Internal error", detail: String(e), code: err?.code, cause: String(err?.cause) }, { status: 500 });
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
