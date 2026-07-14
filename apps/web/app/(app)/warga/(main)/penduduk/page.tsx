@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { UserPlus, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
+import { authClient } from '@/lib/auth-client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +53,8 @@ function toNullableLabel(value: unknown) {
 
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
 export default function WargaDataPendudukPage() {
+  const router = useRouter();
+  const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { runWithToast } = useActionToast();
   const [rows, setRows] = useState<CitizenRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +68,15 @@ export default function WargaDataPendudukPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [citizenToDelete, setCitizenToDelete] = useState<CitizenRow | null>(null);
+
+  // Redirect non-admin users away from this page
+  useEffect(() => {
+    if (sessionLoading) return;
+    const role = session?.user?.role;
+    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+      router.replace('/admin/data-penduduk');
+    }
+  }, [session, sessionLoading, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -83,7 +96,7 @@ export default function WargaDataPendudukPage() {
       if (search) params.set('q', search);
       if (status === 'Penduduk Tetap') params.set('status', 'PENDUDUK_TETAP');
       if (status === 'Penduduk Musiman') params.set('status', 'NGEKOST');
-      const res = await platformFetch<CitizenApiItem[]>(`/citizens?${params.toString()}`);
+      const res = await platformFetch<CitizenApiItem[]>(`/admin/citizens?${params.toString()}`);
 
       const mapped: CitizenRow[] = (res.data || []).map((c) => ({
         id: c.id,
@@ -132,7 +145,7 @@ export default function WargaDataPendudukPage() {
     setDeletingId(citizenToDelete.id);
     try {
       await runWithToast(
-        () => platformFetch(`/citizens/${citizenToDelete.id}`, { method: 'DELETE' }),
+        () => platformFetch(`/admin/citizens/${citizenToDelete.id}`, { method: 'DELETE' }),
         {
           loading: 'Menghapus data warga...',
           success: 'Data warga dihapus',

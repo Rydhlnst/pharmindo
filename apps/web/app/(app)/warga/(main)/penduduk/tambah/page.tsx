@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { platformFetch } from '@/lib/api/platform';
+import { authClient } from '@/lib/auth-client';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActionToast } from '@/lib/use-action-toast';
 import { RT_OPTIONS } from '@/lib/rt-options';
@@ -144,6 +145,7 @@ const INITIAL_FORM: FormData = {
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
 export default function WargaTambahDataPendudukPage() {
   const router = useRouter();
+  const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { runWithToast, toast } = useActionToast();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>({ ...INITIAL_FORM });
@@ -152,6 +154,15 @@ export default function WargaTambahDataPendudukPage() {
   const [hasDraft, setHasDraft] = useState(false);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
+
+  // Redirect non-admin users
+  useEffect(() => {
+    if (sessionLoading) return;
+    const role = session?.user?.role;
+    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+      router.replace('/admin/data-penduduk/tambah');
+    }
+  }, [session, sessionLoading, router]);
 
   useEffect(() => {
     const saved = localStorage.getItem('draft_tambah_penduduk_warga');

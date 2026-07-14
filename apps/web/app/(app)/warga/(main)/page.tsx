@@ -590,21 +590,26 @@ export default function WargaHomePage() {
     e.preventDefault();
     setSubmitting('penduduk');
     try {
-      await platformFetch('/identity/nik', {
+      const res = await fetch('/api/identity/nik', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ nik: pendudukForm.nik }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Gagal menyimpan NIK');
+      }
       toast({
         title: 'NIK Berhasil Disimpan',
         description: 'Menunggu verifikasi admin agar fitur terbuka sepenuhnya.',
         variant: 'success',
       });
-      // Force refresh data identity
       window.location.reload();
     } catch (e) {
       toast({
         title: 'Gagal',
-        description: 'Terjadi kesalahan saat menyimpan NIK',
+        description: e instanceof Error ? e.message : 'Terjadi kesalahan saat menyimpan NIK',
         variant: 'destructive',
       });
     } finally {
@@ -617,10 +622,16 @@ export default function WargaHomePage() {
 
     setSubmitting('penduduk');
     try {
-      await platformFetch('/identity/nik', {
+      const res = await fetch('/api/identity/nik', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ nik: newNik }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Gagal menyimpan NIK');
+      }
       toast({
         title: 'NIK Berhasil Disimpan',
         description: 'Menunggu verifikasi admin agar fitur terbuka sepenuhnya.',
@@ -630,7 +641,7 @@ export default function WargaHomePage() {
     } catch (e) {
       toast({
         title: 'Gagal',
-        description: 'Terjadi kesalahan saat menyimpan NIK',
+        description: e instanceof Error ? e.message : 'Terjadi kesalahan saat menyimpan NIK',
         variant: 'destructive',
       });
     } finally {
