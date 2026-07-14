@@ -145,7 +145,6 @@ const INITIAL_FORM: FormData = {
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
 export default function WargaTambahDataPendudukPage() {
   const router = useRouter();
-  const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { runWithToast, toast } = useActionToast();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>({ ...INITIAL_FORM });
@@ -157,12 +156,13 @@ export default function WargaTambahDataPendudukPage() {
 
   // Redirect non-admin users
   useEffect(() => {
-    if (sessionLoading) return;
-    const role = session?.user?.role;
-    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-      router.replace('/admin/data-penduduk/tambah');
-    }
-  }, [session, sessionLoading, router]);
+    authClient.getSession().then((res) => {
+      const role = res.data?.user?.role;
+      if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+        router.replace('/admin/data-penduduk/tambah');
+      }
+    });
+  }, [router]);
 
   useEffect(() => {
     const saved = localStorage.getItem('draft_tambah_penduduk_warga');

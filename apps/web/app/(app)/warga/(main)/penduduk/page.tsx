@@ -8,6 +8,7 @@ import { UserPlus, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
 import { authClient } from '@/lib/auth-client';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,7 +55,6 @@ function toNullableLabel(value: unknown) {
 import { WargaPage, WargaPageBody } from '@/app/(app)/warga/_components/warga-page';
 export default function WargaDataPendudukPage() {
   const router = useRouter();
-  const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { runWithToast } = useActionToast();
   const [rows, setRows] = useState<CitizenRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,12 +71,13 @@ export default function WargaDataPendudukPage() {
 
   // Redirect non-admin users away from this page
   useEffect(() => {
-    if (sessionLoading) return;
-    const role = session?.user?.role;
-    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-      router.replace('/admin/data-penduduk');
-    }
-  }, [session, sessionLoading, router]);
+    authClient.getSession().then((res) => {
+      const role = res.data?.user?.role;
+      if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+        router.replace('/admin/data-penduduk');
+      }
+    });
+  }, [router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
