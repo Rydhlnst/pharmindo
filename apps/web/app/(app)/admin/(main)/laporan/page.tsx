@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Icon } from '@phosphor-icons/react';
 import {
   CaretLeft as ChevronLeft,
@@ -99,7 +99,7 @@ export default function AdminLaporanPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  async function loadRows(targetPage = page, preserveSelectedId?: string | null) {
+  const loadRows = useCallback(async (targetPage = page, preserveSelectedId?: string | null) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -135,7 +135,7 @@ export default function AdminLaporanPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, status, debouncedSearch, selected?.id]);
 
   useEffect(() => {
     void loadRows(page, selected?.id ?? null);
@@ -161,7 +161,7 @@ export default function AdminLaporanPage() {
   }, []);
 
   useSyncVersions(['admin:aspirations', 'admin:dashboard'], {
-    onVersionsChanged: async (changedKeys) => {
+    onVersionsChanged: useCallback(async (changedKeys: string[]) => {
       if (changedKeys.includes('admin:aspirations')) {
         await loadRows(page, selected?.id ?? null);
       }
@@ -173,7 +173,7 @@ export default function AdminLaporanPage() {
           setDashboard(null);
         }
       }
-    },
+    }, [loadRows, page, selected?.id]),
   });
 
   const summary = useMemo(() => {

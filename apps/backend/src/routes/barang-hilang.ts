@@ -17,6 +17,7 @@ import { created, ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware, authMiddleware } from "../middleware/auth.js";
+import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 
 type BarangHilangRow = typeof barangHilang.$inferSelect;
 
@@ -168,6 +169,7 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
       entityType: "BARANG_HILANG",
       entityId: updated.id,
     });
+    await bumpSyncKeys([adminSyncKey("barang-hilang")]);
     return ok(c, mapBarangHilang(updated));
   })
   .delete("/:id", async (c) => {
@@ -181,6 +183,7 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
       entityType: "BARANG_HILANG",
       entityId: deleted.id,
     });
+    await bumpSyncKeys([adminSyncKey("barang-hilang")]);
     return ok(c, { id: deleted.id });
   });
 
@@ -247,5 +250,6 @@ export const barangHilangRoutes = new Hono<{ Variables: { sessionUser: { id: str
       })
       .returning();
 
+    await bumpSyncKeys([adminSyncKey("barang-hilang")]);
     return created(c, mapBarangHilang(row));
   });

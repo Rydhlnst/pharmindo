@@ -20,6 +20,7 @@ import { createRateLimitMiddleware } from "../lib/rate-limit.js";
 import { created, ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
 import { buildObjectUrl } from "../lib/storage.js";
+import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery } from "../lib/validation.js";
 import { adminMiddleware, authMiddleware } from "../middleware/auth.js";
 import { approveRequestService, rejectRequestService } from "../services/requests.js";
@@ -165,6 +166,7 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const { id } = parseParams(c.req.param(), idParamSchema);
     const sessionUser = c.get("sessionUser");
     const updated = await approveRequestService({ adminId: sessionUser.id, requestId: id });
+    await bumpSyncKeys([adminSyncKey("bansos")]);
     const payload = { success: true as const, data: await mapAdminBansosApplication(updated) };
     return ok(c, payload.data);
   })
@@ -173,6 +175,7 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const sessionUser = c.get("sessionUser");
     const body = await parseJson(c.req.raw, requestDecisionSchema);
     const updated = await rejectRequestService({ adminId: sessionUser.id, requestId: id, reason: body.reason });
+    await bumpSyncKeys([adminSyncKey("bansos")]);
     const payload = { success: true as const, data: await mapAdminBansosApplication(updated) };
     return ok(c, payload.data);
   })

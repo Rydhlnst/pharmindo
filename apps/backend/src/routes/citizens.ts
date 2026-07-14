@@ -17,6 +17,7 @@ import { notFound } from "../lib/errors.js";
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
 import { created, ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
+import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
 import { createCitizenRegistrationService, createCitizenService, deleteCitizenService, updateCitizenService } from "../services/citizens.js";
@@ -180,7 +181,7 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
   .post("/", async (c) => {
     const body = await parseJson(c.req.raw, createCitizenSchema);
     const inserted = await createCitizenService({ adminId: c.get("sessionUser").id, body });
-
+    await bumpSyncKeys([adminSyncKey("citizens")]);
     const payload = { success: true as const, data: mapCitizen(inserted) };
     return created(c, payload.data);
   })
@@ -191,7 +192,7 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
       citizen: body.citizen,
       household: body.household,
     });
-
+    await bumpSyncKeys([adminSyncKey("citizens"), adminSyncKey("households")]);
     const payload = {
       success: true as const,
       data: {
@@ -237,12 +238,14 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const body = await parseJson(c.req.raw, updateCitizenSchema);
     const { id } = parseParams(c.req.param(), idParamSchema);
     const updated = await updateCitizenService({ adminId: c.get("sessionUser").id, citizenId: id, body });
+    await bumpSyncKeys([adminSyncKey("citizens")]);
     const payload = { success: true as const, data: mapCitizen(updated) };
     return ok(c, payload.data);
   })
   .delete("/:id", async (c) => {
     const { id } = parseParams(c.req.param(), idParamSchema);
     const result = await deleteCitizenService({ adminId: c.get("sessionUser").id, citizenId: id });
+    await bumpSyncKeys([adminSyncKey("citizens")]);
     return ok(c, {
       id: result.row.id,
       mode: result.mode,

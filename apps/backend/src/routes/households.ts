@@ -19,6 +19,7 @@ import { conflict, notFound, validationError } from "../lib/errors.js";
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
 import { created, ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
+import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
 import { addHouseholdMemberService, createHouseholdService, normalizeHouseholdRelationship } from "../services/households.js";
@@ -173,6 +174,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         ],
       },
     };
+    await bumpSyncKeys([adminSyncKey("households"), adminSyncKey("citizens")]);
     return created(c, payload.data);
   })
   .get("/:id", async (c) => {
@@ -281,6 +283,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         ...mapHouseholdBase({ ...updated, headCitizen: headCitizenRow }),
       },
     };
+    await bumpSyncKeys([adminSyncKey("households")]);
     return ok(c, payload.data);
   })
   .delete("/:id", async (c) => {
@@ -334,6 +337,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       metadata: { kkNumber: deletedHousehold.kkNumber },
     });
 
+    await bumpSyncKeys([adminSyncKey("households"), adminSyncKey("citizens")]);
     return ok(c, {
       id: deletedHousehold.id,
       deletedCitizenIds,
@@ -363,6 +367,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         citizen: mapCitizen(citizenRow),
       },
     };
+    await bumpSyncKeys([adminSyncKey("households")]);
     return created(c, payload.data);
   })
   .patch("/:id/members/:memberId", async (c) => {
@@ -410,6 +415,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       await db.update(citizen).set(citizenUpdates).where(eq(citizen.id, member.citizenId));
     }
 
+    await bumpSyncKeys([adminSyncKey("households")]);
     return ok(c, { id: member.id });
   })
   .delete("/:id/members/:memberId", async (c) => {
@@ -430,6 +436,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       .returning();
 
     if (!deleted) throw notFound("Household member not found");
+    await bumpSyncKeys([adminSyncKey("households")]);
     return ok(c, { id: deleted.id });
   })
   .get("/:id/audit-log", async (c) => {

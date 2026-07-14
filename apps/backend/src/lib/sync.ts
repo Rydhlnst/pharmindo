@@ -4,7 +4,7 @@ import { getDb } from "@abdimas/db";
 
 type DbLike = ReturnType<typeof getDb>;
 
-export function adminSyncKey(scope: "dashboard" | "verification" | "requests" | "mutations" | "aspirations") {
+export function adminSyncKey(scope: "dashboard" | "verification" | "requests" | "mutations" | "aspirations" | "bansos" | "barang-hilang" | "citizens" | "households") {
   return `admin:${scope}`;
 }
 

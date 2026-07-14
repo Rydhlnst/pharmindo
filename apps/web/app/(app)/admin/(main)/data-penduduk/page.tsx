@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { UserPlus, MagnifyingGlass as Search, SlidersHorizontal, Trash as Trash2 } from '@phosphor-icons/react';
 
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { maskSensitiveNumber } from '@/lib/utils';
 import {
   AlertDialog,
@@ -135,6 +136,12 @@ export default function DataPendudukPage() {
       // no-op
     };
   }, [currentPage, debouncedQuery, statusFilter]);
+
+  const refetchCitizens = useCallback(() => {
+    void fetchCitizens(currentPage, debouncedQuery, statusFilter);
+  }, [currentPage, debouncedQuery, statusFilter]);
+
+  useSyncVersions(['admin:citizens'], { onVersionsChanged: refetchCitizens });
 
   const handleDelete = async () => {
     if (!citizenToDelete) return;

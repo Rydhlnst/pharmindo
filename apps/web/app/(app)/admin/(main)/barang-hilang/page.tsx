@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { 
   Archive, 
   CheckCircle, 
@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 
 import { platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { mapBackendBarangHilang, type BackendBarangHilang } from '@/lib/barang-hilang-mapper';
 import type { LaporanBarangHilang, ReportPriority, ReportStatus, StatsResponse } from '@/types/barang-hilang';
 
@@ -56,26 +57,23 @@ export default function LaporanBarangHilangPage() {
     archived: 0,
   });
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const [listRes, statsRes] = await Promise.all([
-          platformFetch<BackendBarangHilang[]>('/admin/barang-hilang?limit=100'),
-          platformFetch<{ total: number; byStatus: Record<ReportStatus, number> }>('/admin/barang-hilang/stats'),
-        ]);
-        if (!active) return;
-        setItems((listRes.data ?? []).map(mapBackendBarangHilang));
-        setStats({ total: statsRes.data.total, ...statsRes.data.byStatus });
-      } catch (err) {
-        console.error(err);
-        if (!active) return;
-        setItems([]);
-      }
+  const load = useCallback(async () => {
+    try {
+      const [listRes, statsRes] = await Promise.all([
+        platformFetch<BackendBarangHilang[]>('/admin/barang-hilang?limit=100'),
+        platformFetch<{ total: number; byStatus: Record<ReportStatus, number> }>('/admin/barang-hilang/stats'),
+      ]);
+      setItems((listRes.data ?? []).map(mapBackendBarangHilang));
+      setStats({ total: statsRes.data.total, ...statsRes.data.byStatus });
+    } catch (err) {
+      console.error(err);
+      setItems([]);
     }
-    void load();
-    return () => { active = false; };
   }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  useSyncVersions(['admin:barang-hilang'], { onVersionsChanged: load });
 
   const filteredData = useMemo(() => {
     return items.filter((item) => {

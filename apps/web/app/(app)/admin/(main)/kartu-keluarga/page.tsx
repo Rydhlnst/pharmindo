@@ -13,12 +13,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ClipboardText as ClipboardList, MagnifyingGlass as Search, SlidersHorizontal, Eye, Trash as Trash2, UserPlus } from '@phosphor-icons/react';
 
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { useActionToast } from '@/lib/use-action-toast';
 import { maskSensitiveNumber } from '@/lib/utils';
 
@@ -106,6 +107,12 @@ export default function KartuKeluargaPage() {
       active = false;
     };
   }, [activeRt, currentPage, debouncedSearchQuery]);
+
+  const refetchHouseholds = useCallback(() => {
+    void fetchHouseholds(currentPage, activeRt, debouncedSearchQuery);
+  }, [currentPage, activeRt, debouncedSearchQuery]);
+
+  useSyncVersions(['admin:households'], { onVersionsChanged: refetchHouseholds });
 
   const fetchHouseholds = async (page = currentPage, rt = activeRt, search = debouncedSearchQuery) => {
     const query = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
