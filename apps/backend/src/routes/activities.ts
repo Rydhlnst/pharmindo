@@ -16,6 +16,7 @@ import { notFound } from "../lib/errors.js";
 import { createRateLimitMiddleware } from "../lib/rate-limit.js";
 import { ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
+import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware, authMiddleware } from "../middleware/auth.js";
 
@@ -123,6 +124,7 @@ export const adminActivitiesRoutes = new Hono<{ Variables: { sessionUser: { id: 
       entityType: "ACTIVITY",
       entityId: createdRow.id,
     });
+    await bumpSyncKeys([adminSyncKey("schedule")]);
 
     const payload = { success: true as const, data: mapActivity(createdRow) };
     return ok(c, payload.data, undefined, 201);
@@ -144,6 +146,7 @@ export const adminActivitiesRoutes = new Hono<{ Variables: { sessionUser: { id: 
       entityType: "ACTIVITY",
       entityId: updated.id,
     });
+    await bumpSyncKeys([adminSyncKey("schedule")]);
 
     const payload = { success: true as const, data: mapActivity(updated) };
     return ok(c, payload.data);
@@ -160,6 +163,7 @@ export const adminActivitiesRoutes = new Hono<{ Variables: { sessionUser: { id: 
       entityType: "ACTIVITY",
       entityId: deleted.id,
     });
+    await bumpSyncKeys([adminSyncKey("schedule")]);
 
     return ok(c, { id: deleted.id });
   });

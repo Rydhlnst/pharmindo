@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-import { type ChangeEvent, useEffect, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { CalendarBlank as CalendarDays, MapPin, Clock, MagnifyingGlass as Search, Plus, PencilSimple as Pencil, Trash as Trash2 } from '@phosphor-icons/react';
 
 import { ActivityTimeRangeField } from '@/components/admin/ActivityTimeRangeField';
@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 import { Textarea } from '@/components/ui/textarea';
 import { formatActivityTimeRange, isValidTimeRange } from '@/lib/activity-time';
+import { useSyncVersions } from '@/hooks/use-sync-versions';
 import { useActionToast } from '@/lib/use-action-toast';
 
 type EventCategory = 'rapat' | 'kesehatan' | 'sosial' | 'keamanan' | 'posyandu' | 'sampah' | 'siskamling' | 'lainnya';
@@ -79,10 +80,10 @@ export default function KegiatanPage() {
   const [timeError, setTimeError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let active = true;
 
-    async function load() {
+    async function doLoad() {
       try {
         const response = await platformFetch<ActivityItem[]>('/admin/activities');
         if (!active) return;
@@ -94,12 +95,18 @@ export default function KegiatanPage() {
       }
     }
 
-    void load();
+    void doLoad();
 
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    return load();
+  }, [load]);
+
+  useSyncVersions(['admin:schedule'], { onVersionsChanged: load });
 
   const filteredJadwal = jadwal
     .filter((event) => {

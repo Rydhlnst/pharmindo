@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronDown, Clock, MapPin, Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { platformFetch } from '@/lib/api/platform';
 import { formatActivityTimeRange } from '@/lib/activity-time';
+import { useSyncVersions } from '@/hooks/use-sync-versions';
 import PageHeader from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -139,6 +140,8 @@ export default function JadwalClient() {
   const [query, setQuery] = useState('');
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const updatedAtLabel = new Intl.DateTimeFormat('id-ID', {
     day: '2-digit',
@@ -146,10 +149,11 @@ export default function JadwalClient() {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date());
+  }).format(lastUpdated);
 
-  useEffect(() => {
+  const loadEvents = useCallback(() => {
     let mounted = true;
+    setIsLoading(true);
 
     platformFetch<
       Array<{
@@ -178,15 +182,26 @@ export default function JadwalClient() {
             diperbaruiPada: item.updatedAt,
           })),
         );
+        setLastUpdated(new Date());
       })
       .catch(() => {
         if (!mounted) return;
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsLoading(false);
       });
 
     return () => {
       mounted = false;
     };
   }, [todayIso]);
+
+  useEffect(() => {
+    return loadEvents();
+  }, [loadEvents]);
+
+  useSyncVersions(['admin:schedule'], { onVersionsChanged: loadEvents });
 
   const monthCells = useMemo(() => buildMonthGrid(activeMonth), [activeMonth]);
 
@@ -391,7 +406,14 @@ export default function JadwalClient() {
           </CardHeader>
 
           <CardContent className="p-0">
-            {selectedEvents.length > 0 ? (
+            {isLoading ? (
+              <div className="px-4 py-12 text-center">
+                <div className="mx-auto flex size-14 items-center justify-center rounded-3xl bg-muted text-muted-foreground animate-pulse">
+                  <CalendarDays className="size-6" aria-hidden="true" />
+                </div>
+                <p className="mt-4 text-sm font-bold text-muted-foreground">Memuat kegiatan...</p>
+              </div>
+            ) : selectedEvents.length > 0 ? (
               <div className="divide-y divide-border/70">
                 {selectedEvents.map((event) => {
                   const categoryLabel = getCategoryLabel(event.kategori);
