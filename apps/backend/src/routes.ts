@@ -124,14 +124,14 @@ export function createApp() {
   app.get("/me", authMiddleware, async (c) => {
     const sessionUser = c.get("sessionUser");
     const payload = sessionResponseSchema.parse({ user: sessionUser });
-    return c.json(payload);
+    return ok(c, payload);
   });
 
   app.get("/me/identity", authMiddleware, async (c) => {
     const sessionUser = c.get("sessionUser");
     const identity = await resolveIdentity(sessionUser.id);
     if (!identity) return fail(c, "NOT_FOUND", "Identity not found", 404);
-    return c.json(meIdentityResponseSchema.parse(identity));
+    return ok(c, meIdentityResponseSchema.parse(identity));
   });
 
   app.get("/sync/versions", authMiddleware, async (c) => {

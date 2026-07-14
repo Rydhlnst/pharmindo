@@ -1,30 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { CheckCircle, Info, UploadCloud, MapPin, Search } from 'lucide-react';
+import { Info, UploadCloud, MapPin } from 'lucide-react';
 import { LaporanFormValues, laporanFormSchema } from '@/lib/barang-hilang/schema';
+import type { BackendBarangHilang } from '@/lib/barang-hilang-mapper';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { authClient } from '@/lib/auth-client';
+import { platformFetch, getPlatformErrorMessage } from '@/lib/api/platform';
+import { useIdentity } from '@/app/(app)/warga/_components/identity-context';
 
 export default function BarangHilangForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const { userName, userEmail } = useIdentity();
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
+
+  useEffect(() => {
+    authClient.getSession().then((res) => {
+      const phone = (res?.data?.user as any)?.phoneNumber;
+      if (phone) setPhoneNumber(phone);
+    }).catch(() => null);
+  }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
 
   const [formData, setFormData] = useState<LaporanFormValues>({
-    name: 'Budi Santoso', // Prefill dummy
-    phone: '081234567890', // Prefill dummy
-    rt: 'rt02', // Prefill dummy
-    address: 'Jl. Melati No. 5, RT 02/025', // Prefill dummy
     itemName: '',
     category: 'other',
     description: '',
@@ -34,8 +43,6 @@ export default function BarangHilangForm() {
     incidentTime: '',
     location: '',
     chronicle: '',
-    whatsapp: '081234567890',
-    alternativeContact: '',
     notes: '',
   });
 
@@ -44,10 +51,22 @@ export default function BarangHilangForm() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => {
+      if (!prev[name as keyof LaporanFormValues]) return prev;
+      const next = { ...prev };
+      delete next[name as keyof LaporanFormValues];
+      return next;
+    });
   };
 
   const handleSelectChange = (name: keyof LaporanFormValues, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
 
   async function onSubmit(e: React.FormEvent) {
@@ -58,10 +77,9 @@ export default function BarangHilangForm() {
     const parsed = laporanFormSchema.safeParse(formData);
     if (!parsed.success) {
       const fieldErrors: Partial<Record<keyof LaporanFormValues, string>> = {};
-      parsed.error.issues?.forEach((err: any) => {
-        if (err.path[0]) {
-          fieldErrors[err.path[0] as keyof LaporanFormValues] = err.message;
-        }
+      parsed.error.issues?.forEach((err) => {
+        const field = err.path[0] as keyof LaporanFormValues;
+        if (field && !fieldErrors[field]) fieldErrors[field] = err.message;
       });
       setErrors(fieldErrors);
       setIsSubmitting(false);
@@ -70,22 +88,36 @@ export default function BarangHilangForm() {
     }
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      toast({
-        title: "Laporan Berhasil Dibuat",
-        description: "Laporan Anda telah masuk dan menunggu verifikasi Admin.",
-        variant: "success",
+      const body = {
+        itemName: parsed.data.itemName,
+        category: parsed.data.category,
+        itemDescription: parsed.data.description,
+        color: parsed.data.color || undefined,
+        estimatedValue: parsed.data.estimatedValue ? parseInt(parsed.data.estimatedValue, 10) : undefined,
+        incidentDate: parsed.data.incidentDate,
+        incidentTime: parsed.data.incidentTime || undefined,
+        location: parsed.data.location,
+        chronicle: parsed.data.chronicle,
+        notes: parsed.data.notes || undefined,
+      };
+
+      const res = await platformFetch<BackendBarangHilang>('/barang-hilang', {
+        method: 'POST',
+        body: JSON.stringify(body),
       });
-      
-      // Simulate redirecting to the detail page of the new report (using dummy ID w-1)
-      router.push('/warga/barang-hilang/w-1');
-    } catch (e) {
+
       toast({
-        title: "Gagal Menyimpan",
-        description: "Terjadi kesalahan saat menyimpan laporan.",
-        variant: "destructive",
+        title: 'Laporan Berhasil Dibuat',
+        description: 'Laporan Anda telah masuk dan menunggu verifikasi Admin.',
+        variant: 'success',
+      });
+
+      router.push(`/warga/barang-hilang/${res.data.id}`);
+    } catch (err) {
+      toast({
+        title: 'Gagal Menyimpan',
+        description: getPlatformErrorMessage(err, 'Terjadi kesalahan saat menyimpan laporan.'),
+        variant: 'destructive',
       });
     } finally {
       setIsSubmitting(false);
@@ -105,9 +137,9 @@ export default function BarangHilangForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      
+
       {/* SECTION 1: Identitas */}
-      <Card className="border-slate-200 shadow-sm overflow-hidden">
+      <div className="border border-slate-200 shadow-sm overflow-hidden rounded-lg">
         <div className="bg-primary/5 px-5 py-3 border-b border-slate-100 flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">1</div>
           <h2 className="font-bold text-slate-800 text-sm">Data Pelapor</h2>
@@ -115,37 +147,24 @@ export default function BarangHilangForm() {
         <CardContent className="p-5 space-y-4">
           <div className="bg-blue-50 text-blue-800 p-3 rounded-xl text-xs flex items-start gap-2">
             <Info className="h-4 w-4 shrink-0 mt-0.5" />
-            <p>Data diri Anda telah diisi otomatis berdasarkan profil akun warga.</p>
+            <p>Data diri Anda diisi otomatis dari akun yang sedang login.</p>
           </div>
-          
-          <div className="space-y-2">
-            <Label>Nama Lengkap</Label>
-            <Input name="name" value={formData.name} readOnly className="bg-slate-50" />
-            {errors.name && <span className="text-[10px] text-rose-500">{errors.name}</span>}
-          </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>No. Telepon</Label>
-              <Input name="phone" value={formData.phone} readOnly className="bg-slate-50" />
-              {errors.phone && <span className="text-[10px] text-rose-500">{errors.phone}</span>}
+              <Label>Nama</Label>
+              <Input value={userName || '—'} readOnly className="bg-slate-50" />
             </div>
             <div className="space-y-2">
-              <Label>Wilayah RT</Label>
-              <Input value="RT 02" readOnly className="bg-slate-50" />
+              <Label>No. Telepon</Label>
+              <Input value={phoneNumber || userEmail || '—'} readOnly className="bg-slate-50" />
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label>Alamat Lengkap</Label>
-            <Textarea name="address" value={formData.address} readOnly className="bg-slate-50 h-20" />
-            {errors.address && <span className="text-[10px] text-rose-500">{errors.address}</span>}
-          </div>
         </CardContent>
-      </Card>
+      </div>
 
       {/* SECTION 2: Barang */}
-      <Card className="border-slate-200 shadow-sm overflow-hidden">
+      <div className="border border-slate-200 shadow-sm overflow-hidden rounded-lg">
         <div className="bg-primary/5 px-5 py-3 border-b border-slate-100 flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">2</div>
           <h2 className="font-bold text-slate-800 text-sm">Detail Barang Hilang</h2>
@@ -156,7 +175,7 @@ export default function BarangHilangForm() {
             <Input name="itemName" value={formData.itemName} onChange={handleChange} placeholder="Contoh: Dompet Kulit Pria" />
             {errors.itemName && <span className="text-[10px] text-rose-500">{errors.itemName}</span>}
           </div>
-          
+
           <div className="space-y-2">
             <Label>Kategori <span className="text-rose-500">*</span></Label>
             <Select onValueChange={(val) => handleSelectChange('category', val)} value={formData.category}>
@@ -175,13 +194,13 @@ export default function BarangHilangForm() {
             </Select>
             {errors.category && <span className="text-[10px] text-rose-500">{errors.category}</span>}
           </div>
-          
+
           <div className="space-y-2">
             <Label>Deskripsi Lengkap <span className="text-rose-500">*</span></Label>
             <Textarea name="description" value={formData.description} onChange={handleChange} placeholder="Sebutkan ciri-ciri spesifik (merk, isi di dalamnya, dll)" className="h-24" />
             {errors.description && <span className="text-[10px] text-rose-500">{errors.description}</span>}
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Warna Dominan</Label>
@@ -193,10 +212,10 @@ export default function BarangHilangForm() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </div>
 
       {/* SECTION 3: Kronologi */}
-      <Card className="border-slate-200 shadow-sm overflow-hidden">
+      <div className="border border-slate-200 shadow-sm overflow-hidden rounded-lg">
         <div className="bg-primary/5 px-5 py-3 border-b border-slate-100 flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">3</div>
           <h2 className="font-bold text-slate-800 text-sm">Waktu & Kronologi</h2>
@@ -213,7 +232,7 @@ export default function BarangHilangForm() {
               <Input name="incidentTime" value={formData.incidentTime} onChange={handleChange} type="time" />
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label>Lokasi Terakhir <span className="text-rose-500">*</span></Label>
             <div className="relative">
@@ -222,17 +241,17 @@ export default function BarangHilangForm() {
             </div>
             {errors.location && <span className="text-[10px] text-rose-500">{errors.location}</span>}
           </div>
-          
+
           <div className="space-y-2">
             <Label>Kronologi Kejadian <span className="text-rose-500">*</span></Label>
             <Textarea name="chronicle" value={formData.chronicle} onChange={handleChange} placeholder="Ceritakan bagaimana barang tersebut bisa hilang secara detail..." className="h-28" />
             {errors.chronicle && <span className="text-[10px] text-rose-500">{errors.chronicle}</span>}
           </div>
         </CardContent>
-      </Card>
+      </div>
 
       {/* SECTION 4: Foto */}
-      <Card className="border-slate-200 shadow-sm overflow-hidden">
+      <div className="border border-slate-200 shadow-sm overflow-hidden rounded-lg">
         <div className="bg-primary/5 px-5 py-3 border-b border-slate-100 flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">4</div>
           <h2 className="font-bold text-slate-800 text-sm">Foto Barang (Opsional)</h2>
@@ -244,7 +263,7 @@ export default function BarangHilangForm() {
             <p className="text-sm font-semibold text-primary">Upload Foto Barang</p>
             <p className="text-xs text-slate-500 mt-1">Maks. 3 foto, ukuran 5 MB/foto.</p>
           </div>
-          
+
           {photos.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {photos.map((file, i) => (
@@ -256,25 +275,20 @@ export default function BarangHilangForm() {
             </div>
           )}
         </CardContent>
-      </Card>
-      
-      {/* SECTION 5: Kontak & Persetujuan */}
-      <Card className="border-slate-200 shadow-sm overflow-hidden">
+      </div>
+
+      {/* SECTION 5: Catatan */}
+      <div className="border border-slate-200 shadow-sm overflow-hidden rounded-lg">
         <div className="bg-primary/5 px-5 py-3 border-b border-slate-100 flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">5</div>
-          <h2 className="font-bold text-slate-800 text-sm">Kontak & Catatan Tambahan</h2>
+          <h2 className="font-bold text-slate-800 text-sm">Catatan Tambahan</h2>
         </div>
         <CardContent className="p-5 space-y-4">
-          <div className="space-y-2">
-            <Label>Nomor WhatsApp Aktif</Label>
-            <Input name="whatsapp" value={formData.whatsapp} onChange={handleChange} placeholder="08..." />
-            {errors.whatsapp && <span className="text-[10px] text-rose-500">{errors.whatsapp}</span>}
-          </div>
           <div className="space-y-2">
             <Label>Catatan untuk Admin (Opsional)</Label>
             <Textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Tambahkan pesan khusus jika ada" />
           </div>
-          
+
           <div className="mt-6 flex gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="outline" className="flex-1 rounded-full" onClick={() => router.back()}>Batal</Button>
             <Button type="submit" disabled={isSubmitting} className="flex-1 rounded-full shadow-sm">
@@ -282,8 +296,8 @@ export default function BarangHilangForm() {
             </Button>
           </div>
         </CardContent>
-      </Card>
-      
+      </div>
+
     </form>
   );
 }

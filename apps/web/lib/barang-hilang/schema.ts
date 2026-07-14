@@ -1,20 +1,12 @@
 import { z } from "zod";
 
 export const laporanFormSchema = z.object({
-  // Identitas
-  name: z.string().min(3).max(100).regex(/^[a-zA-Z\s]+$/),
-  phone: z.string().regex(/^(08|\+62)\d{8,11}$/),
-  rt: z.enum(["rt01", "rt02", "rt03"]),
-  address: z.string().min(10).max(300),
-
-  // Barang
-  itemName: z.string().min(3).max(100),
+  itemName: z.string().min(3, "Nama barang minimal 3 karakter").max(100),
   category: z.enum(["wallet_bag", "vehicle", "electronic", "document", "jewelry", "pet", "other"]),
-  description: z.string().min(20).max(500),
+  description: z.string().min(10, "Deskripsi minimal 10 karakter").max(1000),
   estimatedValue: z.string().max(50).optional(),
   color: z.string().max(50).optional(),
 
-  // Kronologi
   incidentDate: z.string().refine((val) => {
     const date = new Date(val);
     const now = new Date();
@@ -23,12 +15,9 @@ export const laporanFormSchema = z.object({
     return date <= now && date >= minDate;
   }, "Tanggal tidak valid. Maksimal 90 hari yang lalu."),
   incidentTime: z.string().optional(),
-  location: z.string().min(5).max(200),
-  chronicle: z.string().min(30).max(1000),
+  location: z.string().min(5, "Lokasi minimal 5 karakter").max(200),
+  chronicle: z.string().min(20, "Kronologi minimal 20 karakter").max(2000),
 
-  // Kontak
-  whatsapp: z.string().regex(/^(08|\+62)\d{8,11}$/).optional().or(z.literal("")),
-  alternativeContact: z.string().max(100).optional(),
   notes: z.string().max(300).optional(),
 });
 
