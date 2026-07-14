@@ -92,7 +92,8 @@ export async function POST(req: Request) {
     if ((e as { code?: string })?.code === "23505") {
       return NextResponse.json({ error: "NIK sudah terdaftar" }, { status: 409 });
     }
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    console.error("[POST /api/identity/nik]", e);
+    return NextResponse.json({ error: "Internal error", detail: String(e) }, { status: 500 });
   }
 }
 
