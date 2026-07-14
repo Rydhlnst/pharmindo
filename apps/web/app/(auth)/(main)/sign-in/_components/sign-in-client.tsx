@@ -137,7 +137,11 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
 
       if (sessionErr) throw new Error(sessionErr);
 
-      const role = session?.data?.user?.role;
+      if (!session?.data?.user) {
+        throw new Error("Email atau password salah.");
+      }
+
+      const role = session.data.user.role;
 
       const hasAdminAccess = role === "ADMIN" || role === "SUPER_ADMIN";
 
