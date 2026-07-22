@@ -13,6 +13,7 @@ import {
 } from "@abdimas/db";
 
 import { getRoleLabel } from "../lib/admin-access.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import { ok } from "../lib/response.js";
 import { adminMiddleware } from "../middleware/auth.js";
 import { getCanonicalDashboardBadges, getCanonicalLiveStats } from "../services/admin-reporting.js";
@@ -21,6 +22,7 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
   .use("*", adminMiddleware)
   .get("/", async (c) => {
     const db = getDb();
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const [
       liveStats,
       badgeStats,
@@ -30,20 +32,21 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
       latestLogRows,
       latestAspirationRows,
     ] = await Promise.all([
-      getCanonicalLiveStats(),
-      getCanonicalDashboardBadges(),
+      getCanonicalLiveStats(scopeFilter),
+      getCanonicalDashboardBadges(scopeFilter),
       db
         .select({ deltaWarga: sql<number>`count(*)::int` })
         .from(citizen)
-        .where(and(eq(citizen.isArchived, false), sql`${citizen.createdAt} >= now() - interval '7 days'`)),
+        .where(and(eq(citizen.isArchived, false), sql`${citizen.createdAt} >= now() - interval '7 days'`, scopeFilter)),
       db
         .select({ deltaKK: sql<number>`count(*)::int` })
         .from(household)
-        .where(and(eq(household.status, "ACTIVE"), sql`${household.createdAt} >= now() - interval '7 days'`)),
+        .where(and(eq(household.status, "ACTIVE"), sql`${household.createdAt} >= now() - interval '7 days'`, scopeFilter)),
       db
         .select({ deltaMutasi: sql<number>`count(*)::int` })
         .from(mutation)
-        .where(sql`${mutation.createdAt} >= now() - interval '7 days'`),
+        .innerJoin(citizen, eq(citizen.id, mutation.citizenId))
+        .where(and(eq(citizen.isArchived, false), sql`${mutation.createdAt} >= now() - interval '7 days'`, scopeFilter)),
       db
         .select({
           id: adminActivityLog.id,

@@ -22,6 +22,7 @@ import { ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
 import { parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import {
   buildCanonicalCitizenWhere,
   buildCanonicalMutationWhere,
@@ -89,7 +90,8 @@ const CSV_DELIMITER = ";";
 export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; role: string } } }>()
   .use("*", adminMiddleware)
   .get("/summary", async (c) => {
-    const [liveStats, badgeStats] = await Promise.all([getCanonicalLiveStats(), getCanonicalDashboardBadges()]);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
+    const [liveStats, badgeStats] = await Promise.all([getCanonicalLiveStats(scopeFilter), getCanonicalDashboardBadges(scopeFilter)]);
     const payload = {
       success: true as const,
       data: {
@@ -107,25 +109,28 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   })
   .get("/rt-breakdown", async (c) => {
     const filter = parseReportFilter(c);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const payload = {
       success: true as const,
-      data: await getFilteredRtBreakdown(filter),
+      data: await getFilteredRtBreakdown(filter, scopeFilter),
     };
     return ok(c, payload.data);
   })
   .get("/demographics", async (c) => {
     const filter = parseReportFilter(c);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const payload = {
       success: true as const,
-      data: await getFilteredDemographics(filter),
+      data: await getFilteredDemographics(filter, scopeFilter),
     };
     return ok(c, payload.data);
   })
   .get("/analytics", async (c) => {
     const filter = parseReportFilter(c);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const payload = {
       success: true as const,
-      data: await getFilteredInfographicData(filter),
+      data: await getFilteredInfographicData(filter, scopeFilter),
     };
     return ok(c, payload.data);
   })
@@ -138,13 +143,14 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       q: sanitizeSearchTerm(c.req.query("q") || undefined),
     });
     const filterRt = c.req.query("rt");
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     
     const where = parsed.q
       ? and(
-          buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: filterRt }),
+          buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: filterRt }, scopeFilter),
           sql`(${citizen.name} ilike ${`%${parsed.q}%`} or ${citizen.nik} ilike ${`%${parsed.q}%`})`,
         )
-      : buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: filterRt });
+      : buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: filterRt }, scopeFilter);
       
     const db = getDb();
     const [{ total }] = await db
@@ -196,12 +202,13 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       q: sanitizeSearchTerm(c.req.query("q") || undefined),
     });
     const rtId = c.req.param("rtId").replace(/^RT\s*/i, "").padStart(2, "0");
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const where = parsed.q
       ? and(
-          buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: rtId }),
+          buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: rtId }, scopeFilter),
           sql`(${citizen.name} ilike ${`%${parsed.q}%`} or ${citizen.nik} ilike ${`%${parsed.q}%`})`,
         )
-      : buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: rtId });
+      : buildCanonicalCitizenWhere({ tahun: parsed.tahun, bulan: parsed.bulan, rt: rtId }, scopeFilter);
     const db = getDb();
     const [{ total }] = await db
       .select({ total: sql<number>`count(*)::int` })
@@ -245,10 +252,11 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   })
   .get("/export/csv", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const rows = await getDb()
       .select()
       .from(citizen)
-      .where(buildCanonicalCitizenWhere(filter))
+      .where(buildCanonicalCitizenWhere(filter, scopeFilter))
       .orderBy(citizen.rt, citizen.rw, citizen.name);
 
     const headers = ["NIK", "Nama", "Jenis Kelamin", "Tanggal Lahir", "RT", "RW", "Status", "Alamat", "Pekerjaan"];
@@ -276,10 +284,11 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   })
   .get("/export/xlsx", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const rows = await getDb()
       .select()
       .from(citizen)
-      .where(buildCanonicalCitizenWhere(filter))
+      .where(buildCanonicalCitizenWhere(filter, scopeFilter))
       .orderBy(citizen.rt, citizen.name);
     const workbook = XLSX.utils.book_new();
     const sheet = XLSX.utils.json_to_sheet(
@@ -301,11 +310,12 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   })
   .get("/export/pdf", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const [summary, demographics, rtBreakdown, pendingRequests] = await Promise.all([
-      getCanonicalLiveStats(),
-      getFilteredDemographics(filter),
-      getFilteredRtBreakdown(filter),
-      getFilteredPendingRequests(filter),
+      getCanonicalLiveStats(scopeFilter),
+      getFilteredDemographics(filter, scopeFilter),
+      getFilteredRtBreakdown(filter, scopeFilter),
+      getFilteredPendingRequests(filter, scopeFilter),
     ]);
     const doc = new PDFDocument({ margin: 48 });
     const chunks: Uint8Array[] = [];

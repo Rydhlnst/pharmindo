@@ -36,6 +36,7 @@ import { createRateLimitMiddleware } from "./lib/rate-limit.js";
 import { fail, ok } from "./lib/response.js";
 import { parseParams, sanitizeSearchTerm } from "./lib/validation.js";
 import { adminMiddleware, authMiddleware } from "./middleware/auth.js";
+import { buildScopeFilter } from "./lib/admin-access.js";
 import { resolveIdentity } from "./session.js";
 import { approveVerificationService, rejectVerificationService } from "./services/verification.js";
 import { frontendBackendTrace } from "./trace.js";
@@ -178,6 +179,7 @@ export function createApp() {
     });
     if (!parsed.success) return fail(c, "VALIDATION_ERROR", "Invalid query", 400);
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const q = parsed.data.q?.trim();
     const baseWhere = q
       ? or(ilike(user.email, `%${q}%`), ilike(user.username, `%${q}%`), ilike(user.name, `%${q}%`))
@@ -185,9 +187,11 @@ export function createApp() {
 
     if (parsed.data.status) {
       const status = parsed.data.status;
-      const where = baseWhere
-        ? and(eq(userIdentity.verificationStatus, status), baseWhere)
-        : eq(userIdentity.verificationStatus, status);
+      const where = and(
+        eq(userIdentity.verificationStatus, status),
+        baseWhere,
+        scopeFilter,
+      );
 
       const rows = await getDb()
         .select({
@@ -242,7 +246,7 @@ export function createApp() {
       })
       .from(userIdentity)
       .innerJoin(user, eq(user.id, userIdentity.userId))
-      .where(baseWhere)
+      .where(and(baseWhere, scopeFilter))
       .orderBy(userIdentity.createdAt);
 
     const items = rows.map((row) => ({

@@ -21,6 +21,7 @@ import { toIso } from "../lib/serialize.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { buildObjectUrl } from "../lib/storage.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import { approveMutationService, createMutationService } from "../services/mutations.js";
 
 function toDateString(value: Date | string | null | undefined) {
@@ -102,7 +103,9 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
       mutationListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const filters = [];
+    if (scopeFilter) filters.push(scopeFilter);
     if (query.type) filters.push(eq(mutation.type, query.type));
     if (query.status) filters.push(eq(mutation.status, query.status));
     if (query.q) {
@@ -195,7 +198,9 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
       mutationListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const filters = [];
+    if (scopeFilter) filters.push(scopeFilter);
     if (query.type) filters.push(eq(mutation.type, query.type));
     if (query.status) filters.push(eq(mutation.status, query.status));
     if (query.q) {
@@ -308,22 +313,24 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
   .get("/:id", async (c) => {
     const { id } = parseParams(c.req.param(), idParamSchema);
     const db = getDb();
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const [row] = await db
       .select()
       .from(mutation)
-      .where(eq(mutation.id, id))
+      .innerJoin(citizen, eq(citizen.id, mutation.citizenId))
+      .where(and(eq(mutation.id, id), scopeFilter))
       .limit(1);
     if (!row) throw notFound("Mutation not found");
     const attachmentRows = await db
       .select()
       .from(mutationAttachment)
-      .where(eq(mutationAttachment.mutationId, row.id))
+      .where(eq(mutationAttachment.mutationId, row.mutations.id))
       .orderBy(mutationAttachment.createdAt);
 
     const payload = {
       success: true as const,
       data: {
-        ...mapMutation(row),
+        ...mapMutation(row.mutations),
         attachments: await Promise.all(attachmentRows.map(mapMutationAttachment)),
       },
     };

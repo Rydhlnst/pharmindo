@@ -20,6 +20,7 @@ import { toIso } from "../lib/serialize.js";
 import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import { createCitizenRegistrationService, createCitizenService, deleteCitizenService, updateCitizenService } from "../services/citizens.js";
 
 const citizenColumns = getTableColumns(citizen);
@@ -148,7 +149,9 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
       citizenListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const filters = [];
+    if (scopeFilter) filters.push(scopeFilter);
     if (query.q) {
       filters.push(or(ilike(citizen.name, `%${query.q}%`), ilike(citizen.nik, `%${query.q}%`)));
     }
@@ -222,13 +225,14 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
   })
   .get("/:id", async (c) => {
     const { id } = parseParams(c.req.param(), idParamSchema);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
     const row = await getDb()
       .select({
         ...citizenColumns,
         noKK: resolvedHouseholdNumberSql,
       })
       .from(citizen)
-      .where(eq(citizen.id, id))
+      .where(and(eq(citizen.id, id), scopeFilter))
       .limit(1);
     if (!row[0]) throw notFound("Citizen not found");
     const payload = { success: true as const, data: mapCitizen(row[0]) };

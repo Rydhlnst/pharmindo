@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, SQL } from "drizzle-orm";
 
 import { aspiration, citizen, getDb, household, mutation, serviceRequest, userIdentity } from "@abdimas/db";
 
@@ -66,19 +66,21 @@ export function buildDateFilter(column: { name: string }, filter: ReportFilter) 
   return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
-export function buildCanonicalCitizenWhere(filter: ReportFilter = {}) {
+export function buildCanonicalCitizenWhere(filter: ReportFilter = {}, scopeFilter?: SQL) {
   return and(
     eq(citizen.isArchived, false),
     filter.rt ? eq(citizen.rt, filter.rt) : undefined,
     buildTimestampFilter(citizen.createdAt, filter),
+    scopeFilter,
   );
 }
 
-export function buildCanonicalHouseholdWhere(filter: ReportFilter = {}) {
+export function buildCanonicalHouseholdWhere(filter: ReportFilter = {}, scopeFilter?: SQL) {
   return and(
     eq(household.status, "ACTIVE"),
     filter.rt ? eq(household.rt, filter.rt) : undefined,
     buildTimestampFilter(household.createdAt, filter),
+    scopeFilter,
   );
 }
 
@@ -88,15 +90,15 @@ export function buildCanonicalMutationWhere(filter: ReportFilter = {}) {
     : undefined;
 }
 
-export async function getCanonicalLiveStats(): Promise<CanonicalStats> {
+export async function getCanonicalLiveStats(scopeFilter?: SQL): Promise<CanonicalStats> {
   const db = getDb();
   const [[{ totalWarga }], [{ totalKK }], [{ totalMutasi }], [{ pendingRequests }]] = await Promise.all([
-    db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(eq(citizen.isArchived, false)),
+    db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(and(eq(citizen.isArchived, false), scopeFilter)),
     db
       .select({ totalKK: sql<number>`count(*)::int` })
       .from(household)
-      .where(eq(household.status, "ACTIVE")),
-    db.select({ totalMutasi: sql<number>`count(*)::int` }).from(mutation),
+      .where(and(eq(household.status, "ACTIVE"), scopeFilter)),
+    db.select({ totalMutasi: sql<number>`count(*)::int` }).from(mutation).innerJoin(citizen, eq(citizen.id, mutation.citizenId)).where(and(eq(citizen.isArchived, false), scopeFilter)),
     db
       .select({ pendingRequests: sql<number>`count(*)::int` })
       .from(serviceRequest)
@@ -111,21 +113,23 @@ export async function getCanonicalLiveStats(): Promise<CanonicalStats> {
   };
 }
 
-export async function getCanonicalDashboardBadges() {
+export async function getCanonicalDashboardBadges(scopeFilter?: SQL) {
   const db = getDb();
   const [[{ pendingVerifications }], [{ pendingMutations }], [{ pendingAspirations }]] = await Promise.all([
     db
       .select({ pendingVerifications: sql<number>`count(*)::int` })
       .from(userIdentity)
-      .where(eq(userIdentity.verificationStatus, "PENDING")),
+      .where(and(eq(userIdentity.verificationStatus, "PENDING"), scopeFilter)),
     db
       .select({ pendingMutations: sql<number>`count(*)::int` })
       .from(mutation)
-      .where(eq(mutation.status, "PENDING")),
+      .innerJoin(citizen, eq(citizen.id, mutation.citizenId))
+      .where(and(eq(mutation.status, "PENDING"), eq(citizen.isArchived, false), scopeFilter)),
     db
       .select({ pendingAspirations: sql<number>`count(*)::int` })
       .from(aspiration)
-      .where(eq(aspiration.status, "SUBMITTED")),
+      .innerJoin(userIdentity, eq(userIdentity.userId, aspiration.userId))
+      .where(and(eq(aspiration.status, "SUBMITTED"), scopeFilter)),
   ]);
 
   return {
@@ -135,7 +139,7 @@ export async function getCanonicalDashboardBadges() {
   };
 }
 
-export async function getFilteredRtBreakdown(filter: ReportFilter = {}): Promise<RtBreakdownRow[]> {
+export async function getFilteredRtBreakdown(filter: ReportFilter = {}, scopeFilter?: SQL): Promise<RtBreakdownRow[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -162,7 +166,7 @@ export async function getFilteredRtBreakdown(filter: ReportFilter = {}): Promise
       produktif: sql<number>`count(*) filter (where extract(year from age(current_date, ${citizen.birthDate})) between 16 and 60)::int`,
     })
     .from(citizen)
-    .where(buildCanonicalCitizenWhere(filter))
+    .where(buildCanonicalCitizenWhere(filter, scopeFilter))
     .groupBy(citizen.rt, citizen.rw)
     .orderBy(citizen.rt);
 
@@ -176,14 +180,14 @@ export async function getFilteredRtBreakdown(filter: ReportFilter = {}): Promise
   }));
 }
 
-export async function getFilteredDemographics(filter: ReportFilter = {}): Promise<DemographicsData> {
+export async function getFilteredDemographics(filter: ReportFilter = {}, scopeFilter?: SQL): Promise<DemographicsData> {
   const rows = await getDb()
     .select({
       gender: citizen.gender,
       birthDate: citizen.birthDate,
     })
     .from(citizen)
-    .where(buildCanonicalCitizenWhere(filter));
+    .where(buildCanonicalCitizenWhere(filter, scopeFilter));
 
   const ageGroups: DemographicsData["ageGroups"] = [
     { label: "0-12", value: 0 },
@@ -243,7 +247,7 @@ function buildDistribution(values: Array<string | null | undefined>, fallback: s
     .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label));
 }
 
-export async function getFilteredInfographicData(filter: ReportFilter = {}): Promise<InfographicData> {
+export async function getFilteredInfographicData(filter: ReportFilter = {}, scopeFilter?: SQL): Promise<InfographicData> {
   const rows = await getDb()
     .select({
       birthDate: citizen.birthDate,
@@ -255,7 +259,7 @@ export async function getFilteredInfographicData(filter: ReportFilter = {}): Pro
       status: citizen.status,
     })
     .from(citizen)
-    .where(buildCanonicalCitizenWhere(filter));
+    .where(buildCanonicalCitizenWhere(filter, scopeFilter));
 
   const currentYear = new Date().getFullYear();
   let productiveAge = 0;
@@ -283,10 +287,10 @@ export async function getFilteredInfographicData(filter: ReportFilter = {}): Pro
   };
 }
 
-export async function getFilteredPendingRequests(filter: ReportFilter = {}) {
+export async function getFilteredPendingRequests(filter: ReportFilter = {}, scopeFilter?: SQL) {
   const rows = await getDb()
     .select({ total: sql<number>`count(*)::int` })
     .from(serviceRequest)
-    .where(and(eq(serviceRequest.status, "PENDING"), buildTimestampFilter(serviceRequest.createdAt, filter)));
+    .where(and(eq(serviceRequest.status, "PENDING"), buildTimestampFilter(serviceRequest.createdAt, filter), scopeFilter));
   return Number(rows[0]?.total || 0);
 }

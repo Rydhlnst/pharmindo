@@ -8,7 +8,7 @@ import {
   serviceRequestListResponseSchema,
   serviceRequestResponseSchema,
 } from "@abdimas/contracts";
-import { getDb, household, householdMember, mutation, serviceRequest } from "@abdimas/db";
+import { getDb, household, householdMember, mutation, serviceRequest, userIdentity } from "@abdimas/db";
 
 import { logAdminActivity } from "../lib/admin-logs.js";
 import { notFound } from "../lib/errors.js";
@@ -19,6 +19,7 @@ import { toIso } from "../lib/serialize.js";
 import { buildObjectUrl } from "../lib/storage.js";
 import { parseJson, parseParams, parseQuery } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import { approveRequestService, rejectRequestService } from "../services/requests.js";
 
 async function mapRequest(row: typeof serviceRequest.$inferSelect) {
@@ -82,7 +83,9 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
       requestListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const filters = [];
+    if (scopeFilter) filters.push(scopeFilter);
     if (query.type) filters.push(eq(serviceRequest.type, query.type));
     if (query.status) filters.push(eq(serviceRequest.status, query.status));
     const where = filters.length > 0 ? and(...filters) : undefined;
@@ -90,30 +93,34 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const [{ total }] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(serviceRequest)
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
       .where(where);
 
     const rows = await db
       .select()
       .from(serviceRequest)
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
       .where(where)
       .orderBy(desc(serviceRequest.createdAt))
       .limit(query.limit)
       .offset(getOffset(query.page, query.limit));
 
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
-    const mappedRows = await Promise.all(rows.map(mapRequest));
+    const mappedRows = await Promise.all(rows.map((row) => mapRequest(row.service_requests)));
     const payload = { success: true as const, data: mappedRows, meta };
     return ok(c, payload.data, meta);
   })
   .get("/:id", async (c) => {
     const { id } = parseParams(c.req.param(), idParamSchema);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const row = await getDb()
       .select()
       .from(serviceRequest)
-      .where(eq(serviceRequest.id, id))
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .where(and(eq(serviceRequest.id, id), scopeFilter))
       .limit(1);
     if (!row[0]) throw notFound("Request not found");
-    const payload = { success: true as const, data: await mapRequest(row[0]) };
+    const payload = { success: true as const, data: await mapRequest(row[0].service_requests) };
     return ok(c, payload.data);
   })
   .post("/:id/approve", createRateLimitMiddleware({ key: "request-approve", limit: 20, windowMs: 60_000 }), async (c) => {

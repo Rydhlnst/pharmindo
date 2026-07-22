@@ -12,7 +12,7 @@ import {
   idParamSchema,
   requestDecisionSchema,
 } from "@abdimas/contracts";
-import { bansosProgram, getDb, serviceRequest } from "@abdimas/db";
+import { bansosProgram, getDb, serviceRequest, userIdentity } from "@abdimas/db";
 
 import { notFound } from "../lib/errors.js";
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
@@ -23,6 +23,7 @@ import { buildObjectUrl } from "../lib/storage.js";
 import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery } from "../lib/validation.js";
 import { adminMiddleware, authMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import { approveRequestService, rejectRequestService } from "../services/requests.js";
 
 function mapProgram(row: typeof bansosProgram.$inferSelect) {
@@ -140,7 +141,9 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
       adminBansosApplicationListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const filters = [eq(serviceRequest.type, "BANSOS_APPLICATION")];
+    if (scopeFilter) filters.push(scopeFilter);
     if (query.status) filters.push(eq(serviceRequest.status, query.status));
     const where = and(...filters);
 
@@ -148,18 +151,20 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const [{ total }] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(serviceRequest)
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
       .where(where);
 
     const rows = await db
       .select()
       .from(serviceRequest)
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
       .where(where)
       .orderBy(desc(serviceRequest.createdAt))
       .limit(query.limit)
       .offset(getOffset(query.page, query.limit));
 
     const meta = buildPageMeta({ page: query.page, limit: query.limit, total: Number(total || 0) });
-    const payload = { success: true as const, data: await Promise.all(rows.map(mapAdminBansosApplication)), meta };
+    const payload = { success: true as const, data: await Promise.all(rows.map((r) => mapAdminBansosApplication(r.service_requests))), meta };
     return ok(c, payload.data, meta);
   })
   .post("/applications/:id/approve", createRateLimitMiddleware({ key: "bansos-approve", limit: 20, windowMs: 60_000 }), async (c) => {

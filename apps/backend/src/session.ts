@@ -1,5 +1,5 @@
 import { and, eq, gt } from "drizzle-orm";
-import { getDb, session, user, userIdentity } from "@abdimas/db";
+import { adminAccess, getDb, session, user, userIdentity } from "@abdimas/db";
 import { maskNikFromParts } from "@abdimas/contracts";
 import { webcrypto } from "node:crypto";
 
@@ -69,9 +69,12 @@ export async function resolveSession(cookieHeader: string | undefined) {
         username: user.username,
         role: user.role,
         status: user.status,
+        accessScope: adminAccess.accessScope,
+        managedRtCodes: adminAccess.managedRtCodes,
       })
       .from(session)
       .innerJoin(user, eq(user.id, session.userId))
+      .leftJoin(adminAccess, eq(adminAccess.userId, user.id))
       .where(and(eq(session.token, token), gt(session.expiresAt, new Date()), eq(user.status, "ACTIVE")))
       .limit(1);
 
@@ -87,9 +90,12 @@ export async function resolveSession(cookieHeader: string | undefined) {
         email: user.email,
         username: user.username,
         role: user.role,
+        accessScope: adminAccess.accessScope,
+        managedRtCodes: adminAccess.managedRtCodes,
       })
       .from(session)
       .innerJoin(user, eq(user.id, session.userId))
+      .leftJoin(adminAccess, eq(adminAccess.userId, user.id))
       .where(and(eq(session.token, token), gt(session.expiresAt, new Date())))
       .limit(1);
 

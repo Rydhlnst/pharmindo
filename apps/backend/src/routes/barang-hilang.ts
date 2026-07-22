@@ -7,7 +7,7 @@ import {
   idParamSchema,
   updateBarangHilangSchema,
 } from "@abdimas/contracts";
-import { barangHilang, getDb, user } from "@abdimas/db";
+import { barangHilang, getDb, user, userIdentity } from "@abdimas/db";
 
 import { logAdminActivity } from "../lib/admin-logs.js";
 import { notFound } from "../lib/errors.js";
@@ -17,6 +17,7 @@ import { created, ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware, authMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 
 type BarangHilangRow = typeof barangHilang.$inferSelect;
@@ -74,7 +75,9 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
       barangHilangListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const filters = [];
+    if (scopeFilter) filters.push(scopeFilter);
     if (query.q) {
       filters.push(
         or(
@@ -99,6 +102,7 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
         })
         .from(barangHilang)
         .leftJoin(user, eq(user.id, barangHilang.reporterId))
+        .leftJoin(userIdentity, eq(userIdentity.userId, barangHilang.reporterId))
         .where(whereClause)
         .orderBy(desc(barangHilang.createdAt))
         .limit(query.limit)
@@ -106,6 +110,7 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
       getDb()
         .select({ count: sql<number>`count(*)::int` })
         .from(barangHilang)
+        .leftJoin(userIdentity, eq(userIdentity.userId, barangHilang.reporterId))
         .where(whereClause),
     ]);
 
@@ -114,9 +119,12 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
     return ok(c, data, buildPageMeta({ page: query.page, limit: query.limit, total }));
   })
   .get("/stats", async (c) => {
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const rows = await getDb()
       .select({ status: barangHilang.status, count: sql<number>`count(*)::int` })
       .from(barangHilang)
+      .leftJoin(userIdentity, eq(userIdentity.userId, barangHilang.reporterId))
+      .where(scopeFilter)
       .groupBy(barangHilang.status);
 
     const byStatus: Record<string, number> = {
@@ -136,6 +144,7 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
   })
   .get("/:id", async (c) => {
     const { id } = parseParams(c.req.param(), idParamSchema);
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const rows = await getDb()
       .select({
         bh: barangHilang,
@@ -144,7 +153,8 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
       })
       .from(barangHilang)
       .leftJoin(user, eq(user.id, barangHilang.reporterId))
-      .where(eq(barangHilang.id, id))
+      .leftJoin(userIdentity, eq(userIdentity.userId, barangHilang.reporterId))
+      .where(and(eq(barangHilang.id, id), scopeFilter))
       .limit(1);
 
     const row = rows[0];

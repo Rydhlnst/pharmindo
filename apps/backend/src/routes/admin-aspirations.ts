@@ -18,6 +18,7 @@ import { toIso } from "../lib/serialize.js";
 import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 
 async function buildReplierMap(ids: string[]) {
   const uniqueIds = [...new Set(ids)];
@@ -44,7 +45,9 @@ export const adminAspirationsRoutes = new Hono<{ Variables: { sessionUser: { id:
       adminAspirationListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const whereParts = [];
+    if (scopeFilter) whereParts.push(scopeFilter);
     if (query.status) whereParts.push(eq(aspiration.status, query.status));
     if (query.q) {
       whereParts.push(
@@ -128,6 +131,7 @@ export const adminAspirationsRoutes = new Hono<{ Variables: { sessionUser: { id:
   .get("/:id", async (c) => {
     const { id } = parseParams(c.req.param(), aspirationIdParamSchema);
     const db = getDb();
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const [row] = await db
       .select({
         id: aspiration.id,
@@ -149,7 +153,7 @@ export const adminAspirationsRoutes = new Hono<{ Variables: { sessionUser: { id:
       .from(aspiration)
       .innerJoin(user, eq(user.id, aspiration.userId))
       .leftJoin(userIdentity, eq(userIdentity.userId, aspiration.userId))
-      .where(eq(aspiration.id, id))
+      .where(and(eq(aspiration.id, id), scopeFilter))
       .limit(1);
 
     if (!row) throw new HTTPException(404, { message: "Aduan tidak ditemukan" });

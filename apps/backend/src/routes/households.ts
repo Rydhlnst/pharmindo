@@ -22,6 +22,7 @@ import { toIso } from "../lib/serialize.js";
 import { adminSyncKey, bumpSyncKeys } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
+import { buildScopeFilter } from "../lib/admin-access.js";
 import { addHouseholdMemberService, createHouseholdService, normalizeHouseholdRelationship } from "../services/households.js";
 
 function mapCitizen(row: typeof citizen.$inferSelect) {
@@ -78,7 +79,9 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
       householdListQuerySchema,
     );
 
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), household.rt);
     const filters = [];
+    if (scopeFilter) filters.push(scopeFilter);
     if (query.q) {
       filters.push(
         or(
@@ -180,6 +183,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
   .get("/:id", async (c) => {
     const { id: householdId } = parseParams(c.req.param(), idParamSchema);
     const db = getDb();
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), household.rt);
     const [base, members] = await Promise.all([
       db
         .select({
@@ -196,7 +200,7 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         })
         .from(household)
         .leftJoin(citizen, eq(citizen.id, household.headCitizenId))
-        .where(eq(household.id, householdId))
+        .where(and(eq(household.id, householdId), scopeFilter))
         .limit(1),
       db
         .select({

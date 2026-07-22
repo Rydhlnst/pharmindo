@@ -1,3 +1,5 @@
+import { eq, inArray, SQL, Column } from "drizzle-orm";
+
 type AdminIdentity = {
   name: string;
   email: string;
@@ -79,4 +81,22 @@ export function buildAdminUsername(input: { accessScope: "RW" | "RT"; managedRtC
 export function buildAdminDisplayUsername(input: { accessScope: "RW" | "RT"; managedRtCodes: string[] }) {
   if (input.accessScope === "RW") return "admin-rw";
   return `admin-${input.managedRtCodes.map((code) => `rt-${code}`).join("-")}`;
+}
+
+export function buildScopeFilter(
+  sessionUser: { role: string; username?: string; displayUsername?: string | null; accessScope?: string | null; managedRtCodes?: string[] | null },
+  column: Column,
+): SQL | undefined {
+  const identity = {
+    role: sessionUser.role,
+    username: sessionUser.username ?? "",
+    displayUsername: sessionUser.displayUsername,
+    accessScope: sessionUser.accessScope as "RW" | "RT" | null | undefined,
+    managedRtCodes: sessionUser.managedRtCodes,
+  };
+  const scope = getAdminScope(identity);
+  if (scope === "RW" || scope === null) return undefined;
+  const rtCodes = getManagedRtCodesFromAdmin(identity);
+  if (rtCodes.length === 0) return undefined;
+  return inArray(column, rtCodes);
 }
