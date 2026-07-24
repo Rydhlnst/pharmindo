@@ -12,7 +12,7 @@ import {
 import { activity, citizen, getDb, pemiluEvent } from "@abdimas/db";
 
 import { logAdminActivity } from "../lib/admin-logs.js";
-import { notFound } from "../lib/errors.js";
+import { forbidden, notFound } from "../lib/errors.js";
 import { ok } from "../lib/response.js";
 import { toIso } from "../lib/serialize.js";
 import { parseJson, parseParams, parseQuery } from "../lib/validation.js";
@@ -107,6 +107,7 @@ export const adminPemiluRoutes = new Hono<{ Variables: { sessionUser: { id: stri
   })
   .post("/", async (c) => {
     const sessionUser = c.get("sessionUser");
+    if (sessionUser.role !== "SUPER_ADMIN") throw forbidden("Only RW admin can create pemilu events");
     const body = await parseJson(c.req.raw, createPemiluEventSchema);
     const db = getDb();
 

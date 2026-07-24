@@ -12,6 +12,9 @@ export type IdentityContextValue = {
   /** "NONE" means the user has an account but hasn't submitted their identity profile yet. */
   verificationStatus: VerificationStatus;
   rejectionReason?: string | null;
+  hasKk: boolean;
+  rt: string | null;
+  rw: string | null;
   refreshIdentity: () => Promise<void>;
 };
 

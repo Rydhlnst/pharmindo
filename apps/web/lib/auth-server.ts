@@ -65,6 +65,8 @@ export async function getIdentityOrNull(): Promise<MeIdentityResponse | null> {
     maskedNik: maskedNik(identity),
     verificationStatus: identity.verificationStatus,
     rejectionReason: identity.rejectionReason,
+    rt: identity.rt,
+    rw: identity.rw,
   };
 }
 

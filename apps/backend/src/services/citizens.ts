@@ -3,7 +3,8 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { adminActivityLog, citizen, getDb, household, householdMember, mutation, serviceRequest } from "@abdimas/db";
 
 import { createAuditLogService } from "../lib/admin-logs.js";
-import { conflict, notFound, validationError } from "../lib/errors.js";
+import { conflict, forbidden, notFound, validationError } from "../lib/errors.js";
+import { isRtInScope } from "../lib/admin-access.js";
 import { normalizeHouseholdRelationship } from "./households.js";
 
 type CitizenPayload = {
@@ -35,13 +36,17 @@ type CitizenRegistrationPayload = {
   members?: CitizenHouseholdMemberPayload[];
 };
 
-export async function createCitizenService(input: { adminId: string; body: CitizenPayload }) {
+export async function createCitizenService(input: { adminId: string; body: CitizenPayload; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const db = getDb();
   const existingWhere = input.body.userId
     ? or(eq(citizen.nik, input.body.nik), eq(citizen.userId, input.body.userId))
     : eq(citizen.nik, input.body.nik);
   const existing = await db.select({ id: citizen.id }).from(citizen).where(existingWhere).limit(1);
   if (existing.length > 0) throw conflict("Citizen with same NIK or user is already registered");
+
+  if (!isRtInScope(input, input.body.rt)) {
+    throw forbidden("Cannot create citizen outside your RT scope");
+  }
 
   const [inserted] = await db
     .insert(citizen)
@@ -265,8 +270,16 @@ export async function createCitizenRegistrationService(input: {
   });
 }
 
-export async function updateCitizenService(input: { adminId: string; citizenId: string; body: Partial<CitizenPayload & { isArchived: boolean }> }) {
+export async function updateCitizenService(input: { adminId: string; citizenId: string; body: Partial<CitizenPayload & { isArchived: boolean }>; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const db = getDb();
+
+  // Scope validation: check that the citizen belongs to admin's scope
+  const [existing] = await db.select({ rt: citizen.rt }).from(citizen).where(eq(citizen.id, input.citizenId)).limit(1);
+  if (!existing) throw notFound("Citizen not found");
+  if (!isRtInScope(input, existing.rt)) {
+    throw forbidden("Citizen does not belong to your RT scope");
+  }
+
   if (input.body.nik) {
     const duplicate = await db
       .select({ id: citizen.id })
@@ -293,10 +306,14 @@ export async function updateCitizenService(input: { adminId: string; citizenId: 
   return updated;
 }
 
-export async function deleteCitizenService(input: { adminId: string; citizenId: string }) {
+export async function deleteCitizenService(input: { adminId: string; citizenId: string; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const db = getDb();
   const [existing] = await db.select().from(citizen).where(eq(citizen.id, input.citizenId)).limit(1);
   if (!existing) throw notFound("Citizen not found");
+
+  if (!isRtInScope(input, existing.rt)) {
+    throw forbidden("Citizen does not belong to your RT scope");
+  }
 
   const [householdCount, mutationCount, requestCount] = await Promise.all([
     db.select({ total: sql<number>`count(*)::int` }).from(householdMember).where(eq(householdMember.citizenId, input.citizenId)),

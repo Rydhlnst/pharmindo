@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { useActionToast } from '@/lib/use-action-toast';
 import { platformFetch } from '@/lib/api/platform';
+import { RT_OPTIONS } from '@/lib/rt-options';
 
 type SubmissionType = 'baru' | 'gabung' | null;
 
@@ -33,6 +34,8 @@ export default function KKApplicationWizard() {
   const [nomorKkUnik, setNomorKkUnik] = useState('');
   const [hubungan, setHubungan] = useState('');
   const [dokumenLampiran, setDokumenLampiran] = useState<File[]>([]);
+  const [rt, setRt] = useState('');
+  const [rw, setRw] = useState('25');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -55,7 +58,7 @@ export default function KKApplicationWizard() {
 
   const handleNextStep2 = () => {
     if (submissionType === 'baru') {
-      if (!namaKepalaKeluarga || !alamatLengkap) {
+      if (!namaKepalaKeluarga || !alamatLengkap || !rt) {
         toast({ title: 'Data Belum Lengkap', description: 'Harap isi semua kolom yang diwajibkan.', variant: 'destructive' });
         return;
       }
@@ -77,16 +80,46 @@ export default function KKApplicationWizard() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      // In a real implementation, we would upload the files and send multipart/form-data
-      // For now, we simulate the submission to the existing endpoint or mock it
-      await runWithToast(
-        () => new Promise((resolve) => setTimeout(resolve, 1500)), // Mock API call
-        {
-          loading: 'Mengirim pengajuan...',
-          success: 'Pengajuan KK berhasil dikirim. Menunggu verifikasi admin.',
-          error: 'Gagal mengirim pengajuan',
-        }
-      );
+      if (submissionType === 'baru') {
+        // Generate a temporary KK number based on timestamp for new KK submissions
+        const timestamp = Date.now().toString().slice(-16).padStart(16, '0');
+        await runWithToast(
+          () =>
+            platformFetch('/requests/household-create', {
+              method: 'POST',
+              body: JSON.stringify({
+                kkNumber: timestamp,
+                address: alamatLengkap,
+                rt: rt,
+                rw: rw,
+              }),
+            }),
+          {
+            loading: 'Mengirim pengajuan...',
+            success: 'Pengajuan KK berhasil dikirim. Menunggu verifikasi admin.',
+            error: 'Gagal mengirim pengajuan',
+          }
+        );
+      } else {
+        // For adding member to existing KK, use member-create endpoint
+        await runWithToast(
+          () =>
+            platformFetch('/requests/member-create', {
+              method: 'POST',
+              body: JSON.stringify({
+                nik: '', // Will be filled by admin
+                name: namaKepalaKeluarga || 'Anggota Baru',
+                gender: 'L',
+                relationship: hubungan,
+              }),
+            }),
+          {
+            loading: 'Mengirim pengajuan...',
+            success: 'Pengajuan tambah anggota berhasil dikirim. Menunggu verifikasi admin.',
+            error: 'Gagal mengirim pengajuan',
+          }
+        );
+      }
       
       router.push('/warga');
     } catch (e) {
@@ -147,8 +180,7 @@ export default function KKApplicationWizard() {
 
             <button
               onClick={() => {
-                setSubmissionType('gabung');
-                setStep(2);
+                router.push('/warga/kk/tambah-anggota');
               }}
               className="group flex flex-col items-center gap-4 rounded-2xl border-2 border-gray-100 bg-white p-6 text-center transition-all hover:border-sky-500 hover:shadow-md"
             >
@@ -188,10 +220,36 @@ export default function KKApplicationWizard() {
                 <div className="flex flex-col gap-2">
                   <Label className="text-sm font-semibold text-gray-900">Alamat Lengkap di Lingkungan RW <span className="text-red-500">*</span></Label>
                   <Input 
-                    placeholder="Nama jalan, Nomor rumah, RT/RW" 
+                    placeholder="Nama jalan, Nomor rumah" 
                     value={alamatLengkap} 
                     onChange={(e) => setAlamatLengkap(e.target.value)}
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-sm font-semibold text-gray-900">RT <span className="text-red-500">*</span></Label>
+                    <Select value={rt} onValueChange={setRt}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih RT" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RT_OPTIONS.map((rtOption) => (
+                          <SelectItem key={rtOption} value={rtOption}>
+                            RT {rtOption}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-sm font-semibold text-gray-900">RW</Label>
+                    <Input 
+                      value={rw} 
+                      onChange={(e) => setRw(e.target.value)}
+                      disabled
+                      className="bg-gray-50"
+                    />
+                  </div>
                 </div>
               </>
             ) : (

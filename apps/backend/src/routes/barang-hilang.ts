@@ -1,5 +1,6 @@
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { z } from "zod";
 
 import {
   barangHilangListQuerySchema,
@@ -10,7 +11,8 @@ import {
 import { barangHilang, getDb, user, userIdentity } from "@abdimas/db";
 
 import { logAdminActivity } from "../lib/admin-logs.js";
-import { notFound } from "../lib/errors.js";
+import { forbidden, notFound } from "../lib/errors.js";
+import { isRtInScope } from "../lib/admin-access.js";
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
 import { createRateLimitMiddleware } from "../lib/rate-limit.js";
 import { created, ok } from "../lib/response.js";
@@ -166,6 +168,23 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
     const { id } = parseParams(c.req.param(), idParamSchema);
     const body = await parseJson(c.req.raw, updateBarangHilangSchema);
 
+    // Scope validation: check reporter's RT
+    const [existing] = await getDb()
+      .select({ reporterId: barangHilang.reporterId })
+      .from(barangHilang)
+      .where(eq(barangHilang.id, id))
+      .limit(1);
+    if (!existing) throw notFound("Barang hilang not found");
+
+    const [userIdentityRow] = await getDb()
+      .select({ rt: userIdentity.rt })
+      .from(userIdentity)
+      .where(eq(userIdentity.userId, existing.reporterId))
+      .limit(1);
+    if (userIdentityRow && !isRtInScope(sessionUser, userIdentityRow.rt!)) {
+      throw forbidden("Barang hilang does not belong to your RT scope");
+    }
+
     const [updated] = await getDb()
       .update(barangHilang)
       .set(body)
@@ -185,6 +204,24 @@ export const adminBarangHilangRoutes = new Hono<{ Variables: { sessionUser: { id
   .delete("/:id", async (c) => {
     const sessionUser = c.get("sessionUser");
     const { id } = parseParams(c.req.param(), idParamSchema);
+
+    // Scope validation: check reporter's RT
+    const [existing] = await getDb()
+      .select({ reporterId: barangHilang.reporterId })
+      .from(barangHilang)
+      .where(eq(barangHilang.id, id))
+      .limit(1);
+    if (!existing) throw notFound("Barang hilang not found");
+
+    const [userIdentityRow] = await getDb()
+      .select({ rt: userIdentity.rt })
+      .from(userIdentity)
+      .where(eq(userIdentity.userId, existing.reporterId))
+      .limit(1);
+    if (userIdentityRow && !isRtInScope(sessionUser, userIdentityRow.rt!)) {
+      throw forbidden("Barang hilang does not belong to your RT scope");
+    }
+
     const [deleted] = await getDb().delete(barangHilang).where(eq(barangHilang.id, id)).returning();
     if (!deleted) throw notFound("Barang hilang not found");
     await logAdminActivity({
@@ -262,4 +299,31 @@ export const barangHilangRoutes = new Hono<{ Variables: { sessionUser: { id: str
 
     await bumpSyncKeys([adminSyncKey("barang-hilang")]);
     return created(c, mapBarangHilang(row));
+  })
+  .patch("/:id", createRateLimitMiddleware({ key: "barang-hilang-user-write", limit: 20, windowMs: 60_000 }), async (c) => {
+    const sessionUser = c.get("sessionUser");
+    const { id } = parseParams(c.req.param(), idParamSchema);
+    const body = await parseJson(c.req.raw, z.object({
+      status: z.enum(["resolved"]).optional(),
+    }));
+
+    const [existing] = await getDb()
+      .select({ id: barangHilang.id, status: barangHilang.status })
+      .from(barangHilang)
+      .where(and(eq(barangHilang.id, id), eq(barangHilang.reporterId, sessionUser.id)))
+      .limit(1);
+    if (!existing) throw notFound("Barang hilang not found");
+
+    if (body.status === "resolved" && existing.status !== "processing") {
+      throw new Error("Laporan hanya bisa ditutup saat status sedang diproses");
+    }
+
+    const [updated] = await getDb()
+      .update(barangHilang)
+      .set({ status: body.status ?? existing.status })
+      .where(eq(barangHilang.id, id))
+      .returning();
+
+    await bumpSyncKeys([adminSyncKey("barang-hilang")]);
+    return ok(c, mapBarangHilang(updated));
   });

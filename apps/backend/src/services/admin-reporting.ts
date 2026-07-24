@@ -13,6 +13,8 @@ type CanonicalStats = {
   totalKK: number;
   totalMutasi: number;
   pendingRequests: number;
+  totalMeninggal: number;
+  totalBalita: number;
 };
 
 type RtBreakdownRow = {
@@ -92,7 +94,7 @@ export function buildCanonicalMutationWhere(filter: ReportFilter = {}) {
 
 export async function getCanonicalLiveStats(scopeFilter?: SQL): Promise<CanonicalStats> {
   const db = getDb();
-  const [[{ totalWarga }], [{ totalKK }], [{ totalMutasi }], [{ pendingRequests }]] = await Promise.all([
+  const [[{ totalWarga }], [{ totalKK }], [{ totalMutasi }], [{ pendingRequests }], [{ totalMeninggal }], [{ totalBalita }]] = await Promise.all([
     db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(and(eq(citizen.isArchived, false), scopeFilter)),
     db
       .select({ totalKK: sql<number>`count(*)::int` })
@@ -103,6 +105,19 @@ export async function getCanonicalLiveStats(scopeFilter?: SQL): Promise<Canonica
       .select({ pendingRequests: sql<number>`count(*)::int` })
       .from(serviceRequest)
       .where(eq(serviceRequest.status, "PENDING")),
+    db
+      .select({ totalMeninggal: sql<number>`count(*)::int` })
+      .from(mutation)
+      .innerJoin(citizen, eq(citizen.id, mutation.citizenId))
+      .where(and(eq(mutation.type, "DEATH"), eq(citizen.isArchived, false), scopeFilter)),
+    db
+      .select({ totalBalita: sql<number>`count(*)::int` })
+      .from(citizen)
+      .where(and(
+        eq(citizen.isArchived, false),
+        sql`extract(year from age(current_date, ${citizen.birthDate})) <= 5`,
+        scopeFilter,
+      )),
   ]);
 
   return {
@@ -110,6 +125,8 @@ export async function getCanonicalLiveStats(scopeFilter?: SQL): Promise<Canonica
     totalKK: Number(totalKK || 0),
     totalMutasi: Number(totalMutasi || 0),
     pendingRequests: Number(pendingRequests || 0),
+    totalMeninggal: Number(totalMeninggal || 0),
+    totalBalita: Number(totalBalita || 0),
   };
 }
 

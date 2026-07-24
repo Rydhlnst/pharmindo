@@ -10,6 +10,7 @@ import {
   household,
   mutation,
   user,
+  userIdentity,
 } from "@abdimas/db";
 
 import { getRoleLabel } from "../lib/admin-access.js";
@@ -63,7 +64,19 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
         .innerJoin(user, eq(user.id, adminActivityLog.adminId))
         .orderBy(sql`${adminActivityLog.createdAt} desc`)
         .limit(50),
-      db.select().from(aspiration).orderBy(sql`${aspiration.createdAt} desc`).limit(20),
+      db
+        .select({
+          id: aspiration.id,
+          title: aspiration.title,
+          category: aspiration.category,
+          status: aspiration.status,
+          createdAt: aspiration.createdAt,
+        })
+        .from(aspiration)
+        .innerJoin(userIdentity, eq(userIdentity.userId, aspiration.userId))
+        .where(scopeFilter)
+        .orderBy(sql`${aspiration.createdAt} desc`)
+        .limit(20),
     ]);
 
     const dW = Number(deltaWarga || 0);

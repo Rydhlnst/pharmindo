@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import * as XLSX from "xlsx";
 import { z } from "zod";
 
-import { aspiration, citizen, getDb, household, mutation, serviceRequest } from "@abdimas/db";
+import { aspiration, bansosProgram, citizen, getDb, household, mutation, serviceRequest, userIdentity } from "@abdimas/db";
 import {
   citizenListQuerySchema,
   citizenListResponseSchema,
@@ -250,6 +250,71 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
     };
     return ok(c, payload.data, meta);
   })
+  .get("/bansos-summary", async (c) => {
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
+    const db = getDb();
+
+    const byRtRows = await db
+      .select({
+        rt: userIdentity.rt,
+        recipientCount: sql<number>`count(distinct ${serviceRequest.requestedBy})::int`,
+      })
+      .from(serviceRequest)
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .where(and(
+        eq(serviceRequest.type, "BANSOS_APPLICATION"),
+        scopeFilter,
+      ))
+      .groupBy(userIdentity.rt)
+      .orderBy(userIdentity.rt);
+
+    const byProgramRows = await db
+      .select({
+        payload: serviceRequest.payload,
+        status: serviceRequest.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(serviceRequest)
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .where(and(
+        eq(serviceRequest.type, "BANSOS_APPLICATION"),
+        scopeFilter,
+      ))
+      .groupBy(serviceRequest.payload, serviceRequest.status);
+
+    const programMap = new Map<string, { title: string; assistanceType: string; total: number; approved: number; rejected: number; pending: number }>();
+    for (const row of byProgramRows) {
+      const payload = row.payload as Record<string, unknown>;
+      const programId = typeof payload.programId === "string" ? payload.programId : "unknown";
+      const title = typeof payload.title === "string" ? payload.title : "Program";
+      const assistanceType = typeof payload.assistanceType === "string" ? payload.assistanceType : "-";
+      if (!programMap.has(programId)) {
+        programMap.set(programId, { title, assistanceType, total: 0, approved: 0, rejected: 0, pending: 0 });
+      }
+      const entry = programMap.get(programId)!;
+      entry.total += Number(row.count);
+      if (row.status === "APPROVED") entry.approved += Number(row.count);
+      else if (row.status === "REJECTED") entry.rejected += Number(row.count);
+      else if (row.status === "PENDING") entry.pending += Number(row.count);
+    }
+
+    const payload = {
+      success: true as const,
+      data: {
+        byRt: byRtRows.map((row) => ({ rt: row.rt ?? "-", recipientCount: Number(row.recipientCount || 0) })),
+        byProgram: [...programMap.entries()].map(([programId, entry]) => ({
+          programId,
+          title: entry.title,
+          assistanceType: entry.assistanceType,
+          totalApplications: entry.total,
+          approved: entry.approved,
+          rejected: entry.rejected,
+          pending: entry.pending,
+        })),
+      },
+    };
+    return ok(c, payload.data);
+  })
   .get("/export/csv", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
     const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
@@ -295,6 +360,8 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       rows.map((row) => ({
         NIK: row.nik,
         Nama: row.name,
+        "Jenis Kelamin": row.gender === "L" ? "Laki-laki" : "Perempuan",
+        "Tanggal Lahir": row.birthDate,
         RT: row.rt,
         RW: row.rw,
         Status: row.status,

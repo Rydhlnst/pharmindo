@@ -183,7 +183,16 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
   })
   .post("/", async (c) => {
     const body = await parseJson(c.req.raw, createCitizenSchema);
-    const inserted = await createCitizenService({ adminId: c.get("sessionUser").id, body });
+    const sessionUser = c.get("sessionUser");
+    const inserted = await createCitizenService({
+      adminId: sessionUser.id,
+      body,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
+    });
     await bumpSyncKeys([adminSyncKey("citizens")]);
     const payload = { success: true as const, data: mapCitizen(inserted) };
     return created(c, payload.data);
@@ -241,14 +250,33 @@ export const citizensRoutes = new Hono<{ Variables: { sessionUser: { id: string;
   .patch("/:id", async (c) => {
     const body = await parseJson(c.req.raw, updateCitizenSchema);
     const { id } = parseParams(c.req.param(), idParamSchema);
-    const updated = await updateCitizenService({ adminId: c.get("sessionUser").id, citizenId: id, body });
+    const sessionUser = c.get("sessionUser");
+    const updated = await updateCitizenService({
+      adminId: sessionUser.id,
+      citizenId: id,
+      body,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
+    });
     await bumpSyncKeys([adminSyncKey("citizens")]);
     const payload = { success: true as const, data: mapCitizen(updated) };
     return ok(c, payload.data);
   })
   .delete("/:id", async (c) => {
     const { id } = parseParams(c.req.param(), idParamSchema);
-    const result = await deleteCitizenService({ adminId: c.get("sessionUser").id, citizenId: id });
+    const sessionUser = c.get("sessionUser");
+    const result = await deleteCitizenService({
+      adminId: sessionUser.id,
+      citizenId: id,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
+    });
     await bumpSyncKeys([adminSyncKey("citizens")]);
     return ok(c, {
       id: result.row.id,

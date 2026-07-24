@@ -18,7 +18,7 @@ import { toIso } from "../lib/serialize.js";
 import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { parseJson, parseParams, parseQuery, sanitizeSearchTerm } from "../lib/validation.js";
 import { adminMiddleware } from "../middleware/auth.js";
-import { buildScopeFilter } from "../lib/admin-access.js";
+import { buildScopeFilter, getManagedRtCodesFromAdmin } from "../lib/admin-access.js";
 
 async function buildReplierMap(ids: string[]) {
   const uniqueIds = [...new Set(ids)];
@@ -190,6 +190,34 @@ export const adminAspirationsRoutes = new Hono<{ Variables: { sessionUser: { id:
   .post("/:id/reply", async (c) => {
     const sessionUser = c.get("sessionUser");
     const { id } = parseParams(c.req.param(), aspirationIdParamSchema);
+
+    // Scope validation: check aspiration user's RT
+    const scopeFilter = buildScopeFilter(sessionUser, userIdentity.rt);
+    const [aspirationRow] = await getDb()
+      .select({ userId: aspiration.userId })
+      .from(aspiration)
+      .where(and(eq(aspiration.id, id), scopeFilter))
+      .limit(1);
+    if (!aspirationRow) throw new HTTPException(404, { message: "Aduan tidak ditemukan" });
+
+    const [userIdentityRow] = await getDb()
+      .select({ rt: userIdentity.rt })
+      .from(userIdentity)
+      .where(eq(userIdentity.userId, aspirationRow.userId))
+      .limit(1);
+    if (userIdentityRow && scopeFilter) {
+      const managedRtCodes = getManagedRtCodesFromAdmin({
+        role: sessionUser.role,
+        username: (sessionUser as any).username ?? "",
+        displayUsername: (sessionUser as any).displayUsername,
+        accessScope: (sessionUser as any).accessScope as "RW" | "RT" | null,
+        managedRtCodes: (sessionUser as any).managedRtCodes,
+      });
+      if (managedRtCodes.length > 0 && !managedRtCodes.includes(userIdentityRow.rt!)) {
+        throw new HTTPException(403, { message: "Aduan does not belong to your RT scope" });
+      }
+    }
+
     const body = await parseJson(c.req.raw, adminAspirationReplySchema);
     const [updated] = await getDb()
       .update(aspiration)

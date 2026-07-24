@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -8,29 +8,34 @@ import EmptyState from '@/components/warga/barang-hilang/EmptyState';
 import LaporanList from '@/components/warga/barang-hilang/LaporanList';
 import { platformFetch } from '@/lib/api/platform';
 import { mapBackendBarangHilang, type BackendBarangHilang } from '@/lib/barang-hilang-mapper';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import type { LaporanBarangHilang } from '@/types/barang-hilang';
 
 export default function BarangHilangWargaPage() {
   const [data, setData] = useState<LaporanBarangHilang[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const res = await platformFetch<BackendBarangHilang[]>('/barang-hilang?limit=50');
-        if (!active) return;
-        setData((res.data ?? []).map(mapBackendBarangHilang));
-      } catch (err) {
-        console.error(err);
-        if (active) setData([]);
-      } finally {
-        if (active) setLoading(false);
-      }
+  const load = useCallback(async () => {
+    try {
+      const res = await platformFetch<BackendBarangHilang[]>('/barang-hilang?limit=50');
+      setData((res.data ?? []).map(mapBackendBarangHilang));
+    } catch (err) {
+      console.error(err);
+      setData([]);
+    } finally {
+      setLoading(false);
     }
-    void load();
-    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useSyncVersions(['admin:barang-hilang'], {
+    onVersionsChanged: useCallback(() => {
+      void load();
+    }, [load]),
+  });
 
   return (
     <main className="min-h-screen bg-slate-50 pb-24 pt-6 px-4">

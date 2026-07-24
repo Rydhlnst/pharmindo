@@ -3,7 +3,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { citizen, getDb, household, householdMember } from "@abdimas/db";
 
 import { logAdminActivity } from "../lib/admin-logs.js";
-import { conflict, notFound, validationError } from "../lib/errors.js";
+import { conflict, forbidden, notFound, validationError } from "../lib/errors.js";
+import { isRtInScope } from "../lib/admin-access.js";
 
 type CreateHouseholdPayload = {
   kkNumber: string;
@@ -35,10 +36,14 @@ export function normalizeHouseholdRelationship(input: string) {
   return map[value.toUpperCase()] ?? "OTHER";
 }
 
-export async function createHouseholdService(input: { adminId: string; body: CreateHouseholdPayload }) {
+export async function createHouseholdService(input: { adminId: string; body: CreateHouseholdPayload; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const db = getDb();
   if (!input.body.headCitizenId && !input.body.headCitizenName) {
     throw validationError("headCitizenId or headCitizenName is required");
+  }
+
+  if (!isRtInScope(input, input.body.rt)) {
+    throw forbidden("Cannot create household outside your RT scope");
   }
 
   const [existingHousehold] = await Promise.all([
@@ -147,6 +152,11 @@ export async function addHouseholdMemberService(input: {
   householdId: string;
   citizenId: string;
   relationship: "HEAD_OF_FAMILY" | "SPOUSE" | "CHILD" | "PARENT" | "SIBLING" | "OTHER" | string;
+  adminRole?: string;
+  adminAccessScope?: string | null;
+  adminManagedRtCodes?: string[] | null;
+  adminUsername?: string;
+  adminDisplayUsername?: string | null;
 }) {
   const db = getDb();
   const [householdRow, citizenRow] = await Promise.all([
@@ -155,6 +165,10 @@ export async function addHouseholdMemberService(input: {
   ]);
   if (!householdRow[0]) throw notFound("Household not found");
   if (!citizenRow[0]) throw notFound("Citizen not found");
+
+  if (!isRtInScope(input, householdRow[0].rt)) {
+    throw forbidden("Household does not belong to your RT scope");
+  }
 
   const [duplicateInHousehold, activeMembership] = await Promise.all([
     db

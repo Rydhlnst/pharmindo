@@ -299,6 +299,11 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
       adminId: sessionUser.id,
       body,
       files: selectedFiles.map((item) => ({ kind: item.kind, file: item.file })),
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
     });
 
     const payload = {
@@ -346,6 +351,11 @@ export const mutationsRoutes = new Hono<{ Variables: { sessionUser: { id: string
       mutationId: id,
       status: body.status,
       reason: body.reason,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
     });
 
     const attachmentRows = await db

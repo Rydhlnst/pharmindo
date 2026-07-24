@@ -279,7 +279,15 @@ export function createApp() {
   app.post("/admin/verifications/:userId/approve", adminMiddleware, createRateLimitMiddleware({ key: "verify-approve", limit: 20, windowMs: 60_000 }), async (c) => {
     const adminUser = c.get("sessionUser");
     const { userId } = parseParams(c.req.param(), userIdParamSchema);
-    const updated = await approveVerificationService({ adminId: adminUser.id, userId });
+    const updated = await approveVerificationService({
+      adminId: adminUser.id,
+      userId,
+      adminRole: adminUser.role,
+      adminAccessScope: (adminUser as any).accessScope,
+      adminManagedRtCodes: (adminUser as any).managedRtCodes,
+      adminUsername: (adminUser as any).username,
+      adminDisplayUsername: (adminUser as any).displayUsername,
+    });
     return ok(c, {
       userId: updated.userId,
       verificationStatus: updated.verificationStatus,
@@ -292,7 +300,16 @@ export function createApp() {
     const adminUser = c.get("sessionUser");
     const { userId } = parseParams(c.req.param(), userIdParamSchema);
     const body = rejectVerificationSchema.parse(await c.req.json().catch(() => ({})));
-    const updated = await rejectVerificationService({ adminId: adminUser.id, userId, reason: body.reason });
+    const updated = await rejectVerificationService({
+      adminId: adminUser.id,
+      userId,
+      reason: body.reason,
+      adminRole: adminUser.role,
+      adminAccessScope: (adminUser as any).accessScope,
+      adminManagedRtCodes: (adminUser as any).managedRtCodes,
+      adminUsername: (adminUser as any).username,
+      adminDisplayUsername: (adminUser as any).displayUsername,
+    });
     return ok(c, {
       userId: updated.userId,
       verificationStatus: updated.verificationStatus,

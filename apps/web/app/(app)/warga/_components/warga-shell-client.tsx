@@ -20,6 +20,9 @@ export default function WargaShellClient({
     maskedNik: string;
     verificationStatus: VerificationStatus;
     rejectionReason?: string | null;
+    hasKk: boolean;
+    rt: string | null;
+    rw: string | null;
   };
 }) {
   const [isDark, setIsDark] = useState(() => {

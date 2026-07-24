@@ -93,13 +93,13 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const [{ total }] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(serviceRequest)
-      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .leftJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
       .where(where);
 
     const rows = await db
       .select()
       .from(serviceRequest)
-      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .leftJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
       .where(where)
       .orderBy(desc(serviceRequest.createdAt))
       .limit(query.limit)
@@ -116,7 +116,7 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const row = await getDb()
       .select()
       .from(serviceRequest)
-      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .leftJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
       .where(and(eq(serviceRequest.id, id), scopeFilter))
       .limit(1);
     if (!row[0]) throw notFound("Request not found");
@@ -126,7 +126,15 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
   .post("/:id/approve", createRateLimitMiddleware({ key: "request-approve", limit: 20, windowMs: 60_000 }), async (c) => {
     const { id: requestId } = parseParams(c.req.param(), idParamSchema);
     const sessionUser = c.get("sessionUser");
-    const updated = await approveRequestService({ adminId: sessionUser.id, requestId });
+    const updated = await approveRequestService({
+      adminId: sessionUser.id,
+      requestId,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
+    });
     const payload = { success: true as const, data: await mapRequest(updated) };
     return ok(c, payload.data);
   })
@@ -134,7 +142,16 @@ export const requestsRoutes = new Hono<{ Variables: { sessionUser: { id: string;
     const { id: requestId } = parseParams(c.req.param(), idParamSchema);
     const sessionUser = c.get("sessionUser");
     const body = await parseJson(c.req.raw, requestDecisionSchema);
-    const updated = await rejectRequestService({ adminId: sessionUser.id, requestId, reason: body.reason });
+    const updated = await rejectRequestService({
+      adminId: sessionUser.id,
+      requestId,
+      reason: body.reason,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
+    });
 
     const payload = { success: true as const, data: await mapRequest(updated) };
     return ok(c, payload.data);

@@ -149,11 +149,13 @@ const QUICK_ACTION_TONE_MAP: Record<
 
 interface QuickActionsPanelProps {
   verificationStatus: string;
+  hasKk?: boolean;
   onAction?: (action: string) => void;
 }
 
 export default function QuickActionsPanel({
   verificationStatus,
+  hasKk = true,
   onAction,
 }: QuickActionsPanelProps) {
   const isTier1 = verificationStatus === 'NONE' || verificationStatus === 'REJECTED';
@@ -207,6 +209,7 @@ export default function QuickActionsPanel({
           {QUICK_ACTIONS.map((item) => {
             const Icon = item.icon;
             const isSoon = 'soon' in item && item.soon;
+            const isLocked = item.key === 'penduduk' && !hasKk;
             const tone =
               QUICK_ACTION_TONE_MAP[item.key] ?? QUICK_ACTION_TONE_MAP.barang_hilang;
 
@@ -215,20 +218,23 @@ export default function QuickActionsPanel({
                 <div
                   className={cn(
                     'flex size-14 items-center justify-center rounded-[1.25rem] transition-all duration-300',
-                    !isSoon && 'group-hover:scale-110 group-hover:shadow-sm group-active:scale-95',
+                    !isSoon && !isLocked && 'group-hover:scale-110 group-hover:shadow-sm group-active:scale-95',
                     tone.iconWrap,
                     tone.icon,
-                    isSoon && 'opacity-50 grayscale'
+                    (isSoon || isLocked) && 'opacity-50 grayscale'
                   )}
                 >
                   <Icon className="size-6" strokeWidth={1.5} />
                 </div>
                 <span className={cn(
                   "text-center text-[11px] font-semibold leading-tight transition-colors",
-                  isSoon ? "text-muted-foreground/50" : "text-muted-foreground group-hover:text-foreground"
+                  (isSoon || isLocked) ? "text-muted-foreground/50" : "text-muted-foreground group-hover:text-foreground"
                 )}>
                   {item.label}
                 </span>
+                {isLocked && (
+                  <span className="text-[9px] font-medium text-amber-500/70 -mt-1">Isi KK dulu</span>
+                )}
               </div>
             );
 

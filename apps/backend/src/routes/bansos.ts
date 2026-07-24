@@ -14,7 +14,7 @@ import {
 } from "@abdimas/contracts";
 import { bansosProgram, getDb, serviceRequest, userIdentity } from "@abdimas/db";
 
-import { notFound } from "../lib/errors.js";
+import { forbidden, notFound } from "../lib/errors.js";
 import { buildPageMeta, getOffset } from "../lib/pagination.js";
 import { createRateLimitMiddleware } from "../lib/rate-limit.js";
 import { created, ok } from "../lib/response.js";
@@ -170,7 +170,15 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
   .post("/applications/:id/approve", createRateLimitMiddleware({ key: "bansos-approve", limit: 20, windowMs: 60_000 }), async (c) => {
     const { id } = parseParams(c.req.param(), idParamSchema);
     const sessionUser = c.get("sessionUser");
-    const updated = await approveRequestService({ adminId: sessionUser.id, requestId: id });
+    const updated = await approveRequestService({
+      adminId: sessionUser.id,
+      requestId: id,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
+    });
     await bumpSyncKeys([adminSyncKey("bansos")]);
     const payload = { success: true as const, data: await mapAdminBansosApplication(updated) };
     return ok(c, payload.data);
@@ -179,7 +187,16 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
     const { id } = parseParams(c.req.param(), idParamSchema);
     const sessionUser = c.get("sessionUser");
     const body = await parseJson(c.req.raw, requestDecisionSchema);
-    const updated = await rejectRequestService({ adminId: sessionUser.id, requestId: id, reason: body.reason });
+    const updated = await rejectRequestService({
+      adminId: sessionUser.id,
+      requestId: id,
+      reason: body.reason,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
+    });
     await bumpSyncKeys([adminSyncKey("bansos")]);
     const payload = { success: true as const, data: await mapAdminBansosApplication(updated) };
     return ok(c, payload.data);
@@ -193,6 +210,7 @@ export const adminBansosRoutes = new Hono<{ Variables: { sessionUser: { id: stri
   })
   .post("/", async (c) => {
     const sessionUser = c.get("sessionUser");
+    if (sessionUser.role !== "SUPER_ADMIN") throw forbidden("Only RW admin can create bansos programs");
     const body = await parseJson(c.req.raw, createBansosProgramSchema);
 
     const [createdRow] = await getDb()

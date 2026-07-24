@@ -100,3 +100,21 @@ export function buildScopeFilter(
   if (rtCodes.length === 0) return undefined;
   return inArray(column, rtCodes);
 }
+
+export function isRtInScope(
+  sessionUser: { role?: string; username?: string; displayUsername?: string | null; accessScope?: string | null; managedRtCodes?: string[] | null; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null },
+  rtCode: string,
+): boolean {
+  const identity = {
+    role: sessionUser.adminRole ?? sessionUser.role ?? "",
+    username: sessionUser.adminUsername ?? sessionUser.username ?? "",
+    displayUsername: sessionUser.adminDisplayUsername ?? sessionUser.displayUsername,
+    accessScope: (sessionUser.adminAccessScope ?? sessionUser.accessScope) as "RW" | "RT" | null | undefined,
+    managedRtCodes: sessionUser.adminManagedRtCodes ?? sessionUser.managedRtCodes,
+  };
+  const scope = getAdminScope(identity);
+  if (scope === "RW" || scope === null) return true;
+  const rtCodes = getManagedRtCodesFromAdmin(identity);
+  if (rtCodes.length === 0) return true;
+  return rtCodes.includes(rtCode);
+}

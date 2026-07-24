@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { citizen, getDb, mutation, mutationAttachment } from "@abdimas/db";
 
 import { logAdminActivity } from "../lib/admin-logs.js";
-import { AppError, conflict, notFound } from "../lib/errors.js";
+import { AppError, conflict, forbidden, notFound } from "../lib/errors.js";
+import { isRtInScope } from "../lib/admin-access.js";
 import { buildObjectKeyForFile, deleteObject, ensureStorageConfigured, uploadObject, validateUpload } from "../lib/storage.js";
 
 export async function uploadDocumentService(input: {
@@ -42,6 +43,11 @@ export async function createMutationService(input: {
     reason: string;
   };
   files: Array<{ kind: "SURAT_KETERANGAN" | "KTP" | "KK"; file: File }>;
+  adminRole?: string;
+  adminAccessScope?: string | null;
+  adminManagedRtCodes?: string[] | null;
+  adminUsername?: string;
+  adminDisplayUsername?: string | null;
 }) {
   for (const item of input.files) validateUpload(item.file);
   if (input.files.length > 0) ensureStorageConfigured();
@@ -69,6 +75,10 @@ export async function createMutationService(input: {
           status: "PENDUDUK_TETAP",
         })
         .returning();
+
+  if (!isRtInScope(input, citizenRow.rt)) {
+    throw forbidden("Citizen does not belong to your RT scope");
+  }
 
   const [createdRow] = await db
     .insert(mutation)
@@ -133,12 +143,18 @@ export async function createMutationService(input: {
   return { mutation: createdRow, attachments };
 }
 
-export async function approveMutationService(input: { adminId: string; mutationId: string; status: "APPROVED" | "REJECTED"; reason?: string }) {
+export async function approveMutationService(input: { adminId: string; mutationId: string; status: "APPROVED" | "REJECTED"; reason?: string; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const db = getDb();
   const [existing] = await db.select().from(mutation).where(eq(mutation.id, input.mutationId)).limit(1);
   if (!existing) throw notFound("Mutation not found");
   if (existing.status !== "PENDING") throw conflict("Mutation is no longer pending");
   if (input.status === "REJECTED" && !input.reason?.trim()) throw conflict("Reason is required when rejecting a mutation");
+
+  // Scope validation: check that the mutation's citizen belongs to admin's scope
+  const [citizenRow] = await db.select({ rt: citizen.rt }).from(citizen).where(eq(citizen.id, existing.citizenId)).limit(1);
+  if (citizenRow && !isRtInScope(input, citizenRow.rt)) {
+    throw forbidden("Mutation does not belong to your RT scope");
+  }
 
   const [updated] = await db
     .update(mutation)

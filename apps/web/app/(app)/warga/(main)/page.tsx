@@ -247,6 +247,7 @@ export default function WargaHomePage() {
   const [aspirasiJenis, setAspirasiJenis] = useState<string[]>([]);
   const [aspirasiUraian, setAspirasiUraian] = useState('');
   const [aspirasiFile, setAspirasiFile] = useState<File | null>(null);
+  const [aspirasiRt, setAspirasiRt] = useState('');
   const [submittedAspirasiJenis, setSubmittedAspirasiJenis] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState<null | 'bansos' | 'pemilu' | 'aspirasi' | 'penduduk' | 'mutasi' | 'tambahKk'>(null);
   const [aspirationRefreshKey, setAspirationRefreshKey] = useState(0);
@@ -515,6 +516,7 @@ export default function WargaHomePage() {
           title: `Aspirasi - ${aspirasiJenis[0] || 'masukan'}`,
           message: aspirasiUraian,
           category: aspirasiJenis[0] || 'masukan',
+          targetRt: aspirasiRt,
         }),
       });
 
@@ -533,6 +535,7 @@ export default function WargaHomePage() {
       setAspirasiJenis([]);
       setAspirasiUraian('');
       setAspirasiFile(null);
+      setAspirasiRt('');
     } catch (error) {
       if (error instanceof PlatformApiError && error.code === 'VERIFICATION_REQUIRED') {
         const message =
@@ -577,9 +580,22 @@ export default function WargaHomePage() {
       return;
     }
 
+    if (sheet === 'penduduk' && !identity.hasKk) {
+      toast({
+        title: 'Belum memiliki Kartu Keluarga',
+        description: 'Anda perlu mengajukan Kartu Keluarga terlebih dahulu sebelum mengirim pengajuan data penduduk.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (sheet === 'tambahKk') {
       router.push('/warga/kk');
       return;
+    }
+
+    if (sheet === 'aspirasi' && identity.rt) {
+      setAspirasiRt(identity.rt);
     }
     
     setBlockedMessage(null);
@@ -681,7 +697,9 @@ export default function WargaHomePage() {
     const nextErrors: Partial<Record<keyof MutationForm, string>> = {};
     if (!mutationForm.type) nextErrors.type = 'Jenis mutasi wajib dipilih.';
     if (mutationForm.subjectName.trim().length < 2) nextErrors.subjectName = 'Nama wajib diisi minimal 2 karakter.';
-    if (!/^\d{16}$/.test(mutationForm.subjectNik)) nextErrors.subjectNik = 'NIK wajib 16 digit angka.';
+    if (mutationUseOwnData !== true) {
+      if (!/^\d{16}$/.test(mutationForm.subjectNik)) nextErrors.subjectNik = 'NIK wajib 16 digit angka.';
+    }
     if (!mutationForm.mutationDate) nextErrors.mutationDate = 'Tanggal mutasi wajib diisi.';
     if (mutationForm.type === 'MUTATION_IN' && !mutationForm.toAddress.trim()) nextErrors.toAddress = 'Alamat tujuan wajib diisi untuk mutasi masuk.';
     if (mutationForm.type === 'MUTATION_OUT' && !mutationForm.fromAddress.trim()) nextErrors.fromAddress = 'Alamat asal wajib diisi untuk mutasi keluar.';
@@ -787,7 +805,7 @@ export default function WargaHomePage() {
           type: mutationForm.type,
           subjectSource: mutationUseOwnData ? 'SELF' : 'OTHER',
           subjectName: mutationForm.subjectName.trim(),
-          subjectNik: mutationForm.subjectNik.trim(),
+          subjectNik: mutationUseOwnData ? undefined : mutationForm.subjectNik.trim() || undefined,
           mutationDate: mutationForm.mutationDate,
           fromAddress: mutationForm.fromAddress.trim() || undefined,
           toAddress: mutationForm.toAddress.trim() || undefined,
@@ -994,7 +1012,7 @@ export default function WargaHomePage() {
           </Alert>
         )}
 
-        <QuickActionsPanel verificationStatus={identity.verificationStatus} onAction={openQuickActionSheet} />
+        <QuickActionsPanel verificationStatus={identity.verificationStatus} hasKk={identity.hasKk} onAction={openQuickActionSheet} />
 
 
             <FeatureCard
@@ -1379,6 +1397,30 @@ export default function WargaHomePage() {
             singleSelect
           />
 
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-semibold text-foreground">RT Tujuan</Label>
+            <Select
+              value={aspirasiRt}
+              onValueChange={setAspirasiRt}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih RT tujuan laporan" />
+              </SelectTrigger>
+              <SelectContent>
+                {RT_OPTIONS.map((rtOption) => (
+                  <SelectItem key={rtOption} value={rtOption}>
+                    RT {rtOption}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {identity.rt
+                ? `RT Anda: ${identity.rt}. Pilih RT tujuan laporan Anda.`
+                : 'Pilih RT tujuan laporan Anda.'}
+            </p>
+          </div>
+
           <FormTextarea
             label="Uraian"
             value={aspirasiUraian}
@@ -1395,7 +1437,7 @@ export default function WargaHomePage() {
 
           <Button
             onClick={handleAspirasiSubmit}
-            disabled={aspirasiJenis.length === 0 || !aspirasiUraian.trim() || submitting === 'aspirasi'}
+            disabled={aspirasiJenis.length === 0 || !aspirasiUraian.trim() || !aspirasiRt || submitting === 'aspirasi'}
             className="mt-2 h-12 rounded-xl font-semibold"
           >
             {submitting === 'aspirasi' ? 'Mengirim...' : 'Konfirmasi'}

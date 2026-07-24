@@ -4,7 +4,8 @@ import { citizen, getDb, household, householdMember, userIdentity } from "@abdim
 
 import { createAuditLogService } from "../lib/admin-logs.js";
 import { decryptNik } from "../lib/nik.js";
-import { conflict, notFound, validationError } from "../lib/errors.js";
+import { conflict, forbidden, notFound, validationError } from "../lib/errors.js";
+import { isRtInScope } from "../lib/admin-access.js";
 import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { normalizeHouseholdRelationship } from "./households.js";
 
@@ -29,12 +30,16 @@ function assertIdentityProfileComplete(identity: typeof userIdentity.$inferSelec
   }
 }
 
-export async function approveVerificationService(input: { adminId: string; userId: string }) {
+export async function approveVerificationService(input: { adminId: string; userId: string; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const db = getDb();
   const [identity] = await db.select().from(userIdentity).where(eq(userIdentity.userId, input.userId)).limit(1);
   if (!identity) throw notFound("Verification target not found");
   if (identity.verificationStatus !== "PENDING") {
     throw conflict("Verification is no longer pending");
+  }
+
+  if (!isRtInScope(input, identity.rt!)) {
+    throw forbidden("User does not belong to your RT scope");
   }
 
   const duplicateNik = await db
@@ -185,7 +190,7 @@ export async function approveVerificationService(input: { adminId: string; userI
   return updated;
 }
 
-export async function rejectVerificationService(input: { adminId: string; userId: string; reason: string }) {
+export async function rejectVerificationService(input: { adminId: string; userId: string; reason: string; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const reason = input.reason.trim();
   if (!reason) throw validationError("Reason is required");
 
@@ -194,6 +199,10 @@ export async function rejectVerificationService(input: { adminId: string; userId
   if (!identity) throw notFound("Verification target not found");
   if (identity.verificationStatus !== "PENDING") {
     throw conflict("Verification is no longer pending");
+  }
+
+  if (!isRtInScope(input, identity.rt!)) {
+    throw forbidden("User does not belong to your RT scope");
   }
 
   const [updated] = await db

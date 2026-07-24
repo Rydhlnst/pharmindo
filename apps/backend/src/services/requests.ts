@@ -3,7 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { citizen, getDb, historyEntry, mutation, serviceRequest } from "@abdimas/db";
 
 import { createAuditLogService } from "../lib/admin-logs.js";
-import { conflict, notFound, validationError } from "../lib/errors.js";
+import { conflict, forbidden, notFound, validationError } from "../lib/errors.js";
+import { isRtInScope } from "../lib/admin-access.js";
 import { adminSyncKey, bumpSyncKeys, userSyncKey } from "../lib/sync.js";
 import { createHouseholdService } from "./households.js";
 import { approveMutationService } from "./mutations.js";
@@ -69,11 +70,24 @@ async function createRequestHistoryStatusEntry(input: {
   });
 }
 
-export async function approveRequestService(input: { adminId: string; requestId: string }) {
+export async function approveRequestService(input: { adminId: string; requestId: string; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const db = getDb();
   const [row] = await db.select().from(serviceRequest).where(eq(serviceRequest.id, input.requestId)).limit(1);
   if (!row) throw notFound("Request not found");
   if (row.status !== "PENDING") throw conflict("Request is no longer pending");
+
+  // Scope validation: check that the requesting user belongs to admin's scope
+  if (row.requestedBy) {
+    const { userIdentity } = await import("@abdimas/db");
+    const [userIdentityRow] = await db
+      .select({ rt: userIdentity.rt })
+      .from(userIdentity)
+      .where(eq(userIdentity.userId, row.requestedBy))
+      .limit(1);
+    if (userIdentityRow && !isRtInScope(input, userIdentityRow.rt!)) {
+      throw forbidden("Request does not belong to your RT scope");
+    }
+  }
 
   if (row.type === "HOUSEHOLD_CREATE") {
     const payload = row.payload as Record<string, unknown>;
@@ -227,7 +241,7 @@ export async function approveRequestService(input: { adminId: string; requestId:
   return updated;
 }
 
-export async function rejectRequestService(input: { adminId: string; requestId: string; reason: string }) {
+export async function rejectRequestService(input: { adminId: string; requestId: string; reason: string; adminRole?: string; adminAccessScope?: string | null; adminManagedRtCodes?: string[] | null; adminUsername?: string; adminDisplayUsername?: string | null }) {
   const reason = input.reason.trim();
   if (!reason) throw validationError("Reason is required");
 
@@ -235,6 +249,19 @@ export async function rejectRequestService(input: { adminId: string; requestId: 
   const [row] = await db.select().from(serviceRequest).where(eq(serviceRequest.id, input.requestId)).limit(1);
   if (!row) throw notFound("Request not found");
   if (row.status !== "PENDING") throw conflict("Request is no longer pending");
+
+  // Scope validation: check that the requesting user belongs to admin's scope
+  if (row.requestedBy) {
+    const { userIdentity } = await import("@abdimas/db");
+    const [userIdentityRow] = await db
+      .select({ rt: userIdentity.rt })
+      .from(userIdentity)
+      .where(eq(userIdentity.userId, row.requestedBy))
+      .limit(1);
+    if (userIdentityRow && !isRtInScope(input, userIdentityRow.rt!)) {
+      throw forbidden("Request does not belong to your RT scope");
+    }
+  }
 
   const [updated] = await db
     .update(serviceRequest)

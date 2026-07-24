@@ -1,6 +1,7 @@
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 
-import { getDb } from "@abdimas/db";
+import { getDb, uiSyncVersion } from "@abdimas/db";
+import { broadcastToClients } from "./ws-bus.js";
 
 type DbLike = ReturnType<typeof getDb>;
 
@@ -25,5 +26,20 @@ export async function bumpSyncKeys(keys: string[], dbOrTx: DbLike = getDb()) {
         version = ui_sync_versions.version + 1,
         updated_at = now()
     `);
+  }
+
+  try {
+    const rows = await dbOrTx
+      .select({ scopeKey: uiSyncVersion.scopeKey, version: uiSyncVersion.version })
+      .from(uiSyncVersion)
+      .where(inArray(uiSyncVersion.scopeKey, uniqueKeys));
+
+    const versions: Record<string, number> = {};
+    for (const row of rows) {
+      versions[row.scopeKey] = Number(row.version);
+    }
+    broadcastToClients(uniqueKeys, versions);
+  } catch {
+    // best-effort; don't fail the main operation
   }
 }

@@ -141,8 +141,9 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
   })
   .post("/", async (c) => {
     const body = await parseJson(c.req.raw, createHouseholdSchema);
+    const sessionUser = c.get("sessionUser");
     const inserted = await createHouseholdService({
-      adminId: c.get("sessionUser").id,
+      adminId: sessionUser.id,
       body: {
         kkNumber: body.kkNumber,
         headCitizenId: body.headCitizenId,
@@ -152,6 +153,11 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
         rw: body.rw,
         status: body.status,
       },
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
     });
 
     const [headCitizenRow] = await getDb()
@@ -351,11 +357,17 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
   .post("/:id/members", async (c) => {
     const { id: householdId } = parseParams(c.req.param(), idParamSchema);
     const body = await parseJson(c.req.raw, addHouseholdMemberSchema);
+    const sessionUser = c.get("sessionUser");
     const inserted = await addHouseholdMemberService({
-      adminId: c.get("sessionUser").id,
+      adminId: sessionUser.id,
       householdId,
       citizenId: body.citizenId,
       relationship: body.relationship,
+      adminRole: sessionUser.role,
+      adminAccessScope: (sessionUser as any).accessScope,
+      adminManagedRtCodes: (sessionUser as any).managedRtCodes,
+      adminUsername: (sessionUser as any).username,
+      adminDisplayUsername: (sessionUser as any).displayUsername,
     });
     const [citizenRow] = await getDb().select().from(citizen).where(eq(citizen.id, body.citizenId)).limit(1);
 
@@ -445,7 +457,16 @@ export const householdsRoutes = new Hono<{ Variables: { sessionUser: { id: strin
   })
   .get("/:id/audit-log", async (c) => {
     const { id: householdId } = parseParams(c.req.param(), idParamSchema);
-    const rows = await getDb()
+    const scopeFilter = buildScopeFilter(c.get("sessionUser"), household.rt);
+    const db = getDb();
+
+    // Scope validation: check that the household belongs to admin's scope
+    if (scopeFilter) {
+      const [existing] = await db.select({ id: household.id }).from(household).where(and(eq(household.id, householdId), scopeFilter)).limit(1);
+      if (!existing) throw notFound("Household not found");
+    }
+
+    const rows = await db
       .select()
       .from(adminActivityLog)
       .where(and(eq(adminActivityLog.entityType, "HOUSEHOLD"), eq(adminActivityLog.entityId, householdId)))

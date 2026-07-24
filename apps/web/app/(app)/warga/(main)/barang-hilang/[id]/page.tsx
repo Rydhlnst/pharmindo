@@ -1,10 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { notFound, useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, User, Phone, MapPin, Tag, Calendar, FileText, CheckCircle2 } from 'lucide-react';
-import { DUMMY_LAPORAN_SAYA, DUMMY_AUDIT_LOG } from '@/lib/dummy-barang-hilang';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,34 +19,75 @@ import {
 
 import { getStatusDetails } from '@/components/warga/barang-hilang/LaporanCard';
 import { StatusTracker, PesanAdmin, RiwayatStatus } from '@/components/warga/barang-hilang/detail/DetailComponents';
+import { platformFetch } from '@/lib/api/platform';
+import { mapBackendBarangHilang, type BackendBarangHilang } from '@/lib/barang-hilang-mapper';
+import type { LaporanBarangHilang } from '@/types/barang-hilang';
 
 export default function DetailBarangHilangWarga() {
   const { id } = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  
-  // Try to find the exact report or fallback to first for demo if not found
-  const report = useMemo(() => DUMMY_LAPORAN_SAYA.find(r => r.id === id) || DUMMY_LAPORAN_SAYA[0], [id]);
-  const statusDef = getStatusDetails(report.status);
-  
+
+  const [report, setReport] = useState<LaporanBarangHilang | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  
-  if (!report) return notFound();
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await platformFetch<BackendBarangHilang>(`/barang-hilang/${id}`);
+        if (!active) return;
+        setReport(mapBackendBarangHilang(res.data));
+      } catch (err) {
+        console.error(err);
+        if (active) setReport(null);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [id]);
 
   const handleConfirmFound = async () => {
     setIsConfirming(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsConfirming(false);
-    setShowConfirmModal(false);
-    toast({
-      title: "Konfirmasi Berhasil",
-      description: "Terima kasih, laporan Anda telah ditutup.",
-      variant: "success",
-    });
-    router.push('/warga/barang-hilang');
+    try {
+      await platformFetch(`/barang-hilang/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'resolved' }),
+      });
+      setReport((prev) => prev ? { ...prev, status: 'resolved' } : prev);
+      setShowConfirmModal(false);
+      toast({
+        title: "Konfirmasi Berhasil",
+        description: "Terima kasih, laporan Anda telah ditutup.",
+        variant: "success",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Gagal menutup laporan.';
+      toast({
+        title: "Gagal menutup laporan",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsConfirming(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-50 pb-24 pt-6 px-4">
+        <div className="mx-auto max-w-lg text-center text-sm text-slate-500 py-8">Memuat detail laporan...</div>
+      </main>
+    );
+  }
+
+  if (!report) return notFound();
+
+  const statusDef = getStatusDetails(report.status);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-24 pt-6 px-4">
@@ -128,8 +168,6 @@ export default function DetailBarangHilangWarga() {
           </Card>
         )}
 
-        <RiwayatStatus logs={DUMMY_AUDIT_LOG} />
-
         {/* ACTIONS */}
         <div className="space-y-3 mt-8">
           {report.status === 'processing' && (
@@ -146,8 +184,6 @@ export default function DetailBarangHilangWarga() {
               </Link>
             </Button>
           )}
-          
-
         </div>
       </div>
 

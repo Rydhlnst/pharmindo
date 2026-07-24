@@ -89,6 +89,26 @@ type DemographicsData = {
   };
 };
 
+type BansosByRt = {
+  rt: string;
+  recipientCount: number;
+};
+
+type BansosByProgram = {
+  programId: string;
+  title: string;
+  assistanceType: string;
+  totalApplications: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+};
+
+type BansosSummaryData = {
+  byRt: BansosByRt[];
+  byProgram: BansosByProgram[];
+};
+
 type DistributionItem = {
   label: string;
   value: number;
@@ -304,7 +324,7 @@ export default function RapotPage() {
   const [tahun, setTahun] = useState('2026');
   const [bulan, setBulan] = useState('');
   const [rt, setRt] = useState('');
-  const [activeView, setActiveView] = useState<'overview' | 'livelihood' | 'social' | 'semua'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'livelihood' | 'social' | 'semua' | 'bansos'>('overview');
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string | null>(null);
   const [stats, setStats] = useState<{ totalWarga: number; totalKK: number; totalMutasi: number; pendingRequests: number; totalMeninggal: number; totalBalita: number }>({
     totalWarga: 0,
@@ -317,6 +337,9 @@ export default function RapotPage() {
   const [rtData, setRtData] = useState<RtRow[]>([]);
   const [demographics, setDemographics] = useState<DemographicsData>(EMPTY_DEMOGRAPHICS);
   const [analytics, setAnalytics] = useState<AnalyticsData>(EMPTY_ANALYTICS);
+  const [bansosByRt, setBansosByRt] = useState<BansosByRt[]>([]);
+  const [bansosByProgram, setBansosByProgram] = useState<BansosByProgram[]>([]);
+  const [statSlideIndex, setStatSlideIndex] = useState(0);
   const [viewedRT, setViewedRT] = useState<RtRow | null>(null);
   const [rtCitizens, setRtCitizens] = useState<CitizenRow[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -354,7 +377,7 @@ export default function RapotPage() {
         const summaryParams = buildFilterParams(appliedFilter);
         const query = summaryParams.size ? `?${summaryParams.toString()}` : '';
         const [summaryResponse, rtResponse, demographicResponse, analyticsResponse] = await Promise.all([
-          platformFetch<SummaryData>('/admin/reports/summary'),
+          platformFetch<SummaryData>(`/admin/reports/summary${query}`),
           platformFetch<RtRow[]>(`/admin/reports/rt-breakdown${query}`),
           platformFetch<DemographicsData>(`/admin/reports/demographics${query}`),
           platformFetch<AnalyticsData>(`/admin/reports/analytics${query}`),
@@ -363,8 +386,8 @@ export default function RapotPage() {
         if (!active) return;
         setStats({
           ...summaryResponse.data.stats,
-          totalMeninggal: summaryResponse.data.stats?.totalMeninggal ?? 3, // Deterministic mock
-          totalBalita: summaryResponse.data.stats?.totalBalita ?? 24, // Deterministic mock
+          totalMeninggal: summaryResponse.data.stats?.totalMeninggal ?? 0,
+          totalBalita: summaryResponse.data.stats?.totalBalita ?? 0,
         });
         setRtData(rtResponse.data);
         setDemographics(demographicResponse.data);
@@ -419,6 +442,32 @@ export default function RapotPage() {
   }, [activeView, semuaPage, appliedFilter]);
 
   useEffect(() => {
+    if (activeView !== 'bansos') return;
+    let active = true;
+
+    async function loadBansos() {
+      try {
+        const summaryParams = buildFilterParams(appliedFilter);
+        const query = summaryParams.size ? `?${summaryParams.toString()}` : '';
+        const response = await platformFetch<BansosSummaryData>(`/admin/reports/bansos-summary${query}`);
+        if (!active) return;
+        setBansosByRt(response.data.byRt || []);
+        setBansosByProgram(response.data.byProgram || []);
+      } catch (error) {
+        console.error(error);
+        if (!active) return;
+        setBansosByRt([]);
+        setBansosByProgram([]);
+      }
+    }
+
+    void loadBansos();
+    return () => {
+      active = false;
+    };
+  }, [activeView, appliedFilter]);
+
+  useEffect(() => {
     if (!viewedRT) return;
     let active = true;
     const rtId = viewedRT.rt;
@@ -471,7 +520,9 @@ export default function RapotPage() {
       : 'Total Semua RT';
   const totalRowClass = 'bg-gradient-to-r from-[#16A34A] to-[#22C55E] text-white shadow-inner';
 
-  const ALL_RTS = ['01', '02', '03'];
+  const ALL_RTS = rtData.length > 0
+    ? Array.from(new Set(rtData.map(row => row.rt))).sort()
+    : ['01', '02', '03'];
   const displayRtData = ALL_RTS.map(rt => {
     const existing = rtData.find(row => row.rt === rt);
     if (existing) return existing;
@@ -570,9 +621,9 @@ export default function RapotPage() {
             className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm text-[#64748B] outline-none"
           >
             <option value="">Semua RT</option>
-            <option value="01">RT 01</option>
-            <option value="02">RT 02</option>
-            <option value="03">RT 03</option>
+            {ALL_RTS.map(rtCode => (
+              <option key={rtCode} value={rtCode}>RT {rtCode}</option>
+            ))}
           </select>
           <Button
             onClick={handleApplyFilter}
@@ -592,62 +643,68 @@ export default function RapotPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <div className="relative overflow-hidden rounded-2xl bg-blue-600 p-5 text-white">
-          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
-          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
-          <div className="relative z-10">
-            <Users className="mb-2 h-5 w-5 text-white/60" />
-            <p className="text-xs text-white/70">Total Warga</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalWarga ?? 0} <span className="text-sm font-medium">Jiwa</span></p>
+      {(() => {
+        const statCards = [
+          { bg: 'bg-blue-600', icon: Users, label: 'Total Warga', value: stats.totalWarga ?? 0, unit: 'Jiwa' },
+          { bg: 'bg-sky-600', icon: FileText, label: 'Total KK', value: stats.totalKK ?? 0, unit: 'Kartu Keluarga' },
+          { bg: 'bg-indigo-600', icon: RefreshCw, label: 'Total Mutasi', value: stats.totalMutasi ?? 0, unit: 'Laporan' },
+          { bg: 'bg-violet-600', icon: ChartBar, label: 'Permohonan Pending', value: stats.pendingRequests ?? 0, unit: 'Antrian' },
+          { bg: 'bg-slate-900', icon: Users, label: 'Warga Meninggal', value: stats.totalMeninggal ?? 0, unit: 'Jiwa' },
+          { bg: 'bg-cyan-600', icon: ChartBar, label: 'Balita (Posyandu)', value: stats.totalBalita ?? 0, unit: 'Anak' },
+        ];
+        const cardsPerPage = 3;
+        const totalPages = Math.ceil(statCards.length / cardsPerPage);
+        const clampedIndex = Math.min(statSlideIndex, totalPages - 1);
+        const visibleCards = statCards.slice(clampedIndex * cardsPerPage, (clampedIndex * cardsPerPage) + cardsPerPage);
+
+        return (
+          <div className="relative">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {visibleCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <div key={card.label} className={`relative overflow-hidden rounded-2xl ${card.bg} p-5 text-white`}>
+                    <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
+                    <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
+                    <div className="relative z-10">
+                      <Icon className="mb-2 h-5 w-5 text-white/60" />
+                      <p className="text-xs text-white/70">{card.label}</p>
+                      <p className="mt-1 text-2xl font-bold">{card.value} <span className="text-sm font-medium">{card.unit}</span></p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-3 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setStatSlideIndex((p) => Math.max(0, p - 1))}
+                  disabled={clampedIndex === 0}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="flex gap-1.5">
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setStatSlideIndex(i)}
+                      className={`h-2 w-2 rounded-full transition ${i === clampedIndex ? 'bg-[#2563EB]' : 'bg-gray-300'}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={() => setStatSlideIndex((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={clampedIndex === totalPages - 1}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl bg-sky-600 p-5 text-white">
-          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
-          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
-          <div className="relative z-10">
-            <FileText className="mb-2 h-5 w-5 text-white/60" />
-            <p className="text-xs text-white/70">Total KK</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalKK ?? 0} <span className="text-sm font-medium">Kartu Keluarga</span></p>
-          </div>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl bg-indigo-600 p-5 text-white">
-          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
-          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
-          <div className="relative z-10">
-            <RefreshCw className="mb-2 h-5 w-5 text-white/60" />
-            <p className="text-xs text-white/70">Total Mutasi</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalMutasi ?? 0} <span className="text-sm font-medium">Laporan</span></p>
-          </div>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl bg-violet-600 p-5 text-white">
-          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
-          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
-          <div className="relative z-10">
-            <ChartBar className="mb-2 h-5 w-5 text-white/60" />
-            <p className="text-xs text-white/70">Permohonan Pending</p>
-            <p className="mt-1 text-2xl font-bold">{stats.pendingRequests ?? 0} <span className="text-sm font-medium">Antrian</span></p>
-          </div>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl bg-slate-900 p-5 text-white">
-          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
-          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
-          <div className="relative z-10">
-            <Users className="mb-2 h-5 w-5 text-white/60" />
-            <p className="text-xs text-white/70">Warga Meninggal</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalMeninggal ?? 0} <span className="text-sm font-medium">Jiwa</span></p>
-          </div>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl bg-cyan-600 p-5 text-white">
-          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/[0.06]" />
-          <div className="pointer-events-none absolute -bottom-6 -right-6 h-28 w-28 rounded-full bg-white/[0.04]" />
-          <div className="relative z-10">
-            <ChartBar className="mb-2 h-5 w-5 text-white/60" />
-            <p className="text-xs text-white/70">Balita (Posyandu)</p>
-            <p className="mt-1 text-2xl font-bold">{stats.totalBalita ?? 0} <span className="text-sm font-medium">Anak</span></p>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SpotlightCard
@@ -970,68 +1027,64 @@ export default function RapotPage() {
           <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
             <div className="rounded-2xl border border-gray-100 bg-white p-6">
               <h3 className="mb-6 text-base font-bold text-[#1E293B]">Distribusi Penerima Bansos (Per RT)</h3>
-              <div className="flex h-[200px] items-end justify-between gap-4">
-                <div className="group flex flex-1 flex-col items-center justify-end gap-2">
-                  <div className="relative w-full rounded-t-lg bg-emerald-500 transition-all hover:opacity-80" style={{ height: '40%' }}>
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-                      15 KK
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-gray-500">RT 01</span>
+              {bansosByRt.length > 0 ? (
+                <div className="flex h-[200px] items-end justify-between gap-4">
+                  {(() => {
+                    const maxRecipient = Math.max(...bansosByRt.map(r => r.recipientCount), 1);
+                    return bansosByRt.map((row) => (
+                      <div key={row.rt} className="group flex flex-1 flex-col items-center justify-end gap-2">
+                        <div
+                          className="relative w-full rounded-t-lg bg-emerald-500 transition-all hover:opacity-80"
+                          style={{ height: `${(row.recipientCount / maxRecipient) * 100}%` }}
+                        >
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                            {row.recipientCount} Warga
+                          </div>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-500">RT {row.rt}</span>
+                      </div>
+                    ));
+                  })()}
                 </div>
-                <div className="group flex flex-1 flex-col items-center justify-end gap-2">
-                  <div className="relative w-full rounded-t-lg bg-emerald-500 transition-all hover:opacity-80" style={{ height: '70%' }}>
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-                      24 KK
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-gray-500">RT 02</span>
+              ) : (
+                <div className="flex h-[200px] items-center justify-center text-sm text-[#64748B]">
+                  Belum ada data penerima bansos untuk filter ini.
                 </div>
-                <div className="group flex flex-1 flex-col items-center justify-end gap-2">
-                  <div className="relative w-full rounded-t-lg bg-emerald-500 transition-all hover:opacity-80" style={{ height: '100%' }}>
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-                      32 KK
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-gray-500">RT 03</span>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-white p-6">
-              <h3 className="mb-6 text-base font-bold text-[#1E293B]">Ringkasan Program Tahun 2025</h3>
-              <div className="overflow-hidden rounded-xl border border-gray-100">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold text-slate-700">Program</th>
-                      <th className="px-4 py-3 font-semibold text-slate-700">Pengajuan</th>
-                      <th className="px-4 py-3 font-semibold text-slate-700 text-center">Disetujui</th>
-                      <th className="px-4 py-3 font-semibold text-slate-700 text-center">Ditolak</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    <tr>
-                      <td className="px-4 py-3 font-medium">PKH 2025</td>
-                      <td className="px-4 py-3">51</td>
-                      <td className="px-4 py-3 text-center text-emerald-600 font-bold">45</td>
-                      <td className="px-4 py-3 text-center text-red-500">6</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-3 font-medium">BPNT Juni</td>
-                      <td className="px-4 py-3">42</td>
-                      <td className="px-4 py-3 text-center text-emerald-600 font-bold">38</td>
-                      <td className="px-4 py-3 text-center text-red-500">4</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-3 font-medium">BST Khusus</td>
-                      <td className="px-4 py-3">15</td>
-                      <td className="px-4 py-3 text-center text-emerald-600 font-bold">12</td>
-                      <td className="px-4 py-3 text-center text-red-500">3</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <h3 className="mb-6 text-base font-bold text-[#1E293B]">Ringkasan Program Bansos</h3>
+              {bansosByProgram.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-gray-100">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold text-slate-700">Program</th>
+                        <th className="px-4 py-3 font-semibold text-slate-700">Pengajuan</th>
+                        <th className="px-4 py-3 font-semibold text-slate-700 text-center">Disetujui</th>
+                        <th className="px-4 py-3 font-semibold text-slate-700 text-center">Ditolak</th>
+                        <th className="px-4 py-3 font-semibold text-slate-700 text-center">Pending</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {bansosByProgram.map((program) => (
+                        <tr key={program.programId}>
+                          <td className="px-4 py-3 font-medium">{program.title}</td>
+                          <td className="px-4 py-3">{program.totalApplications}</td>
+                          <td className="px-4 py-3 text-center text-emerald-600 font-bold">{program.approved}</td>
+                          <td className="px-4 py-3 text-center text-red-500">{program.rejected}</td>
+                          <td className="px-4 py-3 text-center text-amber-500">{program.pending}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-200 bg-[#F8FAFC] px-4 py-10 text-center text-sm text-[#64748B]">
+                  Belum ada data program bansos untuk filter ini.
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>      </Tabs>
