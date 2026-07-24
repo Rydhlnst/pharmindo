@@ -12,7 +12,7 @@ interface HistoryCardProps {
   judul: string;
   deskripsi: string;
   status: string;
-  statusColor: 'green' | 'amber' | 'red';
+  statusColor: 'green' | 'amber' | 'red' | 'blue';
   isExpanded?: boolean;
   onClick: () => void;
   children?: ReactNode;

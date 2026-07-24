@@ -46,6 +46,7 @@ const TITLE_MAP: Record<string, string> = {
   '/admin/pemilu/tambah': 'Pemilu > Tambah Pemilu',
   '/admin/rapot-rw': 'Rapot RW',
   '/admin/barang-hilang': 'Barang Hilang',
+  '/admin/drafts': 'Draft Tersimpan',
 };
 
 type NotifStatus = 'default' | 'granted' | 'denied' | 'unsupported';

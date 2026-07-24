@@ -147,7 +147,10 @@ export default function TambahMutasiPage() {
       localStorage.removeItem('warga_mutasi_draft');
       router.push('/warga');
       router.refresh();
-    } catch (err) {}
+    } catch (err) {
+      console.error('Gagal mengirim permohonan mutasi:', err);
+      toast({ title: 'Terjadi kesalahan', description: 'Gagal mengirim permohonan mutasi. Silakan coba lagi.', variant: 'destructive' });
+    }
     setLoading(false);
   };
 

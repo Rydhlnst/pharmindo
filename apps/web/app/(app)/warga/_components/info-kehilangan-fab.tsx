@@ -1,25 +1,91 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BellRing } from "lucide-react";
 
-import { type BroadcastItem, DUMMY_BROADCASTS } from "@/lib/dummy-broadcast";
+import { type BroadcastItem } from "@/lib/dummy-broadcast";
+import { platformFetch } from "@/lib/api/platform";
+import { useSyncVersions } from "@/lib/use-sync-versions";
 import SlideUpSheet from "@/components/warga/SlideUpSheet";
 import BroadcastBanner from "@/components/warga/broadcast/BroadcastBanner";
 import BroadcastDetailModal from "@/components/warga/broadcast/BroadcastDetailModal";
 import FoundItemForm from "@/components/warga/broadcast/FoundItemForm";
 
-// In a real app, this would come from an API/query hook instead of static dummy data.
-function getInitialBroadcasts() {
-  return DUMMY_BROADCASTS.filter((b) => b.status === "active" && !b.isRead);
+const DISMISSED_STORAGE_KEY = "abdimas:dismissed_broadcasts";
+
+function getDismissedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
 }
 
+function saveDismissedIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    // no-op
+  }
+}
+
+type BackendBroadcast = {
+  id: string;
+  ticketNumber: string;
+  itemName: string;
+  itemDescription: string;
+  itemColor: string | null;
+  category: string;
+  incidentDate: string;
+  incidentTime: string | null;
+  location: string;
+  reporterRT: string;
+  broadcastMessage: string;
+  broadcastedAt: string;
+  status: "active" | "found" | "expired";
+  photos: Array<{ url: string }>;
+};
+
 export default function InfoKehilanganFab() {
-  const [broadcasts, setBroadcasts] = useState<BroadcastItem[]>(getInitialBroadcasts);
+  const [broadcasts, setBroadcasts] = useState<BroadcastItem[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedBroadcast, setSelectedBroadcast] = useState<BroadcastItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const loadBroadcasts = useCallback(async () => {
+    try {
+      const res = await platformFetch<BackendBroadcast[]>("/barang-hilang/broadcasts/active");
+      const dismissed = getDismissedIds();
+      const items = (res.data ?? [])
+        .filter((b) => b.status === "active" && !dismissed.has(b.id))
+        .map((b) => ({
+          ...b,
+          itemColor: b.itemColor ?? "",
+          incidentTime: b.incidentTime ?? "",
+          targetRTs: [] as string[],
+          isRead: false,
+        }));
+      setBroadcasts(items);
+    } catch {
+      // silently ignore - FAB won't show
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadBroadcasts();
+  }, [loadBroadcasts]);
+
+  useSyncVersions(["admin:barang-hilang"], {
+    onVersionsChanged: useCallback(async (changedKeys: string[]) => {
+      if (changedKeys.includes("admin:barang-hilang")) {
+        await loadBroadcasts();
+      }
+    }, [loadBroadcasts]),
+  });
 
   if (broadcasts.length === 0) return null;
 
@@ -36,6 +102,9 @@ export default function InfoKehilanganFab() {
 
   function handleDismiss(id: string, e: React.MouseEvent) {
     e.stopPropagation();
+    const dismissed = getDismissedIds();
+    dismissed.add(id);
+    saveDismissedIds(dismissed);
     setBroadcasts((prev) => prev.filter((b) => b.id !== id));
   }
 
@@ -45,6 +114,9 @@ export default function InfoKehilanganFab() {
   }
 
   function handleFormSubmit(id: string) {
+    const dismissed = getDismissedIds();
+    dismissed.add(id);
+    saveDismissedIds(dismissed);
     setIsFormOpen(false);
     setSelectedBroadcast(null);
     setBroadcasts((prev) => prev.filter((b) => b.id !== id));

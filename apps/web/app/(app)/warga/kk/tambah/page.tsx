@@ -222,6 +222,7 @@ export default function TambahKartuKeluargaPage() {
       );
 
       router.push('/warga/kk');
+      localStorage.removeItem('draft_tambah_kk');
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Terjadi kesalahan saat menyimpan Kartu Keluarga');

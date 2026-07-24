@@ -21,6 +21,7 @@ import {
   HandCoins,
   Users,
   MagnifyingGlass,
+  NotePencil as FileEdit,
 } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 
@@ -76,10 +77,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Administrasi',
     items: [
-      { href: '/admin/verification', label: 'Verifikasi Warga', icon: ShieldCheck, hasNotification: true },
-      { href: '/admin/permohonan', label: 'Permohonan', icon: FileInput, hasNotification: true },
+      { href: '/admin/verification', label: 'Verifikasi Warga', icon: ShieldCheck },
+      { href: '/admin/permohonan', label: 'Permohonan', icon: FileInput },
       { href: '/admin/laporan', label: 'Laporan', icon: TrendingUp },
-      { href: '/admin/barang-hilang', label: 'Barang Hilang', icon: MagnifyingGlass, hasNotification: true },
+      { href: '/admin/barang-hilang', label: 'Barang Hilang', icon: MagnifyingGlass },
+      { href: '/admin/drafts', label: 'Draft Tersimpan', icon: FileEdit },
       { href: '/admin/rapot-rw', label: 'Rapot RW', icon: Book },
     ],
   },
@@ -95,16 +97,23 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
   const router = useRouter();
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
   const [hasPendingVerifications, setHasPendingVerifications] = useState(false);
+  const [hasPendingBarangHilang, setHasPendingBarangHilang] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const loadNotificationBadges = async () => {
     try {
-      const [requestsResponse, verificationsResponse] = await Promise.all([
+      const [requestsResponse, verificationsResponse, barangHilangResponse] = await Promise.all([
         platformFetch<unknown[]>('/admin/requests?page=1&limit=1&status=PENDING'),
         platformFetch<unknown[]>('/admin/verifications?status=PENDING'),
+        platformFetch<{ total: number; byStatus: Record<string, number> }>('/admin/barang-hilang/stats'),
       ]);
       setHasPendingRequests(requestsResponse.data.length > 0);
       setHasPendingVerifications(verificationsResponse.data.length > 0);
+      const bhStats = barangHilangResponse.data;
+      setHasPendingBarangHilang(
+        (bhStats.byStatus?.pending_verification ?? 0) > 0 ||
+        (bhStats.byStatus?.in_verification ?? 0) > 0
+      );
     } catch {
       // silently ignore error
     }
@@ -114,10 +123,11 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
     void loadNotificationBadges();
   }, []);
 
-  useSyncVersions(['admin:dashboard'], {
+  useSyncVersions(['admin:dashboard', 'admin:barang-hilang'], {
     onVersionsChanged: async (changedKeys) => {
-      if (!changedKeys.includes('admin:dashboard')) return;
-      await loadNotificationBadges();
+      if (changedKeys.includes('admin:dashboard') || changedKeys.includes('admin:barang-hilang')) {
+        await loadNotificationBadges();
+      }
     },
   });
 
@@ -134,7 +144,9 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
         ? hasPendingRequests
         : item.href === '/admin/verification'
           ? hasPendingVerifications
-          : item.hasNotification;
+          : item.href === '/admin/barang-hilang'
+            ? hasPendingBarangHilang
+            : false;
 
     // Highlight "Data Penduduk" with a special pill style
     const isHighlight = item.highlight;

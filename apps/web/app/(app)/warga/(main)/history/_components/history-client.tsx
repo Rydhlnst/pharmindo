@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { History, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import type { AspirasiResult, BansosResult, HistoryItem, JenisPermohonan, PemiluResult, PermohonanResult } from '@/types/warga';
+import type { AspirasiResult, BansosResult, BarangHilangResult, HistoryItem, JenisPermohonan, PemiluResult, PermohonanResult } from '@/types/warga';
 
 import PageHeader from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import HistoryCard from '@/components/warga/HistoryCard';
 
 const STORAGE_KEY = 'abdimas:warga_history_v1';
 
-const TABS = ['Semua', 'Bansos', 'Pemilu', 'Laporan', 'Permohonan'] as const;
+const TABS = ['Semua', 'Bansos', 'Pemilu', 'Laporan', 'Permohonan', 'Barang Hilang'] as const;
 type TabLabel = (typeof TABS)[number];
 
 function safeParseHistory(raw: string | null): HistoryItem[] {
@@ -45,10 +45,10 @@ function isHistoryItem(value: unknown): value is HistoryItem {
     detail?: unknown;
   };
   if (typeof v.id !== 'string') return false;
-  if (v.tipe !== 'bansos' && v.tipe !== 'pemilu' && v.tipe !== 'aspirasi' && v.tipe !== 'permohonan') return false;
+  if (v.tipe !== 'bansos' && v.tipe !== 'pemilu' && v.tipe !== 'aspirasi' && v.tipe !== 'permohonan' && v.tipe !== 'barang_hilang') return false;
   if (typeof v.tanggal !== 'string') return false;
   if (typeof v.status !== 'string') return false;
-  if (v.statusColor !== 'green' && v.statusColor !== 'amber' && v.statusColor !== 'red') return false;
+  if (v.statusColor !== 'green' && v.statusColor !== 'amber' && v.statusColor !== 'red' && v.statusColor !== 'blue') return false;
   if (typeof v.judul !== 'string') return false;
   if (typeof v.deskripsi !== 'string') return false;
   if (typeof v.detail !== 'object' || v.detail === null) return false;
@@ -61,13 +61,14 @@ function tabToTipe(tab: TabLabel): HistoryItem['tipe'] | 'all' {
     case 'Pemilu': return 'pemilu';
     case 'Laporan': return 'aspirasi';
     case 'Permohonan': return 'permohonan';
+    case 'Barang Hilang': return 'barang_hilang';
     default: return 'all';
   }
 }
 
 type HistoryApiItem = {
   id: string;
-  type: 'BANSOS_CHECK' | 'PEMILU_CHECK' | 'ASPIRATION' | 'REQUEST' | 'MUTATION';
+  type: 'BANSOS_CHECK' | 'PEMILU_CHECK' | 'ASPIRATION' | 'REQUEST' | 'MUTATION' | 'BARANG_HILANG';
   title: string;
   description: string;
   metadata: Record<string, unknown>;
@@ -147,6 +148,35 @@ function mapHistoryItem(item: HistoryApiItem): HistoryItem {
     };
   }
 
+  if (item.type === 'BARANG_HILANG') {
+    const bhStatus = String(item.metadata.newStatus || item.metadata.status || 'pending_verification');
+    const statusMap: Record<string, { label: string; color: 'green' | 'amber' | 'red' | 'blue' }> = {
+      pending_verification: { label: 'Menunggu Verifikasi', color: 'amber' },
+      in_verification: { label: 'Sedang Diverifikasi', color: 'blue' },
+      processing: { label: 'Sedang Diproses', color: 'blue' },
+      resolved: { label: 'Selesai', color: 'green' },
+      rejected: { label: 'Ditolak', color: 'red' },
+      archived: { label: 'Diarsipkan', color: 'amber' },
+    };
+    const statusInfo = statusMap[bhStatus] ?? { label: bhStatus, color: 'amber' as const };
+    return {
+      id: item.id,
+      tipe: 'barang_hilang',
+      tanggal: createdDate,
+      status: statusInfo.label,
+      statusColor: statusInfo.color,
+      judul: item.title,
+      deskripsi: item.description,
+      detail: {
+        ticketNumber: String(item.metadata.ticketNumber || '-'),
+        itemName: String(item.metadata.itemName || '-'),
+        status: bhStatus,
+        previousStatus: String(item.metadata.previousStatus || '-'),
+        location: String(item.metadata.location || '-'),
+      },
+    };
+  }
+
   const status = String(item.metadata.status || 'SUBMITTED') as 'SUBMITTED' | 'REVIEWED' | 'RESOLVED';
   const adminReply = typeof item.metadata.adminReply === 'string' ? item.metadata.adminReply : null;
   const repliedByName = typeof item.metadata.repliedByName === 'string' ? item.metadata.repliedByName : null;
@@ -204,6 +234,15 @@ function DetailContent({ item }: { item: HistoryItem }) {
       { label: 'Status', value: detail.status === 'APPROVED' ? 'Disetujui' : detail.status === 'REJECTED' ? 'Ditolak' : 'Menunggu' },
     );
     notes = detail.ringkasan || '-';
+  } else if (item.tipe === 'barang_hilang') {
+    const detail = item.detail as BarangHilangResult;
+    rows.push(
+      { label: 'Tiket', value: detail.ticketNumber || '-' },
+      { label: 'Barang', value: detail.itemName || '-' },
+      { label: 'Status', value: detail.status || '-' },
+      { label: 'Lokasi', value: detail.location || '-' },
+    );
+    notes = item.deskripsi || '-';
   } else {
     const detail = item.detail as AspirasiResult;
     rows.push(

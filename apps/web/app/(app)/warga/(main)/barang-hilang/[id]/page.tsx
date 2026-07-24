@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { notFound, useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, User, Phone, MapPin, Tag, Calendar, FileText, CheckCircle2 } from 'lucide-react';
@@ -20,6 +20,7 @@ import {
 import { getStatusDetails } from '@/components/warga/barang-hilang/LaporanCard';
 import { StatusTracker, PesanAdmin, RiwayatStatus } from '@/components/warga/barang-hilang/detail/DetailComponents';
 import { platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { mapBackendBarangHilang, type BackendBarangHilang } from '@/lib/barang-hilang-mapper';
 import type { LaporanBarangHilang } from '@/types/barang-hilang';
 
@@ -33,23 +34,35 @@ export default function DetailBarangHilangWarga() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
+  const loadReport = useCallback(async () => {
+    try {
+      const res = await platformFetch<BackendBarangHilang>(`/barang-hilang/${id}`);
+      setReport(mapBackendBarangHilang(res.data));
+    } catch (err) {
+      console.error(err);
+      setReport(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     let active = true;
-    async function load() {
-      try {
-        const res = await platformFetch<BackendBarangHilang>(`/barang-hilang/${id}`);
-        if (!active) return;
-        setReport(mapBackendBarangHilang(res.data));
-      } catch (err) {
-        console.error(err);
-        if (active) setReport(null);
-      } finally {
-        if (active) setLoading(false);
-      }
+    async function init() {
+      await loadReport();
+      if (!active) setLoading(false);
     }
-    void load();
+    void init();
     return () => { active = false; };
-  }, [id]);
+  }, [loadReport]);
+
+  useSyncVersions(['admin:barang-hilang'], {
+    onVersionsChanged: useCallback(async (changedKeys: string[]) => {
+      if (changedKeys.includes('admin:barang-hilang')) {
+        await loadReport();
+      }
+    }, [loadReport]),
+  });
 
   const handleConfirmFound = async () => {
     setIsConfirming(true);
@@ -170,7 +183,7 @@ export default function DetailBarangHilangWarga() {
 
         {/* ACTIONS */}
         <div className="space-y-3 mt-8">
-          {report.status === 'processing' && (
+          {(report.status === 'processing' || report.status === 'in_verification') && (
             <Button onClick={() => setShowConfirmModal(true)} className="w-full rounded-full shadow-sm" size="lg">
               <CheckCircle2 className="mr-2 w-5 h-5" />
               Barang Sudah Ditemukan

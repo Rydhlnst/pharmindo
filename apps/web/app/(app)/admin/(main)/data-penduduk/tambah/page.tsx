@@ -189,7 +189,10 @@ export default function TambahDataPendudukPage() {
         const parsed = JSON.parse(savedDraft);
         setDraftData(parsed);
         setShowDraftModal(true);
-      } catch (e) {}
+      } catch (e) {
+        console.error('Gagal memuat draft data:', e);
+        toast({ title: 'Gagal memuat draft', description: 'Data draft tidak valid dan tidak dapat dimuat.', variant: 'destructive' });
+      }
     }
   }, []);
 

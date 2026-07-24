@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CalendarBlank as CalendarDays, Flag, MapPin, PlusCircle } from '@phosphor-icons/react';
 
 import AdminAsyncState from '@/components/admin/AdminAsyncState';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getPlatformErrorMessage, platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 
 type PemiluEvent = {
   id: string;
@@ -32,29 +33,24 @@ export default function AdminPemiluPage() {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      try {
-        const response = await platformFetch<PemiluEvent[]>('/admin/pemilu?page=1&limit=50');
-        if (!active) return;
-        setItems(response.data);
-        setError(null);
-      } catch (loadError) {
-        if (!active) return;
-        setItems([]);
-        setError(getPlatformErrorMessage(loadError, 'Gagal memuat data pemilu.'));
-      } finally {
-        if (active) setLoading(false);
-      }
+  const load = useCallback(async () => {
+    try {
+      const response = await platformFetch<PemiluEvent[]>('/admin/pemilu?page=1&limit=50');
+      setItems(response.data);
+      setError(null);
+    } catch (loadError) {
+      setItems([]);
+      setError(getPlatformErrorMessage(loadError, 'Gagal memuat data pemilu.'));
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
+  useEffect(() => {
     void load();
-    return () => {
-      active = false;
-    };
-  }, [reloadKey]);
+  }, [load, reloadKey]);
+
+  useSyncVersions(['admin:dashboard'], { onVersionsChanged: load });
 
   return (
     <div className="flex flex-col gap-6">

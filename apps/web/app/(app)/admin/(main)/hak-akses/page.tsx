@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CaretLeft as ChevronLeft, CaretRight as ChevronRight, PencilSimple as Edit, Key as KeyRound, Plus, MagnifyingGlass as Search, ShieldCheck, Trash as Trash2, UserMinus as UserX, Users } from '@phosphor-icons/react';
 
 import { cn } from '@/lib/utils';
 import { platformFetch } from '@/lib/api/platform';
+import { useSyncVersions } from '@/lib/use-sync-versions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -148,41 +149,36 @@ export default function HakAksesPage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  useEffect(() => {
-    let active = true;
+  const load = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      if (debouncedSearch) params.set('q', debouncedSearch);
 
-    async function load() {
-      try {
-        const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
-        if (debouncedSearch) params.set('q', debouncedSearch);
+      const [adminResponse, logResponse, sessionResponse] = await Promise.all([
+        platformFetch<AdminUser[]>(`/admin/admin-users?${params.toString()}`),
+        platformFetch<AdminLog[]>('/admin/admin-users/activity-logs?page=1&limit=8'),
+        platformFetch<SessionPayload>('/me'),
+      ]);
 
-        const [adminResponse, logResponse, sessionResponse] = await Promise.all([
-          platformFetch<AdminUser[]>(`/admin/admin-users?${params.toString()}`),
-          platformFetch<AdminLog[]>('/admin/admin-users/activity-logs?page=1&limit=8'),
-          platformFetch<SessionPayload>('/me'),
-        ]);
-
-        if (!active) return;
-        setAdmins(adminResponse.data);
-        setLogs(logResponse.data);
-        setCurrentRole(sessionResponse.data.user.role);
-        setTotalPages(adminResponse.meta?.totalPages ?? 1);
-        setTotalItems(adminResponse.meta?.total ?? adminResponse.data.length);
-      } catch {
-        if (!active) return;
-        setAdmins([]);
-        setLogs([]);
-        setCurrentRole('USER');
-        setTotalPages(1);
-        setTotalItems(0);
-      }
+      setAdmins(adminResponse.data);
+      setLogs(logResponse.data);
+      setCurrentRole(sessionResponse.data.user.role);
+      setTotalPages(adminResponse.meta?.totalPages ?? 1);
+      setTotalItems(adminResponse.meta?.total ?? adminResponse.data.length);
+    } catch {
+      setAdmins([]);
+      setLogs([]);
+      setCurrentRole('USER');
+      setTotalPages(1);
+      setTotalItems(0);
     }
-
-    void load();
-    return () => {
-      active = false;
-    };
   }, [page, debouncedSearch]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useSyncVersions(['admin:dashboard'], { onVersionsChanged: load });
 
   const canManageAdmins = currentRole === 'SUPER_ADMIN';
 

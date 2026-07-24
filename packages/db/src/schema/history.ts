@@ -10,6 +10,7 @@ export const historyEntryTypeEnum = pgEnum("history_entry_type", [
   "ASPIRATION",
   "REQUEST",
   "MUTATION",
+  "BARANG_HILANG",
 ]);
 
 export const historyEntry = pgTable(

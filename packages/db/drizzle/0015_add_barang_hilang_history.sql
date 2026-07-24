@@ -1,0 +1,1 @@
+ALTER TYPE "history_entry_type" ADD VALUE IF NOT EXISTS 'BARANG_HILANG';

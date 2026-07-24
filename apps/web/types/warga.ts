@@ -75,8 +75,16 @@ export interface PermohonanResult {
   alasanPenolakan?: string | null;
 }
 
+export interface BarangHilangResult {
+  ticketNumber: string;
+  itemName: string;
+  status: string;
+  previousStatus: string;
+  location: string;
+}
+
 /** Tipe riwayat */
-export type TipeRiwayat = 'bansos' | 'pemilu' | 'aspirasi' | 'permohonan';
+export type TipeRiwayat = 'bansos' | 'pemilu' | 'aspirasi' | 'permohonan' | 'barang_hilang';
 
 /** Item riwayat generik */
 export interface HistoryItem {
@@ -84,10 +92,10 @@ export interface HistoryItem {
   tipe: TipeRiwayat;
   tanggal: string;
   status: string;
-  statusColor: 'green' | 'amber' | 'red';
+  statusColor: 'green' | 'amber' | 'red' | 'blue';
   judul: string;
   deskripsi: string;
-  detail: BansosResult | PemiluResult | AspirasiResult | PermohonanResult;
+  detail: BansosResult | PemiluResult | AspirasiResult | PermohonanResult | BarangHilangResult;
 }
 
 /** Event jadwal RW */

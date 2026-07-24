@@ -2,19 +2,21 @@ import { Badge } from "@/components/ui/badge";
 
 interface StatusBadgeProps {
   status: string;
-  color: 'green' | 'amber' | 'red';
+  color: 'green' | 'amber' | 'red' | 'blue';
 }
 
 const COLOR_MAP = {
   green: 'bg-[color:var(--status-success)]/14 text-[color:var(--status-success)] border border-[color:var(--status-success)]/35',
   amber: 'bg-[color:var(--status-warning)]/14 text-[color:var(--status-warning)] border border-[color:var(--status-warning)]/35',
   red: 'bg-[color:var(--status-error)]/14 text-[color:var(--status-error)] border border-[color:var(--status-error)]/35',
+  blue: 'bg-blue-100 text-blue-700 border border-blue-200',
 };
 
 const DOT_MAP = {
   green: 'bg-[color:var(--status-success)]',
   amber: 'bg-[color:var(--status-warning)]',
   red: 'bg-[color:var(--status-error)]',
+  blue: 'bg-blue-500',
 };
 
 export default function StatusBadge({ status, color }: StatusBadgeProps) {

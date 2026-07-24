@@ -17,6 +17,7 @@ import {
   Hammer,
   Clock,
   MapPin,
+  FileEdit,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -58,6 +59,7 @@ import BansosFlow from '@/components/warga/bansos/BansosFlow';
 
 import { formatBansosPeriod } from '@/lib/bansos';
 import { RT_OPTIONS } from '@/lib/rt-options';
+import { getDraftCount } from '@/lib/draft-utils';
 
 import type {
   BansosResult,
@@ -78,30 +80,47 @@ type AgendaItem = {
   bg: string;
 };
 
-const DUMMY_AGENDA: AgendaItem[] = [
-  {
-    id: 1,
-    judul: 'Kerja Bakti Bersih Desa',
-    kategori: 'Sampah',
-    waktu: '08:00 - Selesai',
-    tanggal: 'Minggu, 12 Nov',
-    lokasi: 'Sepanjang Jl. Utama',
-    deskripsi: 'Kegiatan gotong royong membersihkan selokan dan jalan utama desa untuk mencegah genangan air dan menjaga kebersihan lingkungan.',
-    color: 'text-amber-600',
-    bg: 'bg-amber-50',
-  },
-  {
-    id: 2,
-    judul: 'Posyandu Balita & Lansia',
-    kategori: 'Posyandu',
-    waktu: '09:00 - 12:00',
-    tanggal: 'Rabu, 15 Nov',
-    lokasi: 'Balai RW 25',
-    deskripsi: 'Pemeriksaan kesehatan rutin untuk balita dan lansia, termasuk penimbangan, pengukuran tinggi badan, dan pemberian asupan gizi tambahan.',
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50',
-  }
-];
+type ScheduleItem = {
+  id: string;
+  title: string;
+  category: string;
+  date: string;
+  time: string;
+  location: string;
+  description?: string;
+};
+
+const CATEGORY_STYLE: Record<string, { color: string; bg: string }> = {
+  rapat: { color: 'text-blue-600', bg: 'bg-blue-50' },
+  sosial: { color: 'text-amber-600', bg: 'bg-amber-50' },
+  kesehatan: { color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  keamanan: { color: 'text-red-600', bg: 'bg-red-50' },
+  lainnya: { color: 'text-slate-600', bg: 'bg-slate-50' },
+};
+
+const HARI_INDONESIA = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const BULAN_INDONESIA = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+function mapScheduleToAgenda(item: ScheduleItem): AgendaItem {
+  const d = new Date(item.date);
+  const hari = HARI_INDONESIA[d.getDay()];
+  const tgl = d.getDate();
+  const bulan = BULAN_INDONESIA[d.getMonth()];
+  const tanggal = `${hari}, ${tgl} ${bulan}`;
+  const style = CATEGORY_STYLE[item.category] ?? CATEGORY_STYLE.lainnya;
+
+  return {
+    id: Number(item.id),
+    judul: item.title,
+    kategori: item.category,
+    waktu: item.time,
+    tanggal,
+    lokasi: item.location,
+    deskripsi: item.description,
+    color: style.color,
+    bg: style.bg,
+  };
+}
 
 type PopupState = {
   variant: 'success' | 'warning' | 'error';
@@ -170,25 +189,6 @@ const INITIAL_HOUSEHOLD_FORM: HouseholdForm = {
   rw: '25',
 };
 
-const BANSOS_PROGRAMS = [
-  {
-    id: 'PKH',
-    name: 'Program Keluarga Harapan',
-    desc: 'PKH · Bantuan tunai bersyarat',
-  },
-  {
-    id: 'BPNT',
-    name: 'Bantuan Pangan Non-Tunai',
-    desc: 'BPNT · Sembako & kebutuhan pokok',
-  },
-  {
-    id: 'BST',
-    name: 'Bantuan Sosial Tunai',
-    desc: 'BST · Bantuan langsung tunai',
-  },
-];
-void BANSOS_PROGRAMS;
-
 type BansosProgramCard = {
   id: string;
   title: string;
@@ -238,6 +238,8 @@ export default function WargaHomePage() {
   const [bansosProgramsLoading, setBansosProgramsLoading] = useState(false);
   const [bansosProgramsError, setBansosProgramsError] = useState<string | null>(null);
   const [bansosResult, setBansosResult] = useState<BansosResult | null>(null);
+
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
 
   const [pemiluNik, setPemiluNik] = useState('');
   const [pemiluTgl, setPemiluTgl] = useState('');
@@ -290,6 +292,28 @@ export default function WargaHomePage() {
       active = false;
     };
   }, [isTier3]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAgenda() {
+      try {
+        const response = await platformFetch<ScheduleItem[]>('/schedule');
+        if (!active) return;
+        setAgendaItems(response.data.map(mapScheduleToAgenda));
+      } catch (error) {
+        if (!active) return;
+        console.error(error);
+        setAgendaItems([]);
+      }
+    }
+
+    void loadAgenda();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const selectedBansosProgram = useMemo(
     () => bansosPrograms.find((program) => program.id === bansosProgram) ?? null,
@@ -1056,6 +1080,8 @@ export default function WargaHomePage() {
               />
             </div>
 
+            <DraftIndicator />
+
             {bansosPrograms.length > 0 ? (
               <section className="mt-2 flex flex-col gap-3">
                 <div>
@@ -1140,7 +1166,7 @@ export default function WargaHomePage() {
               </div>
               
               <div className="flex flex-col gap-3">
-                {DUMMY_AGENDA.map((agenda) => (
+                {agendaItems.map((agenda) => (
                   <div 
                     key={agenda.id} 
                     className="flex items-start gap-4 rounded-3xl border border-input bg-card p-4 shadow-sm transition hover:shadow-md cursor-pointer"
@@ -2216,5 +2242,32 @@ function SelectField({
       </Select>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
+  );
+}
+
+function DraftIndicator() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    setCount(getDraftCount(false));
+  }, []);
+
+  if (count === 0) return null;
+
+  return (
+    <Link href="/warga/drafts">
+      <Card className="border border-dashed border-amber-300 bg-amber-50/50 p-3 transition-colors hover:bg-amber-50">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100">
+            <FileEdit className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800">Draft Tersimpan</p>
+            <p className="text-xs text-amber-600">Anda memiliki {count} draft yang belum diselesaikan</p>
+          </div>
+          <Badge className="bg-amber-200 text-amber-800 border-amber-300 text-xs">{count}</Badge>
+        </div>
+      </Card>
+    </Link>
   );
 }
