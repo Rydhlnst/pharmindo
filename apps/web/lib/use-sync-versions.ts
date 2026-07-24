@@ -18,6 +18,8 @@ type UseSyncVersionsOptions = {
 
 function getWsUrl(): string {
   if (typeof window === 'undefined') return '';
+  const envUrl = process.env.NEXT_PUBLIC_WS_URL;
+  if (envUrl) return envUrl;
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${window.location.host}/ws/sync`;
 }
