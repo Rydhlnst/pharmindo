@@ -90,8 +90,13 @@ const CSV_DELIMITER = ";";
 export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; role: string } } }>()
   .use("*", adminMiddleware)
   .get("/summary", async (c) => {
+    const filter = parseReportFilter(c);
     const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
-    const [liveStats, badgeStats] = await Promise.all([getCanonicalLiveStats(scopeFilter), getCanonicalDashboardBadges(scopeFilter)]);
+    const pendingRequestsScopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
+    const [liveStats, badgeStats] = await Promise.all([
+      getCanonicalLiveStats(scopeFilter, filter, pendingRequestsScopeFilter),
+      getCanonicalDashboardBadges(scopeFilter, pendingRequestsScopeFilter),
+    ]);
     const payload = {
       success: true as const,
       data: {
@@ -102,6 +107,7 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
           pendingRequests: liveStats.pendingRequests,
           pendingMutations: badgeStats.pendingMutations,
           pendingAspirations: badgeStats.pendingAspirations,
+          pendingBarangHilang: badgeStats.pendingBarangHilang,
         },
       },
     };
@@ -251,8 +257,15 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
     return ok(c, payload.data, meta);
   })
   .get("/bansos-summary", async (c) => {
+    const filter = parseReportFilter(c);
     const scopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const db = getDb();
+    const bansosWhere = and(
+      eq(serviceRequest.type, "BANSOS_APPLICATION"),
+      scopeFilter,
+      filter.rt ? eq(userIdentity.rt, filter.rt) : undefined,
+      buildTimestampFilter(serviceRequest.createdAt, filter),
+    );
 
     const byRtRows = await db
       .select({
@@ -261,10 +274,7 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       })
       .from(serviceRequest)
       .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
-      .where(and(
-        eq(serviceRequest.type, "BANSOS_APPLICATION"),
-        scopeFilter,
-      ))
+      .where(bansosWhere)
       .groupBy(userIdentity.rt)
       .orderBy(userIdentity.rt);
 
@@ -276,10 +286,7 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
       })
       .from(serviceRequest)
       .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
-      .where(and(
-        eq(serviceRequest.type, "BANSOS_APPLICATION"),
-        scopeFilter,
-      ))
+      .where(bansosWhere)
       .groupBy(serviceRequest.payload, serviceRequest.status);
 
     const programMap = new Map<string, { title: string; assistanceType: string; total: number; approved: number; rejected: number; pending: number }>();
@@ -378,11 +385,12 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   .get("/export/pdf", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
     const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
+    const pendingRequestsScopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
     const [summary, demographics, rtBreakdown, pendingRequests] = await Promise.all([
-      getCanonicalLiveStats(scopeFilter),
+      getCanonicalLiveStats(scopeFilter, filter, pendingRequestsScopeFilter),
       getFilteredDemographics(filter, scopeFilter),
       getFilteredRtBreakdown(filter, scopeFilter),
-      getFilteredPendingRequests(filter, scopeFilter),
+      getFilteredPendingRequests(filter, pendingRequestsScopeFilter),
     ]);
     const doc = new PDFDocument({ margin: 48 });
     const chunks: Uint8Array[] = [];

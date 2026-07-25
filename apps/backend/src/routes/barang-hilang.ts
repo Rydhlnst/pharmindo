@@ -360,7 +360,7 @@ export const barangHilangRoutes = new Hono<{ Variables: { sessionUser: { id: str
       },
     });
 
-    await bumpSyncKeys([adminSyncKey("barang-hilang"), userSyncKey(sessionUser.id, "history")]);
+    await bumpSyncKeys([adminSyncKey("barang-hilang"), adminSyncKey("dashboard"), userSyncKey(sessionUser.id, "history")]);
     return created(c, mapBarangHilang(row));
   })
   .patch("/:id", createRateLimitMiddleware({ key: "barang-hilang-user-write", limit: 20, windowMs: 60_000 }), async (c) => {
@@ -404,7 +404,7 @@ export const barangHilangRoutes = new Hono<{ Variables: { sessionUser: { id: str
       });
     }
 
-    await bumpSyncKeys([adminSyncKey("barang-hilang"), userSyncKey(sessionUser.id, "history")]);
+    await bumpSyncKeys([adminSyncKey("barang-hilang"), adminSyncKey("dashboard"), userSyncKey(sessionUser.id, "history")]);
     return ok(c, mapBarangHilang(updated));
   })
   .get("/broadcasts/active", async (c) => {

@@ -27,6 +27,7 @@ export const dashboardSummarySchema = z.object({
     pendingRequests: z.number().int().min(0),
     pendingMutations: z.number().int().min(0),
     pendingAspirations: z.number().int().min(0),
+    pendingBarangHilang: z.number().int().min(0),
   }),
 });
 

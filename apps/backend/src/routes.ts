@@ -31,6 +31,7 @@ import { requestsRoutes } from "./routes/requests.js";
 import { servicesRoutes } from "./routes/services.js";
 import { citizensRoutes } from "./routes/citizens.js";
 import { userRequestsRoutes } from "./routes/user-requests.js";
+import { internalRoutes } from "./routes/internal.js";
 import { AppError } from "./lib/errors.js";
 import { createRateLimitMiddleware } from "./lib/rate-limit.js";
 import { fail, ok } from "./lib/response.js";
@@ -340,6 +341,7 @@ export function createApp() {
   app.route("/me/preferences", preferencesRoutes);
   app.route("/aspirations", aspirationsRoutes);
   app.route("/requests", userRequestsRoutes);
+  app.route("/internal", internalRoutes);
 
   return app;
 }

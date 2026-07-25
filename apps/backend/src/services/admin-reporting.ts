@@ -1,12 +1,32 @@
 import { and, eq, sql, SQL } from "drizzle-orm";
 
-import { aspiration, citizen, getDb, household, mutation, serviceRequest, userIdentity } from "@abdimas/db";
+import { aspiration, barangHilang, citizen, getDb, household, mutation, serviceRequest, userIdentity } from "@abdimas/db";
 
 type ReportFilter = {
   tahun?: number;
   bulan?: number;
   rt?: string;
 };
+
+// Single source of truth for the "usia produktif" range (BPS: 18-59 inclusive).
+// Used everywhere that computes children / productive-age / seniors buckets.
+export const PRODUCTIVE_AGE_MIN = 18;
+export const PRODUCTIVE_AGE_MAX = 59;
+
+// Age computed at day precision (matches SQL age()); avoids off-by-one vs
+// naive currentYear - birthYear when the birthday hasn't passed yet.
+function computeAgeYears(birthDate: string | Date | null | undefined): number {
+  if (!birthDate) return -1;
+  const birth = birthDate instanceof Date ? birthDate : new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return -1;
+  const today = new Date();
+  let years = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    years -= 1;
+  }
+  return years;
+}
 
 type CanonicalStats = {
   totalWarga: number;
@@ -92,24 +112,47 @@ export function buildCanonicalMutationWhere(filter: ReportFilter = {}) {
     : undefined;
 }
 
-export async function getCanonicalLiveStats(scopeFilter?: SQL): Promise<CanonicalStats> {
+export async function getCanonicalLiveStats(
+  scopeFilter?: SQL,
+  filter: ReportFilter = {},
+  pendingRequestsScopeFilter?: SQL,
+): Promise<CanonicalStats> {
   const db = getDb();
+  const citizenWhere = buildCanonicalCitizenWhere(filter, scopeFilter);
+  const householdWhere = buildCanonicalHouseholdWhere(filter, scopeFilter);
+  const mutationDateFilter = buildDateFilter(mutation.mutationDate, filter);
   const [[{ totalWarga }], [{ totalKK }], [{ totalMutasi }], [{ pendingRequests }], [{ totalMeninggal }], [{ totalBalita }]] = await Promise.all([
-    db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(and(eq(citizen.isArchived, false), scopeFilter)),
+    db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(citizenWhere),
     db
       .select({ totalKK: sql<number>`count(*)::int` })
       .from(household)
-      .where(and(eq(household.status, "ACTIVE"), scopeFilter)),
-    db.select({ totalMutasi: sql<number>`count(*)::int` }).from(mutation).innerJoin(citizen, eq(citizen.id, mutation.citizenId)).where(and(eq(citizen.isArchived, false), scopeFilter)),
+      .where(householdWhere),
+    db
+      .select({ totalMutasi: sql<number>`count(*)::int` })
+      .from(mutation)
+      .innerJoin(citizen, eq(citizen.id, mutation.citizenId))
+      .where(and(eq(citizen.isArchived, false), scopeFilter, mutationDateFilter, filter.rt ? eq(citizen.rt, filter.rt) : undefined)),
     db
       .select({ pendingRequests: sql<number>`count(*)::int` })
       .from(serviceRequest)
-      .where(eq(serviceRequest.status, "PENDING")),
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .where(and(
+        eq(serviceRequest.status, "PENDING"),
+        pendingRequestsScopeFilter,
+        filter.rt ? eq(userIdentity.rt, filter.rt) : undefined,
+        buildTimestampFilter(serviceRequest.createdAt, filter),
+      )),
     db
       .select({ totalMeninggal: sql<number>`count(*)::int` })
       .from(mutation)
       .innerJoin(citizen, eq(citizen.id, mutation.citizenId))
-      .where(and(eq(mutation.type, "DEATH"), eq(citizen.isArchived, false), scopeFilter)),
+      .where(and(
+        eq(mutation.type, "DEATH"),
+        eq(citizen.isArchived, false),
+        scopeFilter,
+        mutationDateFilter,
+        filter.rt ? eq(citizen.rt, filter.rt) : undefined,
+      )),
     db
       .select({ totalBalita: sql<number>`count(*)::int` })
       .from(citizen)
@@ -117,6 +160,8 @@ export async function getCanonicalLiveStats(scopeFilter?: SQL): Promise<Canonica
         eq(citizen.isArchived, false),
         sql`extract(year from age(current_date, ${citizen.birthDate})) <= 5`,
         scopeFilter,
+        filter.rt ? eq(citizen.rt, filter.rt) : undefined,
+        buildTimestampFilter(citizen.createdAt, filter),
       )),
   ]);
 
@@ -130,29 +175,59 @@ export async function getCanonicalLiveStats(scopeFilter?: SQL): Promise<Canonica
   };
 }
 
-export async function getCanonicalDashboardBadges(scopeFilter?: SQL) {
+export async function getCanonicalDashboardBadges(
+  scopeFilter?: SQL,
+  pendingRequestsScopeFilter?: SQL,
+) {
   const db = getDb();
-  const [[{ pendingVerifications }], [{ pendingMutations }], [{ pendingAspirations }]] = await Promise.all([
+  const [
+    [{ pendingVerifications }],
+    [{ pendingMutationsCanonical }],
+    [{ pendingMutationsRequests }],
+    [{ pendingAspirations }],
+    [{ pendingBarangHilang }],
+  ] = await Promise.all([
     db
       .select({ pendingVerifications: sql<number>`count(*)::int` })
       .from(userIdentity)
-      .where(and(eq(userIdentity.verificationStatus, "PENDING"), scopeFilter)),
+      .where(and(eq(userIdentity.verificationStatus, "PENDING"), pendingRequestsScopeFilter)),
     db
-      .select({ pendingMutations: sql<number>`count(*)::int` })
+      .select({ pendingMutationsCanonical: sql<number>`count(*)::int` })
       .from(mutation)
       .innerJoin(citizen, eq(citizen.id, mutation.citizenId))
       .where(and(eq(mutation.status, "PENDING"), eq(citizen.isArchived, false), scopeFilter)),
+    // Warga-submitted MUTATION_IN/OUT requests live in service_request, not the
+    // canonical `mutation` table, so they must be counted separately or the badge
+    // silently misses them (audit gap #2, 2026-07-25).
+    db
+      .select({ pendingMutationsRequests: sql<number>`count(*)::int` })
+      .from(serviceRequest)
+      .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+      .where(and(
+        eq(serviceRequest.status, "PENDING"),
+        sql`${serviceRequest.type} in ('MUTATION_IN','MUTATION_OUT')`,
+        pendingRequestsScopeFilter,
+      )),
     db
       .select({ pendingAspirations: sql<number>`count(*)::int` })
       .from(aspiration)
       .innerJoin(userIdentity, eq(userIdentity.userId, aspiration.userId))
-      .where(and(eq(aspiration.status, "SUBMITTED"), scopeFilter)),
+      .where(and(eq(aspiration.status, "SUBMITTED"), pendingRequestsScopeFilter)),
+    db
+      .select({ pendingBarangHilang: sql<number>`count(*)::int` })
+      .from(barangHilang)
+      .innerJoin(userIdentity, eq(userIdentity.userId, barangHilang.reporterId))
+      .where(and(
+        sql`${barangHilang.status} in ('pending_verification','in_verification')`,
+        pendingRequestsScopeFilter,
+      )),
   ]);
 
   return {
     pendingVerifications: Number(pendingVerifications || 0),
-    pendingMutations: Number(pendingMutations || 0),
+    pendingMutations: Number(pendingMutationsCanonical || 0) + Number(pendingMutationsRequests || 0),
     pendingAspirations: Number(pendingAspirations || 0),
+    pendingBarangHilang: Number(pendingBarangHilang || 0),
   };
 }
 
@@ -180,7 +255,7 @@ export async function getFilteredRtBreakdown(filter: ReportFilter = {}, scopeFil
           ${filter.tahun ? sql`and extract(year from m.mutation_date) = ${filter.tahun}` : sql``}
           ${filter.bulan ? sql`and extract(month from m.mutation_date) = ${filter.bulan}` : sql``}
       )`,
-      produktif: sql<number>`count(*) filter (where extract(year from age(current_date, ${citizen.birthDate})) between 16 and 60)::int`,
+      produktif: sql<number>`count(*) filter (where extract(year from age(current_date, ${citizen.birthDate})) between ${PRODUCTIVE_AGE_MIN} and ${PRODUCTIVE_AGE_MAX})::int`,
     })
     .from(citizen)
     .where(buildCanonicalCitizenWhere(filter, scopeFilter))
@@ -216,11 +291,12 @@ export async function getFilteredDemographics(filter: ReportFilter = {}, scopeFi
 
   let male = 0;
   let female = 0;
-  const currentYear = new Date().getFullYear();
 
   for (const row of rows) {
-    const age = currentYear - new Date(row.birthDate).getFullYear();
-    if (age <= 12) ageGroups[0].value += 1;
+    const age = computeAgeYears(row.birthDate);
+    if (age < 0) {
+      // no valid birthDate → skip age bucket but still count gender below
+    } else if (age <= 12) ageGroups[0].value += 1;
     else if (age <= 17) ageGroups[1].value += 1;
     else if (age <= 35) ageGroups[2].value += 1;
     else if (age <= 59) ageGroups[3].value += 1;
@@ -278,16 +354,16 @@ export async function getFilteredInfographicData(filter: ReportFilter = {}, scop
     .from(citizen)
     .where(buildCanonicalCitizenWhere(filter, scopeFilter));
 
-  const currentYear = new Date().getFullYear();
   let productiveAge = 0;
   let children = 0;
   let seniors = 0;
 
   for (const row of rows) {
-    const age = currentYear - new Date(row.birthDate).getFullYear();
-    if (age <= 17) children += 1;
-    if (age >= 18 && age <= 59) productiveAge += 1;
-    if (age >= 60) seniors += 1;
+    const age = computeAgeYears(row.birthDate);
+    if (age < 0) continue;
+    if (age < PRODUCTIVE_AGE_MIN) children += 1;
+    else if (age <= PRODUCTIVE_AGE_MAX) productiveAge += 1;
+    else seniors += 1;
   }
 
   return {
@@ -304,10 +380,19 @@ export async function getFilteredInfographicData(filter: ReportFilter = {}, scop
   };
 }
 
-export async function getFilteredPendingRequests(filter: ReportFilter = {}, scopeFilter?: SQL) {
+export async function getFilteredPendingRequests(
+  filter: ReportFilter = {},
+  pendingRequestsScopeFilter?: SQL,
+) {
   const rows = await getDb()
     .select({ total: sql<number>`count(*)::int` })
     .from(serviceRequest)
-    .where(and(eq(serviceRequest.status, "PENDING"), buildTimestampFilter(serviceRequest.createdAt, filter), scopeFilter));
+    .innerJoin(userIdentity, eq(userIdentity.userId, serviceRequest.requestedBy))
+    .where(and(
+      eq(serviceRequest.status, "PENDING"),
+      buildTimestampFilter(serviceRequest.createdAt, filter),
+      pendingRequestsScopeFilter,
+      filter.rt ? eq(userIdentity.rt, filter.rt) : undefined,
+    ));
   return Number(rows[0]?.total || 0);
 }

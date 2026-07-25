@@ -33,8 +33,8 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
       latestLogRows,
       latestAspirationRows,
     ] = await Promise.all([
-      getCanonicalLiveStats(scopeFilter),
-      getCanonicalDashboardBadges(scopeFilter),
+      getCanonicalLiveStats(scopeFilter, {}, buildScopeFilter(c.get("sessionUser"), userIdentity.rt)),
+      getCanonicalDashboardBadges(scopeFilter, buildScopeFilter(c.get("sessionUser"), userIdentity.rt)),
       db
         .select({ deltaWarga: sql<number>`count(*)::int` })
         .from(citizen)
@@ -126,6 +126,7 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
           pendingRequests: liveStats.pendingRequests,
           pendingMutations: badgeStats.pendingMutations,
           pendingAspirations: badgeStats.pendingAspirations,
+          pendingBarangHilang: badgeStats.pendingBarangHilang,
         },
       },
     };

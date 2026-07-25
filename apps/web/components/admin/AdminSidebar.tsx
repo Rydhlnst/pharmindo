@@ -92,28 +92,52 @@ const SYSTEM_NAV: NavItem[] = [
   { href: '/admin/settings', label: 'Pengaturan', icon: Settings },
 ];
 
+type NotificationBadges = {
+  pendingVerifications: number;
+  pendingRequests: number;
+  pendingMutations: number;
+  pendingAspirations: number;
+  pendingBarangHilang: number;
+};
+
+const EMPTY_BADGES: NotificationBadges = {
+  pendingVerifications: 0,
+  pendingRequests: 0,
+  pendingMutations: 0,
+  pendingAspirations: 0,
+  pendingBarangHilang: 0,
+};
+
+const SIDEBAR_SYNC_KEYS = [
+  'admin:dashboard',
+  'admin:barang-hilang',
+  'admin:verification',
+  'admin:requests',
+  'admin:mutations',
+  'admin:aspirations',
+];
+
 function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?: boolean; mobile?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [hasPendingRequests, setHasPendingRequests] = useState(false);
-  const [hasPendingVerifications, setHasPendingVerifications] = useState(false);
-  const [hasPendingBarangHilang, setHasPendingBarangHilang] = useState(false);
+  const [badges, setBadges] = useState<NotificationBadges>(EMPTY_BADGES);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const loadNotificationBadges = async () => {
     try {
-      const [requestsResponse, verificationsResponse, barangHilangResponse] = await Promise.all([
-        platformFetch<unknown[]>('/admin/requests?page=1&limit=1&status=PENDING'),
-        platformFetch<unknown[]>('/admin/verifications?status=PENDING'),
-        platformFetch<{ total: number; byStatus: Record<string, number> }>('/admin/barang-hilang/stats'),
-      ]);
-      setHasPendingRequests(requestsResponse.data.length > 0);
-      setHasPendingVerifications(verificationsResponse.data.length > 0);
-      const bhStats = barangHilangResponse.data;
-      setHasPendingBarangHilang(
-        (bhStats.byStatus?.pending_verification ?? 0) > 0 ||
-        (bhStats.byStatus?.in_verification ?? 0) > 0
+      const response = await platformFetch<{ notificationBadges: NotificationBadges }>(
+        '/admin/reports/summary',
       );
+      const nb = response.data?.notificationBadges;
+      if (nb) {
+        setBadges({
+          pendingVerifications: nb.pendingVerifications ?? 0,
+          pendingRequests: nb.pendingRequests ?? 0,
+          pendingMutations: nb.pendingMutations ?? 0,
+          pendingAspirations: nb.pendingAspirations ?? 0,
+          pendingBarangHilang: nb.pendingBarangHilang ?? 0,
+        });
+      }
     } catch {
       // silently ignore error
     }
@@ -123,11 +147,9 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
     void loadNotificationBadges();
   }, []);
 
-  useSyncVersions(['admin:dashboard', 'admin:barang-hilang'], {
-    onVersionsChanged: async (changedKeys) => {
-      if (changedKeys.includes('admin:dashboard') || changedKeys.includes('admin:barang-hilang')) {
-        await loadNotificationBadges();
-      }
+  useSyncVersions(SIDEBAR_SYNC_KEYS, {
+    onVersionsChanged: async () => {
+      await loadNotificationBadges();
     },
   });
 
@@ -141,12 +163,16 @@ function AdminNavContent({ isCollapsed = false, mobile = false }: { isCollapsed?
     const Icon = item.icon;
     const showNotification =
       item.href === '/admin/permohonan'
-        ? hasPendingRequests
+        ? badges.pendingRequests > 0
         : item.href === '/admin/verification'
-          ? hasPendingVerifications
+          ? badges.pendingVerifications > 0
           : item.href === '/admin/barang-hilang'
-            ? hasPendingBarangHilang
-            : false;
+            ? badges.pendingBarangHilang > 0
+            : item.href === '/admin/mutasi'
+              ? badges.pendingMutations > 0
+              : item.href === '/admin/laporan'
+                ? badges.pendingAspirations > 0
+                : false;
 
     // Highlight "Data Penduduk" with a special pill style
     const isHighlight = item.highlight;

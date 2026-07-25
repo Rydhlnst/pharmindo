@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowClockwise as RefreshCw,
+  ArrowsOutSimple,
   CaretLeft as ChevronLeft,
   CaretRight as ChevronRight,
   ChartBar,
@@ -15,6 +16,7 @@ import {
   CalendarBlank,
   WarningCircle,
   Users,
+  X,
 } from '@phosphor-icons/react';
 
 import { Button } from '@/components/ui/button';
@@ -187,12 +189,16 @@ function DistributionPanel({
   section,
   tone = 'blue',
   emptyLabel,
+  chartId,
+  controls,
 }: {
   title: string;
   items: DistributionItem[];
   section: 'occupation' | 'education' | 'religion' | 'maritalStatus' | 'bloodType' | 'residentStatus';
   tone?: 'blue' | 'green' | 'rose';
   emptyLabel: string;
+  chartId?: ChartId;
+  controls?: FullscreenControls;
 }) {
   const [page, setPage] = useState(1);
   const itemsPerPage = 6;
@@ -223,8 +229,8 @@ function DistributionPanel({
 
   const visibleItems = items.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-6">
+  const body = (
+    <>
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-bold text-[#1E293B]">{title}</h3>
@@ -287,8 +293,17 @@ function DistributionPanel({
           {emptyLabel}
         </div>
       )}
-    </div>
+    </>
   );
+
+  if (chartId && controls) {
+    return (
+      <FullscreenChartCard chartId={chartId} controls={controls} className="rounded-2xl border border-gray-100 bg-white p-6">
+        {body}
+      </FullscreenChartCard>
+    );
+  }
+  return <div className="rounded-2xl border border-gray-100 bg-white p-6">{body}</div>;
 }
 
 function SpotlightCard({
@@ -307,6 +322,192 @@ function SpotlightCard({
       <p className="mt-2 text-sm text-[#64748B]">{helper}</p>
     </div>
   );
+}
+
+type ChartId =
+  | 'stat-cards'
+  | 'age-groups'
+  | 'gender-pie'
+  | 'occupation-overview'
+  | 'religion-overview'
+  | 'occupation-livelihood'
+  | 'education-livelihood'
+  | 'resident-status'
+  | 'marital-status'
+  | 'blood-type'
+  | 'religion-social'
+  | 'occupation-semua'
+  | 'religion-semua'
+  | 'bansos-by-rt'
+  | 'bansos-by-program';
+
+const CHART_ORDER: ChartId[] = [
+  'stat-cards',
+  'age-groups',
+  'gender-pie',
+  'occupation-overview',
+  'religion-overview',
+  'occupation-livelihood',
+  'education-livelihood',
+  'resident-status',
+  'marital-status',
+  'blood-type',
+  'religion-social',
+  'occupation-semua',
+  'religion-semua',
+  'bansos-by-rt',
+  'bansos-by-program',
+];
+
+type FullscreenControls = {
+  fullscreenChart: ChartId | null;
+  registerChart: (id: ChartId, el: HTMLDivElement | null) => void;
+  enterFullscreen: (id: ChartId) => void;
+  exitFullscreen: () => void;
+  goNext: () => void;
+  goPrev: () => void;
+};
+
+function useChartFullscreen(): FullscreenControls {
+  const [fullscreenChart, setFullscreenChart] = useState<ChartId | null>(null);
+  const chartRefs = useRef<Partial<Record<ChartId, HTMLDivElement>>>({});
+
+  const registerChart = useCallback((id: ChartId, el: HTMLDivElement | null) => {
+    if (el) chartRefs.current[id] = el;
+    else delete chartRefs.current[id];
+  }, []);
+
+  const enterFullscreen = useCallback((id: ChartId) => {
+    const el = chartRefs.current[id];
+    if (!el) return;
+    setFullscreenChart(id);
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {
+        // Fullscreen API blocked — fall back to CSS-only fixed overlay via state.
+      });
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(() => {
+    setFullscreenChart(null);
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  const goRelative = useCallback((direction: 1 | -1) => {
+    setFullscreenChart((current) => {
+      if (!current) return current;
+      const available = CHART_ORDER.filter((id) => chartRefs.current[id]);
+      if (available.length === 0) return current;
+      const idx = available.indexOf(current);
+      if (idx === -1) return current;
+      const nextId = available[(idx + direction + available.length) % available.length];
+      const nextEl = chartRefs.current[nextId];
+      if (nextEl) {
+        if (document.fullscreenElement && document.fullscreenElement !== nextEl) {
+          document.exitFullscreen().then(() => nextEl.requestFullscreen?.().catch(() => {})).catch(() => {});
+        } else if (!document.fullscreenElement) {
+          nextEl.requestFullscreen?.().catch(() => {});
+        }
+      }
+      return nextId;
+    });
+  }, []);
+
+  const goNext = useCallback(() => goRelative(1), [goRelative]);
+  const goPrev = useCallback(() => goRelative(-1), [goRelative]);
+
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreenChart(null);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  useEffect(() => {
+    if (!fullscreenChart) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
+      else if (e.key === 'Escape') { e.preventDefault(); exitFullscreen(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreenChart, goNext, goPrev, exitFullscreen]);
+
+  return { fullscreenChart, registerChart, enterFullscreen, exitFullscreen, goNext, goPrev };
+}
+
+function FullscreenChartCard({
+  chartId,
+  controls,
+  className = '',
+  children,
+}: {
+  chartId: ChartId;
+  controls: FullscreenControls;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const isFullscreen = controls.fullscreenChart === chartId;
+  return (
+    <div
+      ref={(el) => controls.registerChart(chartId, el)}
+      className={
+        (isFullscreen
+          ? 'relative flex h-full w-full flex-col overflow-auto bg-white p-8'
+          : `relative ${className}`)
+      }
+    >
+      {children}
+      <button
+        type="button"
+        onClick={() => (isFullscreen ? controls.exitFullscreen() : controls.enterFullscreen(chartId))}
+        title={isFullscreen ? 'Keluar Fullscreen (Esc)' : 'Tampilkan Fullscreen'}
+        className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white/90 text-gray-500 shadow-sm backdrop-blur transition hover:bg-gray-50 hover:text-gray-700"
+      >
+        {isFullscreen ? <X className="h-4 w-4" /> : <ArrowsOutSimple className="h-4 w-4" />}
+      </button>
+      {isFullscreen && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex items-center justify-center">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-gray-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
+            <button
+              type="button"
+              onClick={controls.goPrev}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
+              title="Sebelumnya (←)"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-xs font-semibold text-gray-500">← Sebelumnya · Selanjutnya →</span>
+            <button
+              type="button"
+              onClick={controls.goNext}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
+              title="Selanjutnya (→)"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function computeAgeYears(birthDate: string | Date | null | undefined): number {
+  if (!birthDate) return -1;
+  const birth = birthDate instanceof Date ? birthDate : new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return -1;
+  const today = new Date();
+  let years = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    years -= 1;
+  }
+  return years;
 }
 
 const getAgeGroupColor = (label: string) => {
@@ -355,6 +556,7 @@ export default function RapotPage() {
     bulan: '',
     rt: '',
   });
+  const fs = useChartFullscreen();
 
   const activeFilter = useMemo(() => {
     const bulanLabel = MONTH_OPTIONS.find((option) => option.value === appliedFilter.bulan)?.label ?? 'Semua Bulan';
@@ -562,7 +764,7 @@ export default function RapotPage() {
           <h2 className="text-[clamp(14px,1.5vw,18px)] font-bold text-[#1E293B]">Laporan Data Warga Siap Cetak</h2>
           <p className="mt-1 text-sm font-medium text-[#3B82F6]">Filter Aktif: {activeFilter}</p>
           <p className="mt-1 text-xs text-[#64748B]">
-            Kartu ringkasan menampilkan total data aktif saat ini. Filter hanya berlaku untuk rekap, detail RT, infografis, dan ekspor.
+            Seluruh angka (kartu ringkasan, rekap, infografis, dan ekspor) mengikuti filter bulan, tahun, dan RT di atas.
           </p>
         </div>
         <div className="flex min-w-[280px] flex-col items-stretch gap-2 rounded-2xl border border-[#DBEAFE] bg-white p-3 shadow-sm">
@@ -658,7 +860,7 @@ export default function RapotPage() {
         const visibleCards = statCards.slice(clampedIndex * cardsPerPage, (clampedIndex * cardsPerPage) + cardsPerPage);
 
         return (
-          <div className="relative">
+          <FullscreenChartCard chartId="stat-cards" controls={fs} className="relative">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {visibleCards.map((card) => {
                 const Icon = card.icon;
@@ -702,7 +904,7 @@ export default function RapotPage() {
                 </button>
               </div>
             )}
-          </div>
+          </FullscreenChartCard>
         );
       })()}
 
@@ -750,7 +952,7 @@ export default function RapotPage() {
 
         <TabsContent value="overview" className="mt-0 space-y-5">
           <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
-            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+            <FullscreenChartCard chartId="age-groups" controls={fs} className="rounded-2xl border border-gray-100 bg-white p-6">
               <h3 className="mb-6 text-base font-bold text-[#1E293B]">Distribusi Kelompok Umur</h3>
               <div className="flex items-end justify-between gap-4" style={{ height: 'clamp(150px, 25vh, 200px)' }}>
                 {ageGroups.map((group) => {
@@ -797,9 +999,9 @@ export default function RapotPage() {
                   );
                 })}
               </div>
-            </div>
+            </FullscreenChartCard>
 
-            <div className="relative overflow-hidden flex flex-col items-center justify-center rounded-2xl bg-[#2563EB] p-6 text-white">
+            <FullscreenChartCard chartId="gender-pie" controls={fs} className="relative overflow-hidden flex flex-col items-center justify-center rounded-2xl bg-[#2563EB] p-6 text-white">
               <div className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/[0.06]" />
               <div className="pointer-events-none absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/[0.06]" />
               <div className="relative z-10 flex w-full flex-col items-center">
@@ -827,11 +1029,13 @@ export default function RapotPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </FullscreenChartCard>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
             <DistributionPanel
+              chartId="occupation-overview"
+              controls={fs}
               title="Pekerjaan Warga"
               items={analytics.occupation}
               section="occupation"
@@ -839,6 +1043,8 @@ export default function RapotPage() {
               emptyLabel="Belum ada distribusi pekerjaan untuk filter ini."
             />
             <DistributionPanel
+              chartId="religion-overview"
+              controls={fs}
               title="Agama Warga"
               items={analytics.religion}
               section="religion"
@@ -851,6 +1057,8 @@ export default function RapotPage() {
         <TabsContent value="livelihood" className="mt-0 space-y-5">
           <div className="grid gap-5 lg:grid-cols-2">
             <DistributionPanel
+              chartId="occupation-livelihood"
+              controls={fs}
               title="Sebaran Pekerjaan"
               items={analytics.occupation}
               section="occupation"
@@ -858,6 +1066,8 @@ export default function RapotPage() {
               emptyLabel="Belum ada distribusi pekerjaan untuk filter ini."
             />
             <DistributionPanel
+              chartId="education-livelihood"
+              controls={fs}
               title="Sebaran Pendidikan"
               items={analytics.education}
               section="education"
@@ -888,6 +1098,8 @@ export default function RapotPage() {
         <TabsContent value="social" className="mt-0 space-y-5">
           <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
             <DistributionPanel
+              chartId="resident-status"
+              controls={fs}
               title="Status Kependudukan"
               items={analytics.residentStatus}
               section="residentStatus"
@@ -895,6 +1107,8 @@ export default function RapotPage() {
               emptyLabel="Belum ada status kependudukan untuk filter ini."
             />
             <DistributionPanel
+              chartId="marital-status"
+              controls={fs}
               title="Status Perkawinan"
               items={analytics.maritalStatus}
               section="maritalStatus"
@@ -902,6 +1116,8 @@ export default function RapotPage() {
               emptyLabel="Belum ada status perkawinan untuk filter ini."
             />
             <DistributionPanel
+              chartId="blood-type"
+              controls={fs}
               title="Golongan Darah"
               items={analytics.bloodType}
               section="bloodType"
@@ -912,6 +1128,8 @@ export default function RapotPage() {
 
           <div className="grid gap-5 lg:grid-cols-2">
             <DistributionPanel
+              chartId="religion-social"
+              controls={fs}
               title="Agama"
               items={analytics.religion}
               section="religion"
@@ -963,7 +1181,7 @@ export default function RapotPage() {
                   </tr>
                 ) : (
                   semuaCitizens.map((citizen) => {
-                    const age = new Date().getFullYear() - new Date(citizen.birthDate).getFullYear();
+                    const age = computeAgeYears(citizen.birthDate);
                     return (
                       <tr key={citizen.id} className="transition-colors hover:bg-gray-50">
                         <td className="px-5 py-4 font-medium text-[#1E293B]">{citizen.name}</td>
@@ -1007,6 +1225,8 @@ export default function RapotPage() {
           
           <div className="grid gap-5 lg:grid-cols-2">
             <DistributionPanel
+              chartId="occupation-semua"
+              controls={fs}
               title="Pekerjaan Warga"
               items={analytics.occupation}
               section="occupation"
@@ -1014,6 +1234,8 @@ export default function RapotPage() {
               emptyLabel="Belum ada distribusi pekerjaan untuk filter ini."
             />
             <DistributionPanel
+              chartId="religion-semua"
+              controls={fs}
               title="Agama Warga"
               items={analytics.religion}
               section="religion"
@@ -1025,7 +1247,7 @@ export default function RapotPage() {
 
         <TabsContent value="bansos" className="mt-0 space-y-5">
           <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
-            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+            <FullscreenChartCard chartId="bansos-by-rt" controls={fs} className="rounded-2xl border border-gray-100 bg-white p-6">
               <h3 className="mb-6 text-base font-bold text-[#1E293B]">Distribusi Penerima Bansos (Per RT)</h3>
               {bansosByRt.length > 0 ? (
                 <div className="flex h-[200px] items-end justify-between gap-4">
@@ -1051,9 +1273,9 @@ export default function RapotPage() {
                   Belum ada data penerima bansos untuk filter ini.
                 </div>
               )}
-            </div>
+            </FullscreenChartCard>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+            <FullscreenChartCard chartId="bansos-by-program" controls={fs} className="rounded-2xl border border-gray-100 bg-white p-6">
               <h3 className="mb-6 text-base font-bold text-[#1E293B]">Ringkasan Program Bansos</h3>
               {bansosByProgram.length > 0 ? (
                 <div className="overflow-hidden rounded-xl border border-gray-100">
@@ -1085,7 +1307,7 @@ export default function RapotPage() {
                   Belum ada data program bansos untuk filter ini.
                 </div>
               )}
-            </div>
+            </FullscreenChartCard>
           </div>
         </TabsContent>      </Tabs>
 

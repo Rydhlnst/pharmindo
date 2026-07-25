@@ -212,6 +212,7 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),
+      adminSyncKey("households"),
       userSyncKey(sessionUser.id, "requests"),
       userSyncKey(sessionUser.id, "history"),
     ]);
@@ -274,6 +275,7 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),
+      adminSyncKey("households"),
       userSyncKey(sessionUser.id, "requests"),
       userSyncKey(sessionUser.id, "history"),
     ]);
@@ -341,6 +343,7 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),
+      adminSyncKey("mutations"),
       userSyncKey(sessionUser.id, "requests"),
       userSyncKey(sessionUser.id, "history"),
     ]);
@@ -485,6 +488,7 @@ export const userRequestsRoutes = new Hono<{ Variables: { sessionUser: { id: str
     await bumpSyncKeys([
       adminSyncKey("requests"),
       adminSyncKey("dashboard"),
+      adminSyncKey("bansos"),
       userSyncKey(sessionUser.id, "requests"),
       userSyncKey(sessionUser.id, "history"),
     ]);

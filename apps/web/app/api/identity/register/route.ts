@@ -8,6 +8,7 @@ import { getDb } from "@/lib/db";
 import { user, userIdentity } from "@/lib/db/schema";
 import auth from "@/lib/auth";
 import { env } from "@/lib/env";
+import { bumpSyncKeysViaBackend } from "@/lib/api/internal-bump";
 import { encryptNik, hashNik, nikParts, normalizeNik, maskNikFromParts } from "@/lib/security/nik";
 
 const identityFieldsSchema = createCitizenSchema.pick({
@@ -168,6 +169,11 @@ export async function POST(req: Request) {
         })
         .where(eq(userIdentity.userId, session.user.id))
         .returning();
+      await bumpSyncKeysViaBackend([
+        "admin:verification",
+        "admin:dashboard",
+        `user:${session.user.id}:identity`,
+      ]);
       return NextResponse.json({
         data: {
           verificationStatus: updated.verificationStatus,
@@ -211,6 +217,12 @@ export async function POST(req: Request) {
     if (adminEmails.has(session.user.email.toLowerCase())) {
       await db.update(user).set({ role: "ADMIN" }).where(eq(user.id, session.user.id));
     }
+
+    await bumpSyncKeysViaBackend([
+      "admin:verification",
+      "admin:dashboard",
+      `user:${session.user.id}:identity`,
+    ]);
 
     return NextResponse.json({
       data: {
