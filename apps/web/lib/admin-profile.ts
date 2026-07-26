@@ -13,8 +13,8 @@ export type AdminProfile = {
 };
 
 export function getAdminProfile(user?: SessionUser | null): AdminProfile {
-  const name = user?.name?.trim() || "Admin RW 25";
-  const email = user?.email?.trim() || "admin@rw25.local";
+  const name = user?.name?.trim() || "";
+  const email = user?.email?.trim() || "";
   const role = user?.role === "SUPER_ADMIN" ? "Admin RW" : user?.role === "ADMIN" ? "Admin RT" : "User";
   const initials = name
     .split(/\s+/)

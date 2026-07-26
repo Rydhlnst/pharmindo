@@ -710,23 +710,27 @@ export default function RapotPage() {
   const genderTotal = lakiLaki + perempuan || 1;
   const exportParams = buildFilterParams(appliedFilter);
   const exportQuery = exportParams.size ? `?${exportParams.toString()}` : '';
-  const totalKK = rtData.reduce((acc, row) => acc + row.kk, 0);
-  const totalWarga = rtData.reduce((acc, row) => acc + row.warga, 0);
-  const totalMutasi = rtData.reduce((acc, row) => acc + row.mutasi, 0);
-  const totalProduktif = rtData.reduce((acc, row) => acc + row.produktif, 0);
-  const rwValues = Array.from(new Set(rtData.map((row) => row.rw)));
-  const totalLabel = appliedFilter.rt
-    ? `Total RT ${appliedFilter.rt}`
-    : rwValues.length === 1 && rwValues[0]
-      ? `Total RW ${rwValues[0]}`
-      : 'Total Semua RT';
-  const totalRowClass = 'bg-gradient-to-r from-[#16A34A] to-[#22C55E] text-white shadow-inner';
+  const aggregatedByRt = useMemo(() => {
+    const map = new Map<string, RtRow>();
+    for (const row of rtData) {
+      const current = map.get(row.rt);
+      if (current) {
+        current.kk += row.kk;
+        current.warga += row.warga;
+        current.mutasi += row.mutasi;
+        current.produktif += row.produktif;
+      } else {
+        map.set(row.rt, { ...row });
+      }
+    }
+    return map;
+  }, [rtData]);
 
-  const ALL_RTS = rtData.length > 0
-    ? Array.from(new Set(rtData.map(row => row.rt))).sort()
+  const ALL_RTS = aggregatedByRt.size > 0
+    ? Array.from(aggregatedByRt.keys()).sort()
     : ['01', '02', '03'];
-  const displayRtData = ALL_RTS.map(rt => {
-    const existing = rtData.find(row => row.rt === rt);
+  const displayRtData = ALL_RTS.map((rt) => {
+    const existing = aggregatedByRt.get(rt);
     if (existing) return existing;
     return {
       rt,
@@ -734,9 +738,21 @@ export default function RapotPage() {
       kk: 0,
       warga: 0,
       mutasi: 0,
-      produktif: 0
+      produktif: 0,
     };
   });
+
+  const totalKK = displayRtData.reduce((acc, row) => acc + row.kk, 0);
+  const totalWarga = displayRtData.reduce((acc, row) => acc + row.warga, 0);
+  const totalMutasi = displayRtData.reduce((acc, row) => acc + row.mutasi, 0);
+  const totalProduktif = displayRtData.reduce((acc, row) => acc + row.produktif, 0);
+  const rwValues = Array.from(new Set(rtData.map((row) => row.rw)));
+  const totalLabel = appliedFilter.rt
+    ? `Total RT ${appliedFilter.rt}`
+    : rwValues.length === 1 && rwValues[0]
+      ? `Total RW ${rwValues[0]}`
+      : 'Total Semua RT';
+  const totalRowClass = 'bg-gradient-to-r from-[#16A34A] to-[#22C55E] text-white shadow-inner';
 
   const primaryOccupation = analytics.occupation[0];
   const primaryEducation = analytics.education[0];

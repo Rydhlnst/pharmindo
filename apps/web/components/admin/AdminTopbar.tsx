@@ -358,13 +358,25 @@ export default function AdminTopbar() {
           </Button>
 
           <div className="ml-1 flex items-center gap-3 rounded-2xl border border-[color:var(--admin-border)] bg-[color:var(--admin-surface)] px-3 py-2 shadow-sm">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${profile.avatarClassName} text-sm font-bold text-white`}>
-              {profile.initials}
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-semibold text-[color:var(--admin-heading)]">{profile.name}</p>
-              <p className="text-xs text-[color:var(--admin-subtle)]">{profile.email}</p>
-            </div>
+            {profile.name ? (
+              <>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${profile.avatarClassName} text-sm font-bold text-white`}>
+                  {profile.initials}
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-semibold text-[color:var(--admin-heading)]">{profile.name}</p>
+                  <p className="text-xs text-[color:var(--admin-subtle)]">{profile.email}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="h-10 w-10 animate-pulse rounded-2xl bg-slate-200" />
+                <div className="hidden sm:block">
+                  <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+                  <div className="mt-1.5 h-2.5 w-32 animate-pulse rounded bg-slate-100" />
+                </div>
+              </>
+            )}
           </div>
         </div>
         </div>

@@ -114,6 +114,8 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
     setLoading(true);
 
     try {
+      let signInUser: { role?: string | null } | null = null;
+
       if (isEmail) {
         const res = await authClient.signIn.email({
           email: parsed.data.identifier,
@@ -122,6 +124,7 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
 
         const err = readBetterAuthError(res);
         if (err) throw new Error(err);
+        signInUser = (res as { data?: { user?: { role?: string | null } } })?.data?.user ?? null;
       } else {
         const res = await authClient.signIn.username({
           username: parsed.data.identifier,
@@ -130,18 +133,20 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
 
         const err = readBetterAuthError(res);
         if (err) throw new Error(err);
+        signInUser = (res as { data?: { user?: { role?: string | null } } })?.data?.user ?? null;
       }
 
-      const session = await authClient.getSession();
-      const sessionErr = readBetterAuthError(session);
+      let role = signInUser?.role ?? null;
 
-      if (sessionErr) throw new Error(sessionErr);
-
-      if (!session?.data?.user) {
-        throw new Error("Email atau password salah.");
+      if (!role) {
+        const session = await authClient.getSession();
+        const sessionErr = readBetterAuthError(session);
+        if (sessionErr) throw new Error(sessionErr);
+        if (!session?.data?.user) {
+          throw new Error("Email atau password salah.");
+        }
+        role = session.data.user.role ?? null;
       }
-
-      const role = session.data.user.role;
 
       const hasAdminAccess = role === "ADMIN" || role === "SUPER_ADMIN";
 
@@ -159,9 +164,9 @@ export default function SignInClient({ nextPath }: { nextPath?: string }) {
       const destination =
         mode === "admin"
           ? nextPath || activeMode.nextPath
-          : hasAdminAccess
-            ? "/admin"
-            : nextPath || activeMode.nextPath;
+          : nextPath && !nextPath.startsWith("/admin")
+            ? nextPath
+            : activeMode.nextPath;
       window.location.assign(destination);
     } catch (e: unknown) {
       toast({
