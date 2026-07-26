@@ -116,10 +116,11 @@ export async function getCanonicalLiveStats(
   scopeFilter?: SQL,
   filter: ReportFilter = {},
   pendingRequestsScopeFilter?: SQL,
+  householdScopeFilter?: SQL,
 ): Promise<CanonicalStats> {
   const db = getDb();
   const citizenWhere = buildCanonicalCitizenWhere(filter, scopeFilter);
-  const householdWhere = buildCanonicalHouseholdWhere(filter, scopeFilter);
+  const householdWhere = buildCanonicalHouseholdWhere(filter, householdScopeFilter);
   const mutationDateFilter = buildDateFilter(mutation.mutationDate, filter);
   const [[{ totalWarga }], [{ totalKK }], [{ totalMutasi }], [{ pendingRequests }], [{ totalMeninggal }], [{ totalBalita }]] = await Promise.all([
     db.select({ totalWarga: sql<number>`count(*)::int` }).from(citizen).where(citizenWhere),

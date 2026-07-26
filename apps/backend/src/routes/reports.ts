@@ -91,10 +91,12 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   .use("*", adminMiddleware)
   .get("/summary", async (c) => {
     const filter = parseReportFilter(c);
-    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
-    const pendingRequestsScopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
+    const sessionUser = c.get("sessionUser");
+    const scopeFilter = buildScopeFilter(sessionUser, citizen.rt);
+    const householdScopeFilter = buildScopeFilter(sessionUser, household.rt);
+    const pendingRequestsScopeFilter = buildScopeFilter(sessionUser, userIdentity.rt);
     const [liveStats, badgeStats] = await Promise.all([
-      getCanonicalLiveStats(scopeFilter, filter, pendingRequestsScopeFilter),
+      getCanonicalLiveStats(scopeFilter, filter, pendingRequestsScopeFilter, householdScopeFilter),
       getCanonicalDashboardBadges(scopeFilter, pendingRequestsScopeFilter),
     ]);
     const payload = {
@@ -384,10 +386,12 @@ export const reportsRoutes = new Hono<{ Variables: { sessionUser: { id: string; 
   })
   .get("/export/pdf", createRateLimitMiddleware({ key: "reports-export", limit: 5, windowMs: 60_000 }), async (c) => {
     const filter = parseReportFilter(c);
-    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
-    const pendingRequestsScopeFilter = buildScopeFilter(c.get("sessionUser"), userIdentity.rt);
+    const sessionUser = c.get("sessionUser");
+    const scopeFilter = buildScopeFilter(sessionUser, citizen.rt);
+    const householdScopeFilter = buildScopeFilter(sessionUser, household.rt);
+    const pendingRequestsScopeFilter = buildScopeFilter(sessionUser, userIdentity.rt);
     const [summary, demographics, rtBreakdown, pendingRequests] = await Promise.all([
-      getCanonicalLiveStats(scopeFilter, filter, pendingRequestsScopeFilter),
+      getCanonicalLiveStats(scopeFilter, filter, pendingRequestsScopeFilter, householdScopeFilter),
       getFilteredDemographics(filter, scopeFilter),
       getFilteredRtBreakdown(filter, scopeFilter),
       getFilteredPendingRequests(filter, pendingRequestsScopeFilter),

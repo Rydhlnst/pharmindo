@@ -23,7 +23,10 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
   .use("*", adminMiddleware)
   .get("/", async (c) => {
     const db = getDb();
-    const scopeFilter = buildScopeFilter(c.get("sessionUser"), citizen.rt);
+    const sessionUser = c.get("sessionUser");
+    const scopeFilter = buildScopeFilter(sessionUser, citizen.rt);
+    const householdScopeFilter = buildScopeFilter(sessionUser, household.rt);
+    const identityScopeFilter = buildScopeFilter(sessionUser, userIdentity.rt);
     const [
       liveStats,
       badgeStats,
@@ -33,8 +36,8 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
       latestLogRows,
       latestAspirationRows,
     ] = await Promise.all([
-      getCanonicalLiveStats(scopeFilter, {}, buildScopeFilter(c.get("sessionUser"), userIdentity.rt)),
-      getCanonicalDashboardBadges(scopeFilter, buildScopeFilter(c.get("sessionUser"), userIdentity.rt)),
+      getCanonicalLiveStats(scopeFilter, {}, identityScopeFilter, householdScopeFilter),
+      getCanonicalDashboardBadges(scopeFilter, identityScopeFilter),
       db
         .select({ deltaWarga: sql<number>`count(*)::int` })
         .from(citizen)
@@ -42,7 +45,7 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
       db
         .select({ deltaKK: sql<number>`count(*)::int` })
         .from(household)
-        .where(and(eq(household.status, "ACTIVE"), sql`${household.createdAt} >= now() - interval '7 days'`, scopeFilter)),
+        .where(and(eq(household.status, "ACTIVE"), sql`${household.createdAt} >= now() - interval '7 days'`, householdScopeFilter)),
       db
         .select({ deltaMutasi: sql<number>`count(*)::int` })
         .from(mutation)
@@ -74,7 +77,7 @@ export const dashboardRoutes = new Hono<{ Variables: { sessionUser: { id: string
         })
         .from(aspiration)
         .innerJoin(userIdentity, eq(userIdentity.userId, aspiration.userId))
-        .where(scopeFilter)
+        .where(identityScopeFilter)
         .orderBy(sql`${aspiration.createdAt} desc`)
         .limit(20),
     ]);
